@@ -28,7 +28,7 @@ const mockRepo = () => ({
 const makeAthlete = (overrides = {}): Athlete => ({
   id: 'athlete-uuid-1',
   userId: 'user-uuid-1',
-  sportId: 1,
+  sportId: 'sport-uuid-1',
   firstName: 'Armen',
   lastName: 'Harutyunyan',
   slug: 'armen-harutyunyan-1234567890',
@@ -149,7 +149,7 @@ describe('AthletesService', () => {
 
   describe('create', () => {
     const dto = {
-      sportId: 1,
+      sportId: 'sport-uuid-1',
       firstName: 'Armen',
       lastName: 'Harutyunyan',
       country: 'Armenia',

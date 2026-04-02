@@ -34,7 +34,7 @@ const mockAthletesService = () => ({
 const makeEntry = (overrides = {}): RankingEntry => ({
   id: 'entry-uuid-1',
   athleteId: 'athlete-uuid-1',
-  sportId: 1,
+  sportId: 'sport-uuid-1',
   season: 2025,
   points: 500,
   country: 'Armenia',
@@ -166,7 +166,7 @@ describe('RankingsService', () => {
   describe('upsert', () => {
     const dto = {
       athleteId: 'athlete-uuid-1',
-      sportId: 1,
+      sportId: 'sport-uuid-1',
       season: 2025,
       points: 500,
       country: 'Armenia',
@@ -219,7 +219,7 @@ describe('RankingsService', () => {
       repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
-      await service.recalculate(1, 2025);
+      await service.recalculate('sport-uuid-1', 2025);
 
       // World positions: 1st, 2nd, 3rd
       expect(repo.update).toHaveBeenCalledWith('e1', { worldPosition: 1 });
@@ -237,7 +237,7 @@ describe('RankingsService', () => {
       repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
-      await service.recalculate(1, 2025);
+      await service.recalculate('sport-uuid-1', 2025);
 
       expect(repo.update).toHaveBeenCalledWith('e1', { countryPosition: 1 });
       expect(repo.update).toHaveBeenCalledWith('e2', { countryPosition: 2 });
@@ -250,7 +250,7 @@ describe('RankingsService', () => {
       repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
-      await service.recalculate(1, 2025);
+      await service.recalculate('sport-uuid-1', 2025);
 
       expect(athletesService.updateRankingCache).toHaveBeenCalledWith(
         'a1',

@@ -14,7 +14,7 @@ export class RankingsController {
 
   @Get('world')
   @ApiQuery({ name: 'sport', required: false })
-  @ApiQuery({ name: 'sportId', required: false, type: Number })
+  @ApiQuery({ name: 'sportId', required: false })
   @ApiQuery({ name: 'season', required: false, type: Number })
   @ApiQuery({ name: 'hand', required: false })
   @ApiQuery({ name: 'gender', required: false })
@@ -23,7 +23,7 @@ export class RankingsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findWorldRankings(
     @Query('sport') sport?: string,
-    @Query('sportId') sportId?: number,
+    @Query('sportId') sportId?: string,
     @Query('season') season?: number,
     @Query('hand') hand?: string,
     @Query('gender') gender?: string,

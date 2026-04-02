@@ -14,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { EntriesService } from './entries.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
+import { EntryStatus } from './entities/tournament-entry.entity';
 import { SetSeedNumbersDto } from './dto/set-seed-numbers.dto';
 
 @ApiTags('Tournament Entries')
@@ -35,7 +36,7 @@ export class EntriesController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findByTournament(
     @Param('tournamentId') tournamentId: string,
-    @Query('status') status?: string,
+    @Query('status') status?: EntryStatus,
     @Query('weightCategoryId') weightCategoryId?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,

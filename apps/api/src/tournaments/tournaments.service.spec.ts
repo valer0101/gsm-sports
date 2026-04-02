@@ -34,9 +34,12 @@ const mockWeightCategoriesRepo = () => ({
 
 const makeTournament = (overrides = {}): Tournament => ({
   id: 'tournament-uuid-1',
-  sportId: 1,
+  sportId: 'sport-uuid-1',
   organizerId: 'organizer-uuid-1',
   name: 'Armenia Open 2025',
+  nameRu: null,
+  nameEn: null,
+  nameHy: null,
   slug: 'armenia-open-2025-1234567890',
   descriptionRu: null,
   descriptionEn: null,
@@ -65,7 +68,7 @@ const makeTournament = (overrides = {}): Tournament => ({
 });
 
 const makeCreateDto = (overrides = {}) => ({
-  sportId: 1,
+  sportId: 'sport-uuid-1',
   name: 'Armenia Open 2025',
   startDate: '2025-06-01T10:00:00Z',
   ...overrides,
@@ -340,7 +343,7 @@ describe('TournamentsService', () => {
         .mockResolvedValueOnce(makeTournament({ status: 'active' }));
       tournamentsRepo.update.mockResolvedValue(undefined);
 
-      const result = await service.updateStatus('tournament-uuid-1', 'active');
+      const result = await service.updateStatus('tournament-uuid-1', 'active', 'organizer-uuid-1');
 
       expect(tournamentsRepo.update).toHaveBeenCalledWith('tournament-uuid-1', {
         status: 'active',
@@ -350,7 +353,7 @@ describe('TournamentsService', () => {
 
     it('should throw NotFoundException when tournament not found', async () => {
       tournamentsRepo.findOne.mockResolvedValue(null);
-      await expect(service.updateStatus('missing', 'active')).rejects.toThrow(NotFoundException);
+      await expect(service.updateStatus('missing', 'active', 'some-user')).rejects.toThrow(NotFoundException);
     });
   });
 
