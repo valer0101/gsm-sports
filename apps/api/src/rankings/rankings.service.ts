@@ -36,18 +36,18 @@ export class RankingsService {
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.athlete', 'a')
       .leftJoinAndSelect('r.sport', 'sport')
-      .where('a.is_active = true')
-      .orderBy('r.world_position', 'ASC')
+      .where('a.isActive = true')
+      .orderBy('r.worldPosition', 'ASC')
       .addOrderBy('r.points', 'DESC')
       .take(take)
       .skip(skip);
 
-    if (sportId) qb.andWhere('r.sport_id = :sportId', { sportId });
+    if (sportId) qb.andWhere('r.sportId = :sportId', { sportId });
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (season) qb.andWhere('r.season = :season', { season });
     if (hand) qb.andWhere('r.hand = :hand', { hand });
     if (gender) qb.andWhere('r.gender = :gender', { gender });
-    if (weightCategory) qb.andWhere('r.weight_category = :weightCategory', { weightCategory });
+    if (weightCategory) qb.andWhere('r.weightCategory = :weightCategory', { weightCategory });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit: take, totalPages: Math.ceil(total / take) } };
@@ -63,18 +63,18 @@ export class RankingsService {
       .leftJoinAndSelect('r.athlete', 'a')
       .leftJoinAndSelect('r.sport', 'sport')
       .where('r.country = :country', { country })
-      .andWhere('a.is_active = true')
-      .orderBy('r.country_position', 'ASC')
+      .andWhere('a.isActive = true')
+      .orderBy('r.countryPosition', 'ASC')
       .addOrderBy('r.points', 'DESC')
       .take(take)
       .skip(skip);
 
-    if (sportId) qb.andWhere('r.sport_id = :sportId', { sportId });
+    if (sportId) qb.andWhere('r.sportId = :sportId', { sportId });
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (season) qb.andWhere('r.season = :season', { season });
     if (hand) qb.andWhere('r.hand = :hand', { hand });
     if (gender) qb.andWhere('r.gender = :gender', { gender });
-    if (weightCategory) qb.andWhere('r.weight_category = :weightCategory', { weightCategory });
+    if (weightCategory) qb.andWhere('r.weightCategory = :weightCategory', { weightCategory });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit: take, totalPages: Math.ceil(total / take) } };
