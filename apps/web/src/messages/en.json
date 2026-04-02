@@ -8,14 +8,23 @@
   },
   "nav": {
     "home": "Home",
+    "sport": "Sport",
+    "business": "Business",
     "sports": "Sports",
     "tournaments": "Tournaments",
     "athletes": "Athletes",
     "rankings": "Rankings",
     "news": "News",
     "videos": "Videos",
-    "login": "Login",
+    "login": "Sign In",
     "register": "Register"
+  },
+  "sport": {
+    "title": "SPORT",
+    "armwrestling": "Armwrestling",
+    "tournaments_desc": "Find and register for upcoming armwrestling competitions",
+    "athletes_desc": "Profiles of competitive armwrestling athletes",
+    "rankings_desc": "Official GSM Sports armwrestling rankings"
   },
   "tournaments": {
     "title": "Tournaments",

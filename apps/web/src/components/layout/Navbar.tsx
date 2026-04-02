@@ -5,10 +5,9 @@ import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 const NAV_LINKS = [
-  { key: 'tournaments', href: '/tournaments' },
-  { key: 'athletes', href: '/athletes' },
-  { key: 'rankings', href: '/rankings' },
-  { key: 'news', href: '/news' },
+  { key: 'home', href: '/' },
+  { key: 'sport', href: '/sport' },
+  { key: 'business', href: '/business' },
 ] as const;
 
 export function Navbar() {
@@ -30,7 +29,6 @@ export function Navbar() {
             >
               GSM
             </span>
-            <span className="text-xl font-black tracking-wider text-white">SPORTS</span>
           </Link>
 
           {/* Desktop nav */}

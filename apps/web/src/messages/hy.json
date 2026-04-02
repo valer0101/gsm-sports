@@ -8,6 +8,8 @@
   },
   "nav": {
     "home": "Գլխավոր",
+    "sport": "Սպորտ",
+    "business": "Բիզնես",
     "sports": "Մարզաձևեր",
     "tournaments": "Մրցաշարեր",
     "athletes": "Մարզիկներ",
@@ -16,6 +18,13 @@
     "videos": "Տեսանյութեր",
     "login": "Մուտք",
     "register": "Գրանցում"
+  },
+  "sport": {
+    "title": "ՍՊՈՐՏ",
+    "armwrestling": "Ձեռնամարտ",
+    "tournaments_desc": "Գտեք և գրանցվեք ձեռնամարտի մրցաշարերին",
+    "athletes_desc": "Ձեռնամարտի մրցամարտիկ մարզիկների պրոֆիլներ",
+    "rankings_desc": "GSM Sports-ի պաշտոնական ձեռնամարտի վարկանիշ"
   },
   "tournaments": {
     "title": "Մրցաշարեր",

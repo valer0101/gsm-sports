@@ -39,7 +39,7 @@ export class AthletesService {
       .leftJoinAndSelect('a.sport', 'sport')
       .leftJoinAndSelect('a.user', 'user')
       .where('a.is_active = true')
-      .orderBy('a.world_rank', 'ASC', 'NULLS LAST')
+      .orderBy('a.world_rank', 'ASC')
       .addOrderBy('a.total_points', 'DESC')
       .take(take)
       .skip(skip);

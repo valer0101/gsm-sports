@@ -12,9 +12,10 @@ const STATUSES = ['', 'upcoming', 'active', 'completed'] as const;
 
 interface Props {
   initialData?: PaginatedResponse<Tournament>;
+  sport?: string;
 }
 
-export function TournamentsPageClient({ initialData }: Props) {
+export function TournamentsPageClient({ initialData, sport }: Props) {
   const t = useTranslations('tournaments');
   const tCommon = useTranslations('common');
 
@@ -22,7 +23,7 @@ export function TournamentsPageClient({ initialData }: Props) {
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useTournaments(
-    { status: status || undefined, page, limit: 12 },
+    { status: status || undefined, sport, page, limit: 12 },
     { initialData: status === '' && page === 1 ? initialData : undefined },
   );
 

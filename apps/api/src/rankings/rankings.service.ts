@@ -37,7 +37,7 @@ export class RankingsService {
       .leftJoinAndSelect('r.athlete', 'a')
       .leftJoinAndSelect('r.sport', 'sport')
       .where('a.is_active = true')
-      .orderBy('r.world_position', 'ASC', 'NULLS LAST')
+      .orderBy('r.world_position', 'ASC')
       .addOrderBy('r.points', 'DESC')
       .take(take)
       .skip(skip);
@@ -64,7 +64,7 @@ export class RankingsService {
       .leftJoinAndSelect('r.sport', 'sport')
       .where('r.country = :country', { country })
       .andWhere('a.is_active = true')
-      .orderBy('r.country_position', 'ASC', 'NULLS LAST')
+      .orderBy('r.country_position', 'ASC')
       .addOrderBy('r.points', 'DESC')
       .take(take)
       .skip(skip);
