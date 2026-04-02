@@ -1,0 +1,18 @@
+{
+  "home": {
+    "subtitle": "Multi-sport platform for tournaments, rankings and athletes",
+    "tournaments": "Tournaments",
+    "rankings": "Rankings"
+  },
+  "nav": {
+    "home": "Home",
+    "sports": "Sports",
+    "tournaments": "Tournaments",
+    "athletes": "Athletes",
+    "rankings": "Rankings",
+    "news": "News",
+    "videos": "Videos",
+    "login": "Login",
+    "register": "Register"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "@gsm/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main",
+    "start:prod": "node dist/main",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "typecheck": "tsc --noEmit",
+    "migration:generate": "typeorm migration:generate -d src/data-source.ts",
+    "migration:run": "typeorm migration:run -d src/data-source.ts",
+    "migration:revert": "typeorm migration:revert -d src/data-source.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "typeorm": "^0.3.20",
+    "pg": "^8.13.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "passport-local": "^1.0.0",
+    "bcrypt": "^5.1.1",
+    "class-validator": "^0.14.1",
+    "class-transformer": "^0.5.1",
+    "rxjs": "^7.8.1",
+    "reflect-metadata": "^0.2.2",
+    "@gsm/bracket-engine": "*",
+    "@gsm/shared-types": "*"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/passport-local": "^1.0.38",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "ts-node": "^10.9.2"
+  }
+}

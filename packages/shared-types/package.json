@@ -1,0 +1,17 @@
+{
+  "name": "@gsm/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for GSM Sports platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
