@@ -82,7 +82,7 @@ export class EntriesService {
     tournamentId: string,
     options: {
       status?: EntryStatus;
-      weightCategoryId?: number;
+      weightCategoryId?: string;
       page?: number;
       limit?: number;
     } = {},

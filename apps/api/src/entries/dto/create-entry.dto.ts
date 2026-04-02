@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsNumber, IsEnum, IsUUID, Min, Max } from 'class-validator';
+import { IsOptional, IsNumber, IsEnum, IsUUID, IsString, Min, Max } from 'class-validator';
 
 export class CreateEntryDto {
   @ApiProperty({ example: 'tournament-uuid-here' })

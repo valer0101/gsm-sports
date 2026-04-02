@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsUUID, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsArray, ValidateNested, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class PlayerSeedDto {

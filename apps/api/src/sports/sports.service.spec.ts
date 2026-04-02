@@ -8,6 +8,7 @@ import { Sport } from './entities/sport.entity';
 const mockRepo = () => ({
   find: vi.fn(),
   findOne: vi.fn(),
+  findAndCount: vi.fn(),
   create: vi.fn(),
   save: vi.fn(),
   update: vi.fn(),
@@ -15,7 +16,7 @@ const mockRepo = () => ({
 });
 
 const makeSport = (overrides = {}): Sport => ({
-  id: 1,
+  id: 'sport-uuid-1',
   slug: 'armwrestling',
   nameRu: 'Армрестлинг',
   nameEn: 'Armwrestling',
@@ -28,6 +29,7 @@ const makeSport = (overrides = {}): Sport => ({
   sortOrder: 1,
   config: {},
   createdAt: new Date(),
+  updatedAt: new Date(),
   ...overrides,
 });
 
@@ -49,23 +51,27 @@ describe('SportsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all active sports ordered by sortOrder', async () => {
-      const sports = [makeSport(), makeSport({ id: 2, slug: 'boxing' })];
-      repo.find.mockResolvedValue(sports);
+    it('should return paginated active sports ordered by sortOrder', async () => {
+      const sports = [makeSport(), makeSport({ id: 'sport-uuid-2', slug: 'boxing' })];
+      repo.findAndCount.mockResolvedValue([sports, 2]);
 
       const result = await service.findAll();
 
-      expect(result).toEqual(sports);
-      expect(repo.find).toHaveBeenCalledWith({
+      expect(result.data).toEqual(sports);
+      expect(result.meta).toEqual({ total: 2, page: 1, limit: 50, totalPages: 1 });
+      expect(repo.findAndCount).toHaveBeenCalledWith({
         where: { isActive: true },
         order: { sortOrder: 'ASC', nameEn: 'ASC' },
+        take: 50,
+        skip: 0,
       });
     });
 
-    it('should return empty array when no active sports', async () => {
-      repo.find.mockResolvedValue([]);
+    it('should return empty data when no active sports', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
       const result = await service.findAll();
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
     });
   });
 
@@ -92,16 +98,16 @@ describe('SportsService', () => {
       const sport = makeSport();
       repo.findOne.mockResolvedValue(sport);
 
-      const result = await service.findById(1);
+      const result = await service.findById('sport-uuid-1');
 
       expect(result).toEqual(sport);
-      expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'sport-uuid-1' } });
     });
 
     it('should throw NotFoundException when id not found', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.findById(999)).rejects.toThrow(NotFoundException);
-      await expect(service.findById(999)).rejects.toThrow('Sport #999 not found');
+      await expect(service.findById('missing-uuid')).rejects.toThrow(NotFoundException);
+      await expect(service.findById('missing-uuid')).rejects.toThrow('Sport #missing-uuid not found');
     });
   });
 
@@ -110,7 +116,7 @@ describe('SportsService', () => {
       slug: 'boxing',
       nameRu: 'Бокс',
       nameEn: 'Boxing',
-      nameHy: 'Բռնցամարտ',
+      nameHy: 'Բռնцамарт',
     };
 
     it('should create and return new sport', async () => {
@@ -141,15 +147,15 @@ describe('SportsService', () => {
       repo.update.mockResolvedValue(undefined);
       repo.findOne.mockResolvedValueOnce(updated); // findById after update
 
-      const result = await service.update(1, { nameEn: 'Arm Wrestling' });
+      const result = await service.update('sport-uuid-1', { nameEn: 'Arm Wrestling' });
 
-      expect(repo.update).toHaveBeenCalledWith(1, { nameEn: 'Arm Wrestling' });
+      expect(repo.update).toHaveBeenCalledWith('sport-uuid-1', { nameEn: 'Arm Wrestling' });
       expect(result.nameEn).toBe('Arm Wrestling');
     });
 
     it('should throw NotFoundException if sport does not exist', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, { nameEn: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(service.update('missing-uuid', { nameEn: 'X' })).rejects.toThrow(NotFoundException);
     });
   });
 
