@@ -14,9 +14,10 @@ type View = 'world' | 'country';
 
 interface Props {
   initialData?: PaginatedResponse<RankingEntry>;
+  sport?: string;
 }
 
-export function RankingsPageClient({ initialData }: Props) {
+export function RankingsPageClient({ initialData, sport }: Props) {
   const t = useTranslations('rankings');
 
   const [view, setView] = useState<View>('world');
@@ -26,7 +27,7 @@ export function RankingsPageClient({ initialData }: Props) {
   const [gender, setGender] = useState('');
   const [page, setPage] = useState(1);
 
-  const params = { season, hand: hand || undefined, gender: gender || undefined, page, limit: 50 };
+  const params = { sport, season, hand: hand || undefined, gender: gender || undefined, page, limit: 50 };
 
   const isDefaultWorldQuery = view === 'world' && !season && !hand && !gender && page === 1;
 

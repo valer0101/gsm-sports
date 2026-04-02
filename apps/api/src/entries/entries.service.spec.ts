@@ -11,15 +11,23 @@ import { EntriesService } from './entries.service';
 import { TournamentEntry } from './entities/tournament-entry.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 
-const mockRepo = () => ({
-  findOne: vi.fn(),
-  find: vi.fn(),
-  count: vi.fn(),
-  create: vi.fn(),
-  save: vi.fn(),
-  update: vi.fn(),
-  createQueryBuilder: vi.fn(),
-});
+const mockRepo = () => {
+  const repo: any = {
+    findOne: vi.fn(),
+    find: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
+  };
+  repo.manager = {
+    transaction: vi.fn().mockImplementation(async (cb: (em: any) => any) =>
+      cb({ getRepository: () => repo }),
+    ),
+  };
+  return repo;
+};
 
 const mockTournamentsService = () => ({
   findById: vi.fn(),

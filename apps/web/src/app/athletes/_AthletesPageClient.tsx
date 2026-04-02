@@ -10,9 +10,10 @@ import type { PaginatedResponse, Athlete } from '@/types/api';
 
 interface Props {
   initialData?: PaginatedResponse<Athlete>;
+  sport?: string;
 }
 
-export function AthletesPageClient({ initialData }: Props) {
+export function AthletesPageClient({ initialData, sport }: Props) {
   const t = useTranslations('athletes');
   const tCommon = useTranslations('common');
 
@@ -34,7 +35,7 @@ export function AthletesPageClient({ initialData }: Props) {
   const isDefaultQuery = !debouncedSearch && !gender && !hand && page === 1;
 
   const { data, isLoading, isError } = useAthletes(
-    { search: debouncedSearch || undefined, gender: gender || undefined, hand: hand || undefined, page, limit: 20 },
+    { search: debouncedSearch || undefined, gender: gender || undefined, hand: hand || undefined, sport, page, limit: 20 },
     { initialData: isDefaultQuery ? initialData : undefined },
   );
 

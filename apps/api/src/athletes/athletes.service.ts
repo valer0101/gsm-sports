@@ -38,19 +38,19 @@ export class AthletesService {
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.sport', 'sport')
       .leftJoinAndSelect('a.user', 'user')
-      .where('a.is_active = true')
-      .orderBy('a.world_rank', 'ASC', 'NULLS LAST')
-      .addOrderBy('a.total_points', 'DESC')
+      .where('a.isActive = true')
+      .orderBy('a.worldRank', 'ASC')
+      .addOrderBy('a.totalPoints', 'DESC')
       .take(take)
       .skip(skip);
 
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (country) qb.andWhere('a.country = :country', { country });
     if (gender) qb.andWhere('a.gender = :gender', { gender });
-    if (hand) qb.andWhere('a.primary_hand = :hand', { hand });
+    if (hand) qb.andWhere('a.primaryHand = :hand', { hand });
     if (search) {
       qb.andWhere(
-        "(a.first_name ILIKE :search OR a.last_name ILIKE :search OR CONCAT(a.first_name, ' ', a.last_name) ILIKE :search)",
+        "(a.firstName ILIKE :search OR a.lastName ILIKE :search OR CONCAT(a.firstName, ' ', a.lastName) ILIKE :search)",
         { search: `%${search}%` },
       );
     }
