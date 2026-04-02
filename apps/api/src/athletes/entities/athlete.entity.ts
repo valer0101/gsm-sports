@@ -34,8 +34,8 @@ export class Athlete {
   @JoinColumn({ name: 'sport_id' })
   sport: Sport;
 
-  @Column({ name: 'sport_id', type: 'int' })
-  sportId: number;
+  @Column({ name: 'sport_id', type: 'uuid' })
+  sportId: string;
 
   @Column({ type: 'varchar', length: 100 })
   firstName: string;

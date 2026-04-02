@@ -3,6 +3,9 @@ import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RankingsService } from './rankings.service';
 import { UpsertRankingDto } from './dto/upsert-ranking.dto';
+import { RecalculateRankingDto } from './dto/recalculate-ranking.dto';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @ApiTags('Rankings')
 @Controller('v1/rankings')
@@ -73,16 +76,18 @@ export class RankingsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Post()
   upsert(@Body() dto: UpsertRankingDto) {
     return this.rankingsService.upsert(dto);
   }
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Post('recalculate')
-  recalculate(@Body() body: { sportId: number; season: number }) {
-    return this.rankingsService.recalculate(body.sportId, body.season);
+  recalculate(@Body() dto: RecalculateRankingDto) {
+    return this.rankingsService.recalculate(dto.sportId, dto.season);
   }
 }

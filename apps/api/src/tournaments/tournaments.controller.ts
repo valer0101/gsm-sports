@@ -8,12 +8,13 @@ import {
   Query,
   UseGuards,
   Request,
-  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { TournamentsService } from './tournaments.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
+import { UpdateTournamentDto } from './dto/update-tournament.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 
 @ApiTags('Tournaments')
 @Controller('v1/tournaments')
@@ -51,8 +52,19 @@ export class TournamentsController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<CreateTournamentDto>, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateTournamentDto, @Request() req: any) {
     return this.tournamentsService.update(id, dto, req.user.sub);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+    @Request() req: any,
+  ) {
+    return this.tournamentsService.updateStatus(id, dto.status, req.user.sub);
   }
 
   @ApiBearerAuth()

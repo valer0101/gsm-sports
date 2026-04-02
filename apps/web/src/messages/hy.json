@@ -39,7 +39,9 @@
     "view_bracket": "Ցուցադրել ցանց",
     "no_results": "Մրցաշարեր չեն գտնվել",
     "weight_categories": "Քաշային կարգեր",
-    "organizer": "Կազմակերպիչ"
+    "organizer": "Կազմակերպիչ",
+    "sport": "Մարզաձև",
+    "live": "LIVE"
   },
   "athletes": {
     "title": "Մարզիկներ",
@@ -70,6 +72,7 @@
     "filter_season": "Սեզոն",
     "filter_hand": "Ձեռք",
     "filter_gender": "Սեռ",
+    "filter_country": "Երկիր",
     "filter_weight": "Քաշային կարգ",
     "rank": "#",
     "athlete": "Մարզիկ",
@@ -79,6 +82,8 @@
     "no_results": "Վարկանիշը դեռ հասանելի չէ",
     "left": "Ձախ",
     "right": "Աջ",
+    "male": "Արական",
+    "female": "Իգական",
     "season": "Սեզոն"
   },
   "common": {

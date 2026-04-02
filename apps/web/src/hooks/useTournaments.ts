@@ -10,10 +10,14 @@ interface TournamentsParams {
   limit?: number;
 }
 
-export function useTournaments(params: TournamentsParams = {}) {
+export function useTournaments(
+  params: TournamentsParams = {},
+  options?: { initialData?: PaginatedResponse<Tournament> },
+) {
   return useQuery<PaginatedResponse<Tournament>>({
     queryKey: ['tournaments', params],
     queryFn: () => api.get('/tournaments', { params }).then((r: { data: any }) => r.data),
+    initialData: options?.initialData,
   });
 }
 

@@ -83,7 +83,7 @@ export default async function TournamentDetailPage({
             {tournament.isLive && (
               <span className="text-sm px-3 py-1 rounded-full bg-red-500/20 text-red-300 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                LIVE
+                {t('live')}
               </span>
             )}
           </div>
@@ -150,10 +150,14 @@ export default async function TournamentDetailPage({
                 className="text-xs uppercase tracking-wider mb-1"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                Sport
+                {t('sport')}
               </dt>
               <dd className="font-semibold" style={{ color: 'var(--color-accent)' }}>
-                {tournament.sport.nameRu}
+                {locale === 'ru'
+                  ? tournament.sport.nameRu
+                  : locale === 'hy'
+                    ? tournament.sport.nameHy
+                    : tournament.sport.nameEn}
               </dd>
             </div>
           )}

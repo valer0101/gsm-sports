@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
+import { UpdateTournamentDto } from './dto/update-tournament.dto';
 
 interface FindAllOptions {
   sport?: string;
@@ -97,7 +98,7 @@ export class TournamentsService {
     return this.findById(saved.id);
   }
 
-  async update(id: string, dto: Partial<CreateTournamentDto>, userId: string): Promise<Tournament> {
+  async update(id: string, dto: UpdateTournamentDto, userId: string): Promise<Tournament> {
     const tournament = await this.findById(id);
 
     if (tournament.organizerId !== userId) {
@@ -112,8 +113,11 @@ export class TournamentsService {
     return this.findById(id);
   }
 
-  async updateStatus(id: string, status: string): Promise<Tournament> {
-    await this.findById(id);
+  async updateStatus(id: string, status: string, userId: string): Promise<Tournament> {
+    const tournament = await this.findById(id);
+    if (tournament.organizerId !== userId) {
+      throw new ForbiddenException('Only the organizer can update tournament status');
+    }
     await this.tournamentsRepository.update(id, { status });
     return this.findById(id);
   }

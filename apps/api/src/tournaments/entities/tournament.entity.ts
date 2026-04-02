@@ -23,8 +23,8 @@ export class Tournament {
   @JoinColumn({ name: 'sport_id' })
   sport: Sport;
 
-  @Column({ name: 'sport_id' })
-  sportId: number;
+  @Column({ name: 'sport_id', type: 'uuid' })
+  sportId: string;
 
   @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'organizer_id' })
@@ -35,6 +35,15 @@ export class Tournament {
 
   @Column({ type: 'varchar', length: 300 })
   name: string;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  nameRu: string | null;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  nameEn: string | null;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  nameHy: string | null;
 
   @Index()
   @Column({ type: 'varchar', length: 300, unique: true })

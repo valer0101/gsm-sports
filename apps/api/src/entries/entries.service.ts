@@ -33,33 +33,38 @@ export class EntriesService {
       throw new BadRequestException('Registration deadline has passed');
     }
 
-    const existing = await this.entriesRepository.findOne({
-      where: { tournamentId: dto.tournamentId, userId },
-    });
-    if (existing) {
-      throw new ConflictException('You are already registered for this tournament');
-    }
+    // Capacity check + insert in a transaction to prevent race conditions
+    const saved = await this.entriesRepository.manager.transaction(async (em) => {
+      const repo = em.getRepository(TournamentEntry);
 
-    if (tournament.maxParticipants) {
-      const count = await this.entriesRepository.count({
-        where: { tournamentId: dto.tournamentId, status: 'confirmed' },
+      const existing = await repo.findOne({
+        where: { tournamentId: dto.tournamentId, userId },
       });
-      if (count >= tournament.maxParticipants) {
-        throw new BadRequestException('Tournament is full');
+      if (existing) {
+        throw new ConflictException('You are already registered for this tournament');
       }
-    }
 
-    const entry = this.entriesRepository.create({
-      tournamentId: dto.tournamentId,
-      userId,
-      weightCategoryId: dto.weightCategoryId ?? null,
-      hand: dto.hand ?? null,
-      registeredWeight: dto.registeredWeight ?? null,
-      notes: dto.notes ?? null,
-      status: 'pending',
+      if (tournament.maxParticipants) {
+        const count = await repo.count({
+          where: { tournamentId: dto.tournamentId, status: 'confirmed' as EntryStatus },
+        });
+        if (count >= tournament.maxParticipants) {
+          throw new BadRequestException('Tournament is full');
+        }
+      }
+
+      const entry = repo.create({
+        tournamentId: dto.tournamentId,
+        userId,
+        weightCategoryId: dto.weightCategoryId ?? null,
+        hand: dto.hand ?? null,
+        registeredWeight: dto.registeredWeight ?? null,
+        notes: dto.notes ?? null,
+        status: 'pending' as EntryStatus,
+      });
+      return repo.save(entry);
     });
 
-    const saved = await this.entriesRepository.save(entry);
     this.logger.log(`User ${userId} registered for tournament ${dto.tournamentId}`);
     return this.findById(saved.id);
   }
@@ -151,6 +156,20 @@ export class EntriesService {
 
     if (tournament.organizerId !== organizerId) {
       throw new ForbiddenException('Only the organizer can set seed numbers');
+    }
+
+    if (seeds.length === 0) return;
+
+    // Verify all entries belong to this tournament
+    const entryIds = seeds.map((s) => s.entryId);
+    const matchingCount = await this.entriesRepository
+      .createQueryBuilder('e')
+      .where('e.id IN (:...ids)', { ids: entryIds })
+      .andWhere('e.tournament_id = :tournamentId', { tournamentId })
+      .getCount();
+
+    if (matchingCount !== entryIds.length) {
+      throw new BadRequestException('One or more entries do not belong to this tournament');
     }
 
     await Promise.all(

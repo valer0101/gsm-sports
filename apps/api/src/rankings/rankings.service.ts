@@ -6,7 +6,7 @@ import { AthletesService } from '../athletes/athletes.service';
 import { UpsertRankingDto } from './dto/upsert-ranking.dto';
 
 interface FindRankingsOptions {
-  sportId?: number;
+  sportId?: string;
   sport?: string;
   season?: number;
   country?: string;
@@ -144,37 +144,48 @@ export class RankingsService {
 
   /**
    * Recalculates worldPosition and countryPosition for all entries
-   * in a given sport + season combination. Call after bulk point updates.
+   * in a given sport + season combination, partitioned by (hand, gender, weightCategory).
+   * Call after bulk point updates.
    */
-  async recalculate(sportId: number, season: number): Promise<void> {
+  async recalculate(sportId: string, season: number): Promise<void> {
     const entries = await this.rankingsRepository.find({
-      where: { sportId, season },
+      where: { sportId, season } as any,
       relations: ['athlete'],
       order: { points: 'DESC' },
     });
 
-    // World ranking — by points descending
-    let worldPos = 1;
+    // Group entries by partition key: (hand, gender, weightCategory)
+    const partitions = new Map<string, RankingEntry[]>();
     for (const entry of entries) {
-      await this.rankingsRepository.update(entry.id, { worldPosition: worldPos });
-      worldPos++;
-    }
-
-    // Country ranking — grouped by country
-    const byCountry = new Map<string, RankingEntry[]>();
-    for (const entry of entries) {
-      if (!entry.country) continue;
-      const list = byCountry.get(entry.country) ?? [];
+      const key = `${entry.hand ?? ''}|${entry.gender ?? ''}|${entry.weightCategory ?? ''}`;
+      const list = partitions.get(key) ?? [];
       list.push(entry);
-      byCountry.set(entry.country, list);
+      partitions.set(key, list);
     }
 
-    for (const [, countryEntries] of byCountry) {
-      // Already sorted by points DESC from the main query
-      let countryPos = 1;
-      for (const entry of countryEntries) {
-        await this.rankingsRepository.update(entry.id, { countryPosition: countryPos });
-        countryPos++;
+    // Per partition: assign worldPosition, then countryPosition
+    for (const [, partitionEntries] of partitions) {
+      // partitionEntries already sorted by points DESC from the main query
+      let worldPos = 1;
+      for (const entry of partitionEntries) {
+        await this.rankingsRepository.update(entry.id, { worldPosition: worldPos });
+        entry.worldPosition = worldPos;
+        worldPos++;
+      }
+
+      // Country ranking within this partition
+      const byCountry = new Map<string, RankingEntry[]>();
+      for (const entry of partitionEntries) {
+        if (!entry.country) continue;
+        const list = byCountry.get(entry.country) ?? [];
+        list.push(entry);
+        byCountry.set(entry.country, list);
+      }
+      for (const [, countryEntries] of byCountry) {
+        let countryPos = 1;
+        for (const entry of countryEntries) {
+          await this.rankingsRepository.update(entry.id, { countryPosition: countryPos++ });
+        }
       }
     }
 
@@ -187,7 +198,7 @@ export class RankingsService {
     }
 
     this.logger.log(
-      `Rankings recalculated: sport=${sportId}, season=${season}, ${entries.length} entries`,
+      `Rankings recalculated: sport=${sportId}, season=${season}, ${entries.length} entries, ${partitions.size} partitions`,
     );
   }
 }

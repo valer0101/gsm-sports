@@ -30,8 +30,8 @@ export class Bracket {
   @JoinColumn({ name: 'weight_category_id' })
   weightCategory: WeightCategory | null;
 
-  @Column({ name: 'weight_category_id', nullable: true })
-  weightCategoryId: number | null;
+  @Column({ name: 'weight_category_id', type: 'uuid', nullable: true })
+  weightCategoryId: string | null;
 
   @Index()
   @Column({ type: 'varchar', length: 20, default: 'pending' })

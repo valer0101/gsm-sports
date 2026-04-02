@@ -6,9 +6,9 @@ export class UpsertRankingDto {
   @IsUUID()
   athleteId: string;
 
-  @ApiProperty()
-  @IsInt()
-  sportId: number;
+  @ApiProperty({ description: 'Sport UUID' })
+  @IsUUID()
+  sportId: string;
 
   @ApiProperty({ example: 2025 })
   @IsInt()
