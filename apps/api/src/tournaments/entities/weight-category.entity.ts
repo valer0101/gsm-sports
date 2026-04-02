@@ -1,10 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Tournament } from './tournament.entity';
 
 @Entity('weight_categories')
 export class WeightCategory {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Index()
   @ManyToOne(() => Tournament, (t) => t.weightCategories, { onDelete: 'CASCADE' })
@@ -28,4 +37,10 @@ export class WeightCategory {
 
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updatedAt: Date;
 }

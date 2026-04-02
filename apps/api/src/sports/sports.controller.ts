@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { SportsService } from './sports.service';
 import { CreateSportDto } from './dto/create-sport.dto';
+import { UpdateSportDto } from './dto/update-sport.dto';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @ApiTags('Sports')
 @Controller('v1/sports')
@@ -10,8 +13,10 @@ export class SportsController {
   constructor(private readonly sportsService: SportsService) {}
 
   @Get()
-  findAll() {
-    return this.sportsService.findAll();
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
+    return this.sportsService.findAll({ page, limit });
   }
 
   @Get(':slug')
@@ -20,16 +25,18 @@ export class SportsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Post()
   create(@Body() dto: CreateSportDto) {
     return this.sportsService.create(dto);
   }
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: Partial<CreateSportDto>) {
+  update(@Param('id') id: string, @Body() dto: UpdateSportDto) {
     return this.sportsService.update(id, dto);
   }
 }

@@ -31,8 +31,8 @@ export class RankingEntry {
   @JoinColumn({ name: 'sport_id' })
   sport: Sport;
 
-  @Column({ name: 'sport_id', type: 'int' })
-  sportId: number;
+  @Column({ name: 'sport_id', type: 'uuid' })
+  sportId: string;
 
   @Index()
   @Column({ type: 'int' })

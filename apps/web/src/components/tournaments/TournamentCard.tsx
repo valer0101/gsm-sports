@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import type { Tournament } from '@/types/api';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -10,8 +10,9 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-500/20 text-red-300',
 };
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
+function formatDate(dateStr: string, locale: string) {
+  const localeTag = locale === 'hy' ? 'hy-AM' : locale === 'ru' ? 'ru-RU' : 'en-US';
+  return new Date(dateStr).toLocaleDateString(localeTag, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -24,6 +25,7 @@ interface TournamentCardProps {
 
 export function TournamentCard({ tournament }: TournamentCardProps) {
   const t = useTranslations('tournaments');
+  const locale = useLocale();
 
   const statusColor = STATUS_COLORS[tournament.status] ?? 'bg-white/10 text-white/50';
 
@@ -52,8 +54,8 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
-          <span>{formatDate(tournament.startDate)}</span>
-          {tournament.endDate && <span>— {formatDate(tournament.endDate)}</span>}
+          <span>{formatDate(tournament.startDate, locale)}</span>
+          {tournament.endDate && <span>— {formatDate(tournament.endDate, locale)}</span>}
         </div>
 
         {(tournament.city || tournament.country) && (
@@ -84,7 +86,11 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
             className="text-xs px-2 py-1 rounded-full border border-white/15"
             style={{ color: 'var(--color-accent)' }}
           >
-            {tournament.sport.nameRu}
+            {locale === 'ru'
+              ? tournament.sport.nameRu
+              : locale === 'hy'
+                ? tournament.sport.nameHy
+                : tournament.sport.nameEn}
           </span>
         )}
         {tournament.registrationOpen && (
@@ -95,7 +101,7 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
         {tournament.isLive && (
           <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-300 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-            LIVE
+            {t('live')}
           </span>
         )}
       </div>

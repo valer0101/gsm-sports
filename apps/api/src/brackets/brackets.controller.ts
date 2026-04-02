@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BracketsService } from './brackets.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
+import { RecordResultDto } from './dto/record-result.dto';
 
 @ApiTags('Brackets')
 @Controller('v1/brackets')
@@ -31,10 +32,10 @@ export class BracketsController {
   @Patch(':id/result')
   recordResult(
     @Param('id') id: string,
-    @Body() body: { matchId: string; winnerId: string },
+    @Body() dto: RecordResultDto,
     @Request() req: any,
   ) {
-    return this.bracketsService.recordResult(id, body.matchId, body.winnerId, req.user.sub);
+    return this.bracketsService.recordResult(id, dto.matchId, dto.winnerId, req.user.sub);
   }
 
   @ApiBearerAuth()

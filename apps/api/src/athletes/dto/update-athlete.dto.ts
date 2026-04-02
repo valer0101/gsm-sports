@@ -14,39 +14,37 @@ import {
   Max,
 } from 'class-validator';
 
-export class CreateAthleteDto {
-  @ApiProperty({ example: 'sport-uuid-here' })
-  @IsUUID()
-  sportId: string;
-
-  @ApiProperty({ example: 'user-uuid', required: false })
+export class UpdateAthleteDto {
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsUUID()
   userId?: string;
 
-  @ApiProperty({ example: 'Armen' })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  firstName: string;
+  firstName?: string;
 
-  @ApiProperty({ example: 'Harutyunyan' })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  lastName: string;
+  lastName?: string;
 
-  @ApiProperty({ example: 'Armenia', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   country?: string;
 
-  @ApiProperty({ example: 'Yerevan', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   city?: string;
 
-  @ApiProperty({ example: '1995-03-15', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
@@ -61,14 +59,14 @@ export class CreateAthleteDto {
   @IsEnum(['left', 'right', 'both'])
   primaryHand?: string;
 
-  @ApiProperty({ example: 70.5, required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
   @Min(20)
   @Max(300)
   weight?: number;
 
-  @ApiProperty({ example: 175, required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
   @Min(100)
@@ -109,4 +107,9 @@ export class CreateAthleteDto {
   @IsOptional()
   @IsObject()
   achievements?: Record<string, unknown>;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

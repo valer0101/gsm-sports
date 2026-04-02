@@ -6,7 +6,6 @@ import {
   IsBoolean,
   IsObject,
   IsEnum,
-  IsUUID,
   MinLength,
   MaxLength,
   IsArray,
@@ -17,22 +16,23 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-class WeightCategoryDto {
-  @ApiProperty({ example: 'до 70 кг' })
+class UpdateWeightCategoryDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
-  @ApiProperty({ example: 0, required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
   minWeight?: number;
 
-  @ApiProperty({ example: 70, required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
   maxWeight?: number;
 
-  @ApiProperty({ example: 'male', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsEnum(['male', 'female'])
   gender?: string;
@@ -43,63 +43,58 @@ class WeightCategoryDto {
   sortOrder?: number;
 }
 
-export class CreateTournamentDto {
-  @ApiProperty({ example: 'sport-uuid-here' })
-  @IsUUID()
-  sportId: string;
-
-  @ApiProperty({ example: 'Armenia Open 2025' })
+export class UpdateTournamentDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   @MinLength(3)
   @MaxLength(300)
-  name: string;
+  name?: string;
 
-  @ApiProperty({ example: 'Армения Опен 2025', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   @MaxLength(300)
   nameRu?: string;
 
-  @ApiProperty({ example: 'Armenia Open 2025', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   @MaxLength(300)
   nameEn?: string;
 
-  @ApiProperty({ example: 'Հայաստան Օփն 2025', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   @MaxLength(300)
   nameHy?: string;
 
-  @ApiProperty({ example: '2025-06-01T10:00:00Z' })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsDateString()
-  startDate: string;
+  startDate?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 
-  @ApiProperty({ example: 'Yerevan', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   location?: string;
 
-  @ApiProperty({ example: 'Armenia', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   country?: string;
 
-  @ApiProperty({ example: 'Yerevan', required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   city?: string;
 
-  @ApiProperty({
-    enum: ['single_elimination', 'double_elimination', 'round_robin'],
-    required: false,
-  })
+  @ApiProperty({ enum: ['single_elimination', 'double_elimination', 'round_robin'], required: false })
   @IsOptional()
   @IsEnum(['single_elimination', 'double_elimination', 'round_robin'])
   format?: string;
@@ -135,12 +130,22 @@ export class CreateTournamentDto {
   @IsBoolean()
   isFeatured?: boolean;
 
-  @ApiProperty({ type: [WeightCategoryDto], required: false })
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  posterUrl?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  streamUrl?: string;
+
+  @ApiProperty({ type: [UpdateWeightCategoryDto], required: false })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => WeightCategoryDto)
-  weightCategories?: WeightCategoryDto[];
+  @Type(() => UpdateWeightCategoryDto)
+  weightCategories?: UpdateWeightCategoryDto[];
 
   @ApiProperty({ required: false })
   @IsOptional()

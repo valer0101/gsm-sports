@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class PlayerSeedDto {
@@ -20,8 +20,8 @@ export class GenerateBracketDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
-  weightCategoryId?: number;
+  @IsUUID()
+  weightCategoryId?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

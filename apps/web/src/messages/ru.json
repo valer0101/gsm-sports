@@ -39,7 +39,9 @@
     "view_bracket": "Сетка турнира",
     "no_results": "Турниры не найдены",
     "weight_categories": "Весовые категории",
-    "organizer": "Организатор"
+    "organizer": "Организатор",
+    "sport": "Вид спорта",
+    "live": "LIVE"
   },
   "athletes": {
     "title": "Атлеты",
@@ -70,6 +72,7 @@
     "filter_season": "Сезон",
     "filter_hand": "Рука",
     "filter_gender": "Пол",
+    "filter_country": "Страна",
     "filter_weight": "Весовая категория",
     "rank": "#",
     "athlete": "Атлет",
@@ -79,6 +82,8 @@
     "no_results": "Рейтинг пока недоступен",
     "left": "Левая",
     "right": "Правая",
+    "male": "Мужской",
+    "female": "Женский",
     "season": "Сезон"
   },
   "common": {

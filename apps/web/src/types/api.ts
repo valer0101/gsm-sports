@@ -9,7 +9,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface Sport {
-  id: number;
+  id: string;
   slug: string;
   nameRu: string;
   nameEn: string;
@@ -20,7 +20,7 @@ export interface Sport {
 }
 
 export interface WeightCategory {
-  id: number;
+  id: string;
   name: string;
   minWeight: number | null;
   maxWeight: number | null;
@@ -32,6 +32,9 @@ export interface Tournament {
   id: string;
   slug: string;
   name: string;
+  nameRu: string | null;
+  nameEn: string | null;
+  nameHy: string | null;
   descriptionRu: string | null;
   descriptionEn: string | null;
   descriptionHy: string | null;

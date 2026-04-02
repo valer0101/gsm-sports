@@ -8,13 +8,13 @@ import {
   Query,
   UseGuards,
   Request,
-  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { EntriesService } from './entries.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
-import { EntryStatus } from './entities/tournament-entry.entity';
+import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
+import { SetSeedNumbersDto } from './dto/set-seed-numbers.dto';
 
 @ApiTags('Tournament Entries')
 @Controller('v1/entries')
@@ -30,13 +30,13 @@ export class EntriesController {
 
   @Get('tournament/:tournamentId')
   @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'weightCategoryId', required: false, type: Number })
+  @ApiQuery({ name: 'weightCategoryId', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findByTournament(
     @Param('tournamentId') tournamentId: string,
-    @Query('status') status?: EntryStatus,
-    @Query('weightCategoryId') weightCategoryId?: number,
+    @Query('status') status?: string,
+    @Query('weightCategoryId') weightCategoryId?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
@@ -58,8 +58,12 @@ export class EntriesController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body('status') status: EntryStatus, @Request() req: any) {
-    return this.entriesService.updateStatus(id, status, req.user.sub);
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateEntryStatusDto,
+    @Request() req: any,
+  ) {
+    return this.entriesService.updateStatus(id, dto.status, req.user.sub);
   }
 
   @ApiBearerAuth()
@@ -74,9 +78,9 @@ export class EntriesController {
   @Patch('tournament/:tournamentId/seeds')
   setSeedNumbers(
     @Param('tournamentId') tournamentId: string,
-    @Body() body: { seeds: { entryId: string; seed: number }[] },
+    @Body() dto: SetSeedNumbersDto,
     @Request() req: any,
   ) {
-    return this.entriesService.setSeedNumbers(tournamentId, body.seeds, req.user.sub);
+    return this.entriesService.setSeedNumbers(tournamentId, dto.seeds, req.user.sub);
   }
 }

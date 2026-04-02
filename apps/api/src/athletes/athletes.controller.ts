@@ -13,6 +13,9 @@ import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AthletesService } from './athletes.service';
 import { CreateAthleteDto } from './dto/create-athlete.dto';
+import { UpdateAthleteDto } from './dto/update-athlete.dto';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @ApiTags('Athletes')
 @Controller('v1/athletes')
@@ -54,12 +57,13 @@ export class AthletesController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<CreateAthleteDto>, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateAthleteDto, @Request() req: any) {
     return this.athletesService.update(id, dto, req.user.sub);
   }
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Patch(':id/verify')
   verify(@Param('id') id: string) {
     return this.athletesService.verify(id);

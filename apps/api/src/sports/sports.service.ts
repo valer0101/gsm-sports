@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sport } from './entities/sport.entity';
 import { CreateSportDto } from './dto/create-sport.dto';
+import { UpdateSportDto } from './dto/update-sport.dto';
 
 @Injectable()
 export class SportsService {
@@ -13,11 +14,19 @@ export class SportsService {
     private readonly sportsRepository: Repository<Sport>,
   ) {}
 
-  async findAll(): Promise<Sport[]> {
-    return this.sportsRepository.find({
+  async findAll(options: { page?: number; limit?: number } = {}): Promise<{ data: Sport[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const page = options.page ?? 1;
+    const limit = Math.min(options.limit ?? 50, 100);
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.sportsRepository.findAndCount({
       where: { isActive: true },
       order: { sortOrder: 'ASC', nameEn: 'ASC' },
+      take: limit,
+      skip,
     });
+
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   async findBySlug(slug: string): Promise<Sport> {
@@ -26,7 +35,7 @@ export class SportsService {
     return sport;
   }
 
-  async findById(id: number): Promise<Sport> {
+  async findById(id: string): Promise<Sport> {
     const sport = await this.sportsRepository.findOne({ where: { id } });
     if (!sport) throw new NotFoundException(`Sport #${id} not found`);
     return sport;
@@ -42,7 +51,7 @@ export class SportsService {
     return saved;
   }
 
-  async update(id: number, dto: Partial<CreateSportDto>): Promise<Sport> {
+  async update(id: string, dto: UpdateSportDto): Promise<Sport> {
     await this.findById(id);
     await this.sportsRepository.update(id, dto as any);
     return this.findById(id);

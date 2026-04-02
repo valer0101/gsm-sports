@@ -12,10 +12,14 @@ interface AthletesParams {
   limit?: number;
 }
 
-export function useAthletes(params: AthletesParams = {}) {
+export function useAthletes(
+  params: AthletesParams = {},
+  options?: { initialData?: PaginatedResponse<Athlete> },
+) {
   return useQuery<PaginatedResponse<Athlete>>({
     queryKey: ['athletes', params],
     queryFn: () => api.get('/athletes', { params }).then((r: { data: any }) => r.data),
+    initialData: options?.initialData,
   });
 }
 

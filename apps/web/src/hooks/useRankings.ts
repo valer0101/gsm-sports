@@ -13,10 +13,14 @@ interface RankingsParams {
   limit?: number;
 }
 
-export function useWorldRankings(params: RankingsParams = {}) {
+export function useWorldRankings(
+  params: RankingsParams = {},
+  options?: { initialData?: PaginatedResponse<RankingEntry> },
+) {
   return useQuery<PaginatedResponse<RankingEntry>>({
     queryKey: ['rankings', 'world', params],
     queryFn: () => api.get('/rankings/world', { params }).then((r: { data: any }) => r.data),
+    initialData: options?.initialData,
   });
 }
 

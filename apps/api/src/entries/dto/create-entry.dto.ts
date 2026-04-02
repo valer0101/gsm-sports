@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsNumber, IsEnum, Min, Max } from 'class-validator';
+import { IsOptional, IsNumber, IsEnum, IsUUID, Min, Max } from 'class-validator';
 
 export class CreateEntryDto {
   @ApiProperty({ example: 'tournament-uuid-here' })
-  @IsString()
+  @IsUUID()
   tournamentId: string;
 
-  @ApiProperty({ example: 3, required: false })
+  @ApiProperty({ example: 'weight-category-uuid', required: false })
   @IsOptional()
-  @IsInt()
-  weightCategoryId?: number;
+  @IsUUID()
+  weightCategoryId?: string;
 
   @ApiProperty({ enum: ['left', 'right', 'both'], required: false })
   @IsOptional()
