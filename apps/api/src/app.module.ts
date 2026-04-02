@@ -3,6 +3,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { SportsModule } from './sports/sports.module';
+import { TournamentsModule } from './tournaments/tournaments.module';
+import { EntriesModule } from './entries/entries.module';
+import { BracketsModule } from './brackets/brackets.module';
+import { AthletesModule } from './athletes/athletes.module';
+import { RankingsModule } from './rankings/rankings.module';
 
 @Module({
   imports: [
@@ -18,7 +24,10 @@ import { UsersModule } from './users/users.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        url: config.get<string>('DATABASE_URL', 'postgresql://gsm_user:gsm_dev_password@localhost:5432/gsm_sports'),
+        url: config.get<string>(
+          'DATABASE_URL',
+          'postgresql://gsm_user:gsm_dev_password@localhost:5432/gsm_sports',
+        ),
         autoLoadEntities: true,
         synchronize: config.get<string>('NODE_ENV') === 'development',
         logging: config.get<string>('NODE_ENV') === 'development',
@@ -28,6 +37,12 @@ import { UsersModule } from './users/users.module';
     // Feature modules
     AuthModule,
     UsersModule,
+    SportsModule,
+    TournamentsModule,
+    EntriesModule,
+    BracketsModule,
+    AthletesModule,
+    RankingsModule,
   ],
 })
 export class AppModule {}
