@@ -111,6 +111,7 @@ export class RankingsService {
         season: dto.season,
         hand: dto.hand ?? null,
         gender: dto.gender ?? null,
+        weightCategory: dto.weightCategory ?? null,
       } as any,
     });
 

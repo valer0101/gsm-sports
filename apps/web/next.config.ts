@@ -5,6 +5,12 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@gsm/shared-types'],
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
+      { protocol: 'https', hostname: 'evwsports.com' },
+    ],
+  },
 };
 
 export default withNextIntl(nextConfig);

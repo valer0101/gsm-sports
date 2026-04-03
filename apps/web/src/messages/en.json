@@ -93,7 +93,10 @@
     "right": "Right",
     "male": "Male",
     "female": "Female",
-    "season": "Season"
+    "season": "Season",
+    "view_all": "View All Rankings",
+    "right_hand": "Right Hand",
+    "left_hand": "Left Hand"
   },
   "common": {
     "loading": "Loading...",

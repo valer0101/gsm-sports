@@ -9,6 +9,7 @@ interface RankingsParams {
   hand?: string;
   gender?: string;
   weightCategory?: string;
+  country?: string;
   page?: number;
   limit?: number;
 }
