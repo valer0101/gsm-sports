@@ -71,16 +71,16 @@ export function RankingsTable({ entries, isLoading }: RankingsTableProps) {
                     className="flex items-center gap-3 hover:text-white transition-colors"
                   >
                     <div
-                      className="w-8 h-8 rounded-full overflow-hidden border border-white/10 flex items-center justify-center shrink-0"
+                      className="w-14 h-14 rounded-full overflow-hidden border border-white/10 flex items-center justify-center shrink-0"
                       style={{ backgroundColor: 'var(--color-background)' }}
                     >
                       {entry.athlete?.photoUrl ? (
                         <Image
                           src={entry.athlete.photoUrl}
                           alt=""
-                          width={32}
-                          height={32}
-                          className="object-cover"
+                          width={56}
+                          height={56}
+                          className="object-cover w-full h-full [object-position:center_15%]"
                         />
                       ) : (
                         <span className="text-xs font-bold text-white/40">
