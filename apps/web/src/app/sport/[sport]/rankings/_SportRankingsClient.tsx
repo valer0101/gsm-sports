@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useWorldRankings } from '@/hooks/useRankings';
-import type { RankingEntry } from '@/types/api';
+import type { PaginatedResponse, RankingEntry } from '@/types/api';
 
 const WEIGHT_CATEGORIES = [
   { key: '115+', labelEn: 'SUPER HEAVYWEIGHT', labelRu: 'СУПЕРТЯЖ',    sub: '115KG+' },
@@ -107,15 +107,23 @@ function HandColumn({ title, entries, isLoading }: { title: string; entries: Ran
 
 type View = 'world' | 'armenia';
 
-export function SportRankingsClient({ sport, locale }: { sport: string; locale: string }) {
+interface Props {
+  sport: string;
+  locale: string;
+  initialRight?: PaginatedResponse<RankingEntry>;
+  initialLeft?: PaginatedResponse<RankingEntry>;
+}
+
+export function SportRankingsClient({ sport, locale, initialRight, initialLeft }: Props) {
   const t = useTranslations('rankings');
   const [view, setView] = useState<View>('world');
   const [selectedWeight, setSelectedWeight] = useState('115+');
 
   const params = { sport, weightCategory: selectedWeight, limit: 20 };
+  const isDefault = selectedWeight === '115+';
 
-  const worldRight = useWorldRankings({ ...params, hand: 'right' });
-  const worldLeft  = useWorldRankings({ ...params, hand: 'left' });
+  const worldRight = useWorldRankings({ ...params, hand: 'right' }, { initialData: isDefault ? initialRight : undefined });
+  const worldLeft  = useWorldRankings({ ...params, hand: 'left'  }, { initialData: isDefault ? initialLeft  : undefined });
   const armRight   = useWorldRankings({ ...params, hand: 'right', country: 'AM' });
   const armLeft    = useWorldRankings({ ...params, hand: 'left',  country: 'AM' });
 
@@ -184,16 +192,10 @@ export function SportRankingsClient({ sport, locale }: { sport: string; locale: 
           </p>
         </div>
 
-        {view === 'armenia' ? (
-          <div className="text-center py-20 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('no_results')}
-          </div>
-        ) : (
-          <div className="flex gap-4">
-            <HandColumn title={t('right_hand')} entries={rightEntries} isLoading={isLoading} />
-            <HandColumn title={t('left_hand')}  entries={leftEntries}  isLoading={worldLeft.isLoading} />
-          </div>
-        )}
+        <div className="flex gap-4">
+          <HandColumn title={t('right_hand')} entries={rightEntries} isLoading={isLoading} />
+          <HandColumn title={t('left_hand')}  entries={leftEntries}  isLoading={view === 'world' ? worldLeft.isLoading : armLeft.isLoading} />
+        </div>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import { Athlete } from '../../athletes/entities/athlete.entity';
 import { Sport } from '../../sports/entities/sport.entity';
 
 @Entity('ranking_entries')
-@Unique(['athleteId', 'sportId', 'season', 'hand', 'gender'])
+@Unique(['athleteId', 'sportId', 'season', 'hand', 'gender', 'weightCategory'])
 export class RankingEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;

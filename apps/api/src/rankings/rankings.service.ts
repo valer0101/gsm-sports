@@ -28,7 +28,7 @@ export class RankingsService {
   ) {}
 
   async findWorldRankings(options: FindRankingsOptions = {}) {
-    const { sport, sportId, season, hand, gender, weightCategory, page = 1, limit = 50 } = options;
+    const { sport, sportId, season, country, hand, gender, weightCategory, page = 1, limit = 50 } = options;
     const take = Math.min(limit, 200);
     const skip = (page - 1) * take;
 
@@ -45,6 +45,7 @@ export class RankingsService {
     if (sportId) qb.andWhere('r.sportId = :sportId', { sportId });
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (season) qb.andWhere('r.season = :season', { season });
+    if (country) qb.andWhere('r.country = :country', { country });
     if (hand) qb.andWhere('r.hand = :hand', { hand });
     if (gender) qb.andWhere('r.gender = :gender', { gender });
     if (weightCategory) qb.andWhere('r.weightCategory = :weightCategory', { weightCategory });

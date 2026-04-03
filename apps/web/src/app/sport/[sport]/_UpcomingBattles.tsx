@@ -1,25 +1,10 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { TournamentCard } from '@/components/tournaments/TournamentCard';
-import type { PaginatedResponse, Tournament } from '@/types/api';
-
-async function fetchUpcoming(sport: string): Promise<Tournament[]> {
-  try {
-    const apiUrl = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
-    const res = await fetch(
-      `${apiUrl}/tournaments?limit=3&sport=${sport}&status=upcoming`,
-      { next: { revalidate: 60 } },
-    );
-    if (!res.ok) return [];
-    const json: PaginatedResponse<Tournament> = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
-}
+import { fetchUpcomingTournaments } from '@/lib/api-server';
 
 export async function UpcomingBattles({ sportSlug }: { sportSlug: string }) {
-  const tournaments = await fetchUpcoming(sportSlug);
+  const tournaments = await fetchUpcomingTournaments(sportSlug);
   const t = await getTranslations('tournaments');
   const tNav = await getTranslations('nav');
 
