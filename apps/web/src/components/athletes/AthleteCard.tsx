@@ -19,16 +19,16 @@ export function AthleteCard({ athlete: a }: AthleteCardProps) {
     >
       {/* Avatar */}
       <div
-        className="shrink-0 w-14 h-14 rounded-full overflow-hidden border border-white/15 flex items-center justify-center"
+        className="shrink-0 w-20 h-20 rounded-full overflow-hidden border border-white/15 flex items-center justify-center"
         style={{ backgroundColor: 'var(--color-background)' }}
       >
         {a.photoUrl ? (
           <Image
             src={a.photoUrl}
             alt={fullName}
-            width={56}
-            height={56}
-            className="object-cover w-full h-full"
+            width={80}
+            height={80}
+            className="object-cover w-full h-full [object-position:center_15%]"
           />
         ) : (
           <span className="text-xl font-bold text-white/40">

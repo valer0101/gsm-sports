@@ -42,7 +42,7 @@ function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
         style={{ backgroundColor: 'var(--color-background)' }}
       >
         {entry.athlete.photoUrl ? (
-          <Image src={entry.athlete.photoUrl} alt="" width={96} height={96} className="object-cover" />
+          <Image src={entry.athlete.photoUrl} alt="" width={96} height={96} className="object-cover w-full h-full [object-position:center_5%]" />
         ) : (
           <span className="text-lg font-bold text-white/40">
             {entry.athlete.firstName?.[0]}{entry.athlete.lastName?.[0]}
