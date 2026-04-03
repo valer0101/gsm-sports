@@ -29,7 +29,7 @@ export class RankingsService {
 
   async findWorldRankings(options: FindRankingsOptions = {}) {
     const { sport, sportId, season, country, hand, gender, weightCategory, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.rankingsRepository
@@ -56,7 +56,7 @@ export class RankingsService {
 
   async findCountryRankings(country: string, options: FindRankingsOptions = {}) {
     const { sport, sportId, season, hand, gender, weightCategory, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.rankingsRepository
@@ -165,33 +165,35 @@ export class RankingsService {
       partitions.set(key, list);
     }
 
-    // Per partition: assign worldPosition, then countryPosition
-    for (const [, partitionEntries] of partitions) {
-      // partitionEntries already sorted by points DESC from the main query
-      let worldPos = 1;
-      for (const entry of partitionEntries) {
-        await this.rankingsRepository.update(entry.id, { worldPosition: worldPos });
-        entry.worldPosition = worldPos;
-        worldPos++;
-      }
+    await this.rankingsRepository.manager.transaction(async (em) => {
+      // Per partition: assign worldPosition, then countryPosition
+      for (const [, partitionEntries] of partitions) {
+        // partitionEntries already sorted by points DESC from the main query
+        let worldPos = 1;
+        for (const entry of partitionEntries) {
+          await em.update(RankingEntry, entry.id, { worldPosition: worldPos });
+          entry.worldPosition = worldPos;
+          worldPos++;
+        }
 
-      // Country ranking within this partition
-      const byCountry = new Map<string, RankingEntry[]>();
-      for (const entry of partitionEntries) {
-        if (!entry.country) continue;
-        const list = byCountry.get(entry.country) ?? [];
-        list.push(entry);
-        byCountry.set(entry.country, list);
-      }
-      for (const [, countryEntries] of byCountry) {
-        let countryPos = 1;
-        for (const entry of countryEntries) {
-          await this.rankingsRepository.update(entry.id, { countryPosition: countryPos++ });
+        // Country ranking within this partition
+        const byCountry = new Map<string, RankingEntry[]>();
+        for (const entry of partitionEntries) {
+          if (!entry.country) continue;
+          const list = byCountry.get(entry.country) ?? [];
+          list.push(entry);
+          byCountry.set(entry.country, list);
+        }
+        for (const [, countryEntries] of byCountry) {
+          let countryPos = 1;
+          for (const entry of countryEntries) {
+            await em.update(RankingEntry, entry.id, { countryPosition: countryPos++ });
+          }
         }
       }
-    }
+    });
 
-    // Sync cached worldRank + totalPoints on the Athlete entity
+    // Sync cached worldRank + totalPoints on the Athlete entity (outside tx — non-critical cache)
     for (const entry of entries) {
       await this.athletesService.updateRankingCache(entry.athleteId, {
         worldRank: entry.worldPosition,

@@ -1,4 +1,3 @@
-import { getLocale } from 'next-intl/server';
 import { SportRankingsClient } from './_SportRankingsClient';
 import { fetchWorldRankings } from '@/lib/api-server';
 
@@ -8,7 +7,6 @@ export default async function SportRankingsPage({
   params: Promise<{ sport: string }>;
 }) {
   const { sport } = await params;
-  const locale = await getLocale();
 
   const [initialRight, initialLeft] = await Promise.all([
     fetchWorldRankings(sport, 'right'),
@@ -18,7 +16,6 @@ export default async function SportRankingsPage({
   return (
     <SportRankingsClient
       sport={sport}
-      locale={locale}
       initialRight={initialRight}
       initialLeft={initialLeft}
     />

@@ -98,7 +98,14 @@
     "right_hand": "Աջ ձեռք",
     "left_hand": "Ձախ ձեռք",
     "weight_division": "Քաշային կարգ",
-    "armenia": "Հայաստան"
+    "armenia": "Հայաստան",
+    "super_heavyweight": "Գերծանր",
+    "heavyweight": "Ծանր",
+    "light_heavyweight": "Կիսածանր",
+    "middleweight": "Միջին",
+    "welterweight": "Կիսամիջին",
+    "lightweight": "Թեթև",
+    "featherweight": "Փետրային"
   },
   "common": {
     "loading": "Բեռնում...",

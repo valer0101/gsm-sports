@@ -98,7 +98,14 @@
     "right_hand": "Правая рука",
     "left_hand": "Левая рука",
     "weight_division": "Весовая категория",
-    "armenia": "Армения"
+    "armenia": "Армения",
+    "super_heavyweight": "Супертяж",
+    "heavyweight": "Тяжёлый",
+    "light_heavyweight": "Полутяж",
+    "middleweight": "Средний",
+    "welterweight": "Полусредний",
+    "lightweight": "Лёгкий",
+    "featherweight": "Наилегчайший"
   },
   "common": {
     "loading": "Загрузка...",

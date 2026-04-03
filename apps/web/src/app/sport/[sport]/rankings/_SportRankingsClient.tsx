@@ -8,13 +8,13 @@ import { useWorldRankings } from '@/hooks/useRankings';
 import type { PaginatedResponse, RankingEntry } from '@/types/api';
 
 const WEIGHT_CATEGORIES = [
-  { key: '115+', labelEn: 'SUPER HEAVYWEIGHT', labelRu: 'СУПЕРТЯЖ',    sub: '115KG+' },
-  { key: '105',  labelEn: 'HEAVYWEIGHT',       labelRu: 'ТЯЖЁЛЫЙ',     sub: '115KG'  },
-  { key: '95',   labelEn: 'LIGHT HEAVYWEIGHT', labelRu: 'ПОЛУТЯЖ',     sub: '105KG'  },
-  { key: '85',   labelEn: 'MIDDLEWEIGHT',      labelRu: 'СРЕДНИЙ',     sub: '95KG'   },
-  { key: '77',   labelEn: 'WELTERWEIGHT',      labelRu: 'ПОЛУСРЕДНИЙ', sub: '85KG'   },
-  { key: '70',   labelEn: 'LIGHTWEIGHT',       labelRu: 'ЛЁГКИЙ',     sub: '77KG'   },
-  { key: '63',   labelEn: 'FEATHERWEIGHT',     labelRu: 'НАИЛЕГЧ.',    sub: '70KG'   },
+  { key: '115+', i18nKey: 'super_heavyweight', sub: '115KG+' },
+  { key: '105',  i18nKey: 'heavyweight',       sub: '115KG'  },
+  { key: '95',   i18nKey: 'light_heavyweight', sub: '105KG'  },
+  { key: '85',   i18nKey: 'middleweight',      sub: '95KG'   },
+  { key: '77',   i18nKey: 'welterweight',      sub: '85KG'   },
+  { key: '70',   i18nKey: 'lightweight',       sub: '77KG'   },
+  { key: '63',   i18nKey: 'featherweight',     sub: '70KG'   },
 ];
 
 function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
@@ -63,8 +63,9 @@ function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
   );
 }
 
-function HandColumn({ title, entries, isLoading }: { title: string; entries: RankingEntry[]; isLoading: boolean }) {
+function HandColumn({ title, entries, isLoading, isError }: { title: string; entries: RankingEntry[]; isLoading: boolean; isError: boolean }) {
   const t = useTranslations('rankings');
+  const tc = useTranslations('common');
   return (
     <div className="flex-1 min-w-0 rounded-xl border border-white/10 overflow-hidden">
       <div
@@ -92,6 +93,10 @@ function HandColumn({ title, entries, isLoading }: { title: string; entries: Ran
             <div className="w-12 h-4 bg-white/10 rounded" />
           </div>
         ))
+      ) : isError ? (
+        <div className="px-4 py-12 text-center text-sm text-red-400">
+          {tc('error')}
+        </div>
       ) : entries.length === 0 ? (
         <div className="px-4 py-12 text-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           {t('no_results')}
@@ -109,12 +114,11 @@ type View = 'world' | 'armenia';
 
 interface Props {
   sport: string;
-  locale: string;
   initialRight?: PaginatedResponse<RankingEntry>;
   initialLeft?: PaginatedResponse<RankingEntry>;
 }
 
-export function SportRankingsClient({ sport, locale, initialRight, initialLeft }: Props) {
+export function SportRankingsClient({ sport, initialRight, initialLeft }: Props) {
   const t = useTranslations('rankings');
   const [view, setView] = useState<View>('world');
   const [selectedWeight, setSelectedWeight] = useState('115+');
@@ -127,12 +131,14 @@ export function SportRankingsClient({ sport, locale, initialRight, initialLeft }
   const armRight   = useWorldRankings({ ...params, hand: 'right', country: 'AM' });
   const armLeft    = useWorldRankings({ ...params, hand: 'left',  country: 'AM' });
 
-  const rightEntries = view === 'world' ? worldRight.data?.data ?? [] : armRight.data?.data ?? [];
-  const leftEntries  = view === 'world' ? worldLeft.data?.data  ?? [] : armLeft.data?.data  ?? [];
-  const isLoading    = view === 'world' ? worldRight.isLoading : armRight.isLoading;
+  const rightEntries  = view === 'world' ? worldRight.data?.data ?? [] : armRight.data?.data ?? [];
+  const leftEntries   = view === 'world' ? worldLeft.data?.data  ?? [] : armLeft.data?.data  ?? [];
+  const isLoading     = view === 'world' ? worldRight.isLoading : armRight.isLoading;
+  const isRightError  = view === 'world' ? worldRight.isError : armRight.isError;
+  const isLeftError   = view === 'world' ? worldLeft.isError  : armLeft.isError;
 
   const selectedCat = WEIGHT_CATEGORIES.find((c) => c.key === selectedWeight)!;
-  const catLabel = locale === 'ru' ? selectedCat.labelRu : selectedCat.labelEn;
+  const catLabel = t(selectedCat.i18nKey as Parameters<typeof t>[0]);
 
   return (
     <div className="flex min-h-[600px]">
@@ -155,7 +161,7 @@ export function SportRankingsClient({ sport, locale, initialRight, initialLeft }
                     : { color: 'rgba(255,255,255,0.35)' }
                 }
               >
-                <span>{cat.labelEn}</span>
+                <span>{t(cat.i18nKey as Parameters<typeof t>[0])}</span>
                 {isActive && <span style={{ color: 'var(--color-primary)' }}>⚡</span>}
               </button>
             );
@@ -193,8 +199,8 @@ export function SportRankingsClient({ sport, locale, initialRight, initialLeft }
         </div>
 
         <div className="flex gap-4">
-          <HandColumn title={t('right_hand')} entries={rightEntries} isLoading={isLoading} />
-          <HandColumn title={t('left_hand')}  entries={leftEntries}  isLoading={view === 'world' ? worldLeft.isLoading : armLeft.isLoading} />
+          <HandColumn title={t('right_hand')} entries={rightEntries} isLoading={isLoading}                                              isError={isRightError} />
+          <HandColumn title={t('left_hand')}  entries={leftEntries}  isLoading={view === 'world' ? worldLeft.isLoading : armLeft.isLoading} isError={isLeftError} />
         </div>
       </div>
     </div>
