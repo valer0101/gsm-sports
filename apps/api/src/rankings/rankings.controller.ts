@@ -16,6 +16,7 @@ export class RankingsController {
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'sportId', required: false })
   @ApiQuery({ name: 'season', required: false, type: Number })
+  @ApiQuery({ name: 'country', required: false })
   @ApiQuery({ name: 'hand', required: false })
   @ApiQuery({ name: 'gender', required: false })
   @ApiQuery({ name: 'weightCategory', required: false })
@@ -25,6 +26,7 @@ export class RankingsController {
     @Query('sport') sport?: string,
     @Query('sportId') sportId?: string,
     @Query('season') season?: number,
+    @Query('country') country?: string,
     @Query('hand') hand?: string,
     @Query('gender') gender?: string,
     @Query('weightCategory') weightCategory?: string,
@@ -35,6 +37,7 @@ export class RankingsController {
       sport,
       sportId,
       season,
+      country,
       hand,
       gender,
       weightCategory,

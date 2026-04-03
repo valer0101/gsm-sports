@@ -93,7 +93,19 @@
     "right": "Right",
     "male": "Male",
     "female": "Female",
-    "season": "Season"
+    "season": "Season",
+    "view_all": "View All Rankings",
+    "right_hand": "Right Hand",
+    "left_hand": "Left Hand",
+    "weight_division": "Weight Division",
+    "armenia": "Armenia",
+    "super_heavyweight": "Super Heavyweight",
+    "heavyweight": "Heavyweight",
+    "light_heavyweight": "Light Heavyweight",
+    "middleweight": "Middleweight",
+    "welterweight": "Welterweight",
+    "lightweight": "Lightweight",
+    "featherweight": "Featherweight"
   },
   "common": {
     "loading": "Loading...",

@@ -21,7 +21,7 @@
   },
   "sport": {
     "title": "ՍՊՈՐՏ",
-    "armwrestling": "Ձեռնամարտ",
+    "armwrestling": "Բազկամարտ",
     "tournaments_desc": "Գտեք և գրանցվեք ձեռնամարտի մրցաշարերին",
     "athletes_desc": "Ձեռնամարտի մրցամարտիկ մարզիկների պրոֆիլներ",
     "rankings_desc": "GSM Sports-ի պաշտոնական ձեռնամարտի վարկանիշ"
@@ -93,7 +93,19 @@
     "right": "Աջ",
     "male": "Արական",
     "female": "Իգական",
-    "season": "Սեզոն"
+    "season": "Սեզոն",
+    "view_all": "Բոլոր վարկանիշները",
+    "right_hand": "Աջ ձեռք",
+    "left_hand": "Ձախ ձեռք",
+    "weight_division": "Քաշային կարգ",
+    "armenia": "Հայաստան",
+    "super_heavyweight": "Գերծանր",
+    "heavyweight": "Ծանր",
+    "light_heavyweight": "Կիսածանր",
+    "middleweight": "Միջին",
+    "welterweight": "Կիսամիջին",
+    "lightweight": "Թեթև",
+    "featherweight": "Փետրային"
   },
   "common": {
     "loading": "Բեռնում...",

@@ -28,8 +28,8 @@ export class RankingsService {
   ) {}
 
   async findWorldRankings(options: FindRankingsOptions = {}) {
-    const { sport, sportId, season, hand, gender, weightCategory, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const { sport, sportId, season, country, hand, gender, weightCategory, page = 1, limit = 50 } = options;
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.rankingsRepository
@@ -45,6 +45,7 @@ export class RankingsService {
     if (sportId) qb.andWhere('r.sportId = :sportId', { sportId });
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (season) qb.andWhere('r.season = :season', { season });
+    if (country) qb.andWhere('r.country = :country', { country });
     if (hand) qb.andWhere('r.hand = :hand', { hand });
     if (gender) qb.andWhere('r.gender = :gender', { gender });
     if (weightCategory) qb.andWhere('r.weightCategory = :weightCategory', { weightCategory });
@@ -55,7 +56,7 @@ export class RankingsService {
 
   async findCountryRankings(country: string, options: FindRankingsOptions = {}) {
     const { sport, sportId, season, hand, gender, weightCategory, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.rankingsRepository
@@ -111,6 +112,7 @@ export class RankingsService {
         season: dto.season,
         hand: dto.hand ?? null,
         gender: dto.gender ?? null,
+        weightCategory: dto.weightCategory ?? null,
       } as any,
     });
 
@@ -163,33 +165,35 @@ export class RankingsService {
       partitions.set(key, list);
     }
 
-    // Per partition: assign worldPosition, then countryPosition
-    for (const [, partitionEntries] of partitions) {
-      // partitionEntries already sorted by points DESC from the main query
-      let worldPos = 1;
-      for (const entry of partitionEntries) {
-        await this.rankingsRepository.update(entry.id, { worldPosition: worldPos });
-        entry.worldPosition = worldPos;
-        worldPos++;
-      }
+    await this.rankingsRepository.manager.transaction(async (em) => {
+      // Per partition: assign worldPosition, then countryPosition
+      for (const [, partitionEntries] of partitions) {
+        // partitionEntries already sorted by points DESC from the main query
+        let worldPos = 1;
+        for (const entry of partitionEntries) {
+          await em.update(RankingEntry, entry.id, { worldPosition: worldPos });
+          entry.worldPosition = worldPos;
+          worldPos++;
+        }
 
-      // Country ranking within this partition
-      const byCountry = new Map<string, RankingEntry[]>();
-      for (const entry of partitionEntries) {
-        if (!entry.country) continue;
-        const list = byCountry.get(entry.country) ?? [];
-        list.push(entry);
-        byCountry.set(entry.country, list);
-      }
-      for (const [, countryEntries] of byCountry) {
-        let countryPos = 1;
-        for (const entry of countryEntries) {
-          await this.rankingsRepository.update(entry.id, { countryPosition: countryPos++ });
+        // Country ranking within this partition
+        const byCountry = new Map<string, RankingEntry[]>();
+        for (const entry of partitionEntries) {
+          if (!entry.country) continue;
+          const list = byCountry.get(entry.country) ?? [];
+          list.push(entry);
+          byCountry.set(entry.country, list);
+        }
+        for (const [, countryEntries] of byCountry) {
+          let countryPos = 1;
+          for (const entry of countryEntries) {
+            await em.update(RankingEntry, entry.id, { countryPosition: countryPos++ });
+          }
         }
       }
-    }
+    });
 
-    // Sync cached worldRank + totalPoints on the Athlete entity
+    // Sync cached worldRank + totalPoints on the Athlete entity (outside tx — non-critical cache)
     for (const entry of entries) {
       await this.athletesService.updateRankingCache(entry.athleteId, {
         worldRank: entry.worldPosition,

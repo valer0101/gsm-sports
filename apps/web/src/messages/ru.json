@@ -93,7 +93,19 @@
     "right": "Правая",
     "male": "Мужской",
     "female": "Женский",
-    "season": "Сезон"
+    "season": "Сезон",
+    "view_all": "Все рейтинги",
+    "right_hand": "Правая рука",
+    "left_hand": "Левая рука",
+    "weight_division": "Весовая категория",
+    "armenia": "Армения",
+    "super_heavyweight": "Супертяж",
+    "heavyweight": "Тяжёлый",
+    "light_heavyweight": "Полутяж",
+    "middleweight": "Средний",
+    "welterweight": "Полусредний",
+    "lightweight": "Лёгкий",
+    "featherweight": "Наилегчайший"
   },
   "common": {
     "loading": "Загрузка...",

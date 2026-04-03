@@ -9,6 +9,7 @@ interface RankingsParams {
   hand?: string;
   gender?: string;
   weightCategory?: string;
+  country?: string;
   page?: number;
   limit?: number;
 }
@@ -21,6 +22,8 @@ export function useWorldRankings(
     queryKey: ['rankings', 'world', params],
     queryFn: () => api.get('/rankings/world', { params }).then((r: { data: any }) => r.data),
     initialData: options?.initialData,
+    initialDataUpdatedAt: options?.initialData ? Date.now() : undefined,
+    staleTime: 60_000,
   });
 }
 
