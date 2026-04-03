@@ -96,7 +96,9 @@
     "season": "Сезон",
     "view_all": "Все рейтинги",
     "right_hand": "Правая рука",
-    "left_hand": "Левая рука"
+    "left_hand": "Левая рука",
+    "weight_division": "Весовая категория",
+    "armenia": "Армения"
   },
   "common": {
     "loading": "Загрузка...",

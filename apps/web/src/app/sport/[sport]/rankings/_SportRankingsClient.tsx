@@ -19,9 +19,10 @@ const WEIGHT_CATEGORIES = [
 
 function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
   const isFirst = rank === 1;
+  if (!entry.athlete) return null;
   return (
     <Link
-      href={`/athletes/${entry.athlete?.slug}`}
+      href={`/athletes/${entry.athlete.slug}`}
       className="flex items-center gap-3 px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
       style={{
         backgroundColor: isFirst ? 'rgba(212,175,55,0.08)' : 'transparent',
@@ -40,18 +41,18 @@ function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
         className="w-24 h-24 rounded-full overflow-hidden border border-white/10 shrink-0 flex items-center justify-center"
         style={{ backgroundColor: 'var(--color-background)' }}
       >
-        {entry.athlete?.photoUrl ? (
+        {entry.athlete.photoUrl ? (
           <Image src={entry.athlete.photoUrl} alt="" width={96} height={96} className="object-cover" />
         ) : (
           <span className="text-lg font-bold text-white/40">
-            {entry.athlete?.firstName?.[0]}{entry.athlete?.lastName?.[0]}
+            {entry.athlete.firstName?.[0]}{entry.athlete.lastName?.[0]}
           </span>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold truncate ${isFirst ? 'text-yellow-400' : 'text-white'}`}>
-          {entry.athlete?.firstName} {entry.athlete?.lastName}
+          {entry.athlete.firstName} {entry.athlete.lastName}
         </p>
       </div>
 
@@ -130,7 +131,7 @@ export function SportRankingsClient({ sport, locale }: { sport: string; locale: 
       {/* Sidebar */}
       <aside className="w-56 shrink-0 border-r border-white/10 py-6 px-3">
         <p className="text-xs font-semibold uppercase tracking-widest mb-4 px-2" style={{ color: 'var(--color-text-secondary)' }}>
-          Weight Division
+          {t('weight_division')}
         </p>
         <nav className="space-y-1">
           {WEIGHT_CATEGORIES.map((cat) => {
@@ -169,14 +170,14 @@ export function SportRankingsClient({ sport, locale }: { sport: string; locale: 
                   : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }
               }
             >
-              {v === 'world' ? t('world_title') : 'Հայաստան'}
+              {v === 'world' ? t('world_title') : t('armenia')}
             </button>
           ))}
         </div>
 
         <div className="mb-6">
           <h1 className="text-3xl font-black uppercase text-white">
-            {view === 'world' ? t('world_title') : 'Հայաստան'}
+            {view === 'world' ? t('world_title') : t('armenia')}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-primary)' }}>
             {catLabel} ({selectedCat.sub})

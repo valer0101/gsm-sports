@@ -96,7 +96,9 @@
     "season": "Season",
     "view_all": "View All Rankings",
     "right_hand": "Right Hand",
-    "left_hand": "Left Hand"
+    "left_hand": "Left Hand",
+    "weight_division": "Weight Division",
+    "armenia": "Armenia"
   },
   "common": {
     "loading": "Loading...",
