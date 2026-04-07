@@ -30,8 +30,12 @@ export class User {
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatarUrl: string | null;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Index()
+  @Column({ type: 'varchar', length: 20, nullable: true, unique: true })
   phone: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth: Date | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   country: string | null;

@@ -20,12 +20,19 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    if (dto.phone) {
+      const existingPhone = await this.usersService.findByPhone(dto.phone);
+      if (existingPhone) throw new ConflictException('Phone number already registered');
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = await this.usersService.create({
       email: dto.email,
       passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
+      phone: dto.phone ?? null,
+      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       country: dto.country,
       language: dto.language || 'hy',
       roles: ['user'],
@@ -47,14 +54,18 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByEmail(dto.email);
+    const isPhone = /^\+?[\d\s\-()]{7,20}$/.test(dto.login) && !dto.login.includes('@');
+    const user = isPhone
+      ? await this.usersService.findByPhone(dto.login)
+      : await this.usersService.findByEmail(dto.login);
+
     if (!user || !user.passwordHash) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid login or password');
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid login or password');
     }
 
     await this.usersService.update(user.id, { lastLoginAt: new Date() });

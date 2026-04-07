@@ -5,7 +5,7 @@ const API_URL =
 
 export async function fetchUpcomingTournaments(sport: string): Promise<Tournament[]> {
   try {
-    const res = await fetch(`${API_URL}/tournaments?limit=3&sport=${sport}&status=upcoming`, {
+    const res = await fetch(`${API_URL}/tournaments?limit=50&sport=${sport}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return [];

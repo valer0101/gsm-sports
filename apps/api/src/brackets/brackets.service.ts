@@ -10,9 +10,11 @@ import { Repository } from 'typeorm';
 import { generateDoubleElimination, selectWinner } from '@gsm/bracket-engine';
 import type { Player, BracketData } from '@gsm/bracket-engine';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
+import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class BracketsService {
@@ -21,9 +23,56 @@ export class BracketsService {
   constructor(
     @InjectRepository(Bracket)
     private readonly bracketsRepository: Repository<Bracket>,
+    @InjectRepository(TournamentOperator)
+    private readonly operatorsRepository: Repository<TournamentOperator>,
     private readonly tournamentsService: TournamentsService,
     private readonly entriesService: EntriesService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
+
+  /** Generate bracket for a specific (ageGroup, hand) group */
+  async generateForGroup(
+    dto: { tournamentId: string; ageGroup: string; hand: string; name?: string },
+    organizerId: string,
+  ): Promise<Bracket> {
+    const tournament = await this.tournamentsService.findById(dto.tournamentId);
+
+    if (tournament.organizerId !== organizerId) {
+      throw new ForbiddenException('Only the organizer can generate brackets');
+    }
+
+    const entries = await this.entriesService.findByGroup(dto.tournamentId, dto.ageGroup, dto.hand);
+
+    if (entries.length < 2) {
+      throw new BadRequestException(
+        `At least 2 entries required for group [${dto.ageGroup}/${dto.hand}], got ${entries.length}`,
+      );
+    }
+
+    const players: Player[] = entries.map((entry) => ({
+      id: entry.id,
+      firstName: entry.user?.firstName ?? 'Player',
+      lastName: entry.user?.lastName ?? '',
+      number: entry.seedNumber ?? 0,
+      seed: entry.seedNumber ?? undefined,
+    }));
+
+    const bracketData = generateDoubleElimination(players);
+
+    const bracket = this.bracketsRepository.create({
+      tournamentId: dto.tournamentId,
+      weightCategoryId: null,
+      name: dto.name ?? null,
+      status: 'active',
+      bracketData: bracketData as unknown as Record<string, unknown>,
+    });
+
+    const saved = await this.bracketsRepository.save(bracket);
+    this.logger.log(
+      `Bracket [${dto.name}] generated for tournament ${dto.tournamentId} (${entries.length} players)`,
+    );
+    return saved;
+  }
 
   async generate(dto: GenerateBracketDto, organizerId: string): Promise<Bracket> {
     const tournament = await this.tournamentsService.findById(dto.tournamentId);
@@ -96,12 +145,21 @@ export class BracketsService {
     bracketId: string,
     matchId: string,
     winnerId: string,
-    organizerId: string,
+    userId: string,
+    userRoles: string[] = [],
   ): Promise<Bracket> {
     const bracket = await this.findById(bracketId);
 
-    if (bracket.tournament.organizerId !== organizerId) {
-      throw new ForbiddenException('Only the organizer can record match results');
+    const isOrganizer = bracket.tournament.organizerId === userId;
+    const isAdmin = userRoles.includes('admin');
+    const isOperator = await this.operatorsRepository.count({
+      where: { tournamentId: bracket.tournamentId, operatorId: userId },
+    });
+
+    if (!isOrganizer && !isAdmin && !isOperator) {
+      throw new ForbiddenException(
+        'Only the organizer, admin, or assigned operator can record match results',
+      );
     }
 
     if (bracket.status === 'completed') {
@@ -124,6 +182,9 @@ export class BracketsService {
     if (newStatus === 'completed') {
       this.logger.log(`Bracket ${bracketId} completed. Champion: ${updated.champion}`);
     }
+
+    // Emit real-time update to all clients watching this tournament
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
     return this.findById(bracketId);
   }

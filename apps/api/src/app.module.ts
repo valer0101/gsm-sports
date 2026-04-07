@@ -9,6 +9,10 @@ import { EntriesModule } from './entries/entries.module';
 import { BracketsModule } from './brackets/brackets.module';
 import { AthletesModule } from './athletes/athletes.module';
 import { RankingsModule } from './rankings/rankings.module';
+import { EventsModule } from './events/events.module';
+import { AdminModule } from './admin/admin.module';
+import { OperatorModule } from './operator/operator.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -43,6 +47,10 @@ import { RankingsModule } from './rankings/rankings.module';
     BracketsModule,
     AthletesModule,
     RankingsModule,
+    EventsModule,
+    AdminModule,
+    OperatorModule,
+    UploadModule,
   ],
 })
 export class AppModule {}

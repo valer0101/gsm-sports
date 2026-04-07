@@ -56,9 +56,10 @@ export class EntriesService {
       const entry = repo.create({
         tournamentId: dto.tournamentId,
         userId,
+        ageGroup: dto.ageGroup ?? null,
         weightCategoryId: dto.weightCategoryId ?? null,
         hand: dto.hand ?? null,
-        registeredWeight: dto.registeredWeight ?? null,
+        weightKg: dto.weightKg ?? null,
         notes: dto.notes ?? null,
         status: 'pending' as EntryStatus,
       });
@@ -66,7 +67,7 @@ export class EntriesService {
     });
 
     this.logger.log(`User ${userId} registered for tournament ${dto.tournamentId}`);
-    return this.findById(saved.id);
+    return this.findById((saved as TournamentEntry).id);
   }
 
   async findById(id: string): Promise<TournamentEntry> {
@@ -145,6 +146,24 @@ export class EntriesService {
 
     await this.entriesRepository.update(id, { status: 'withdrawn' });
     return this.findById(id);
+  }
+
+  async findByGroup(
+    tournamentId: string,
+    ageGroup: string,
+    hand: string,
+  ): Promise<TournamentEntry[]> {
+    const qb = this.entriesRepository
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.user', 'user')
+      .where('e.tournament_id = :tournamentId', { tournamentId })
+      .andWhere('e.status = :status', { status: 'confirmed' })
+      .orderBy('e.created_at', 'ASC');
+
+    if (ageGroup) qb.andWhere('e.ageGroup = :ageGroup', { ageGroup });
+    if (hand) qb.andWhere('e.hand = :hand', { hand });
+
+    return qb.getMany();
   }
 
   async setSeedNumbers(
