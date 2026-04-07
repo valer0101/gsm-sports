@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useRegistrations } from '@/hooks/useTournaments';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -61,9 +62,9 @@ export function ParticipantsList({ tournamentId }: Props) {
             </span>
 
             {/* Avatar */}
-            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-white/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-white/10 flex items-center justify-center relative">
               {entry.user?.avatarUrl ? (
-                <img src={entry.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                <Image src={entry.user.avatarUrl} alt="" fill className="object-cover" />
               ) : (
                 <span className="text-sm font-bold text-white/40">
                   {entry.user?.firstName?.[0] ?? '?'}

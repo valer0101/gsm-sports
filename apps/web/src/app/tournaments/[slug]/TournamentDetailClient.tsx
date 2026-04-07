@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import type { Tournament } from '@/types/api';
 import { ParticipantsList } from '@/components/tournaments/ParticipantsList';
 import { BracketView } from '@/components/tournaments/BracketView';
@@ -21,12 +23,17 @@ export function TournamentDetailClient({ tournament }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [registered, setRegistered] = useState(false);
 
+  const { data: currentUser } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => api.get('/auth/me').then((r) => r.data),
+    retry: false,
+  });
+
   const canRegister = tournament.registrationOpen;
   const hasBracket = tournament.bracketGenerated;
 
   function handleRegisterClick() {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('gsm_access_token') : null;
-    if (!token) {
+    if (!currentUser) {
       router.push(`/auth/login?redirect=/tournaments/${tournament.slug}`);
       return;
     }

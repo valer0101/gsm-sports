@@ -1,20 +1,15 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
 import { OperatorService } from './operator.service';
 import { AuthGuard } from '@nestjs/passport';
-
-class RecordResultDto {
-  @IsString()
-  matchId: string;
-
-  @IsString()
-  winnerId: string;
-}
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RecordResultDto } from './dto/record-result.dto';
 
 @ApiTags('operator')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles('operator', 'admin', 'organizer')
 @Controller('v1/operator')
 export class OperatorController {
   constructor(private readonly operatorService: OperatorService) {}

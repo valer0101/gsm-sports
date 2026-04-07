@@ -7,7 +7,7 @@ import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
-import { User } from '../users/entities/user.entity';
+import { UsersService } from '../users/users.service';
 import { BracketsService } from '../brackets/brackets.service';
 
 const mockTournament = {
@@ -46,8 +46,9 @@ const mockEntriesRepo = {
   createQueryBuilder: vi.fn(),
 };
 
-const mockUsersRepo = {
-  findOne: vi.fn(),
+const mockUsersService = {
+  findByEmail: vi.fn(),
+  findById: vi.fn(),
 };
 
 const mockBracketsService = {
@@ -69,7 +70,7 @@ describe('AdminService', () => {
         { provide: getRepositoryToken(TournamentOperator), useValue: mockOperatorsRepo },
         { provide: getRepositoryToken(WeightCategory), useValue: mockWeightCategoriesRepo },
         { provide: getRepositoryToken(TournamentEntry), useValue: mockEntriesRepo },
-        { provide: getRepositoryToken(User), useValue: mockUsersRepo },
+        { provide: UsersService, useValue: mockUsersService },
         { provide: BracketsService, useValue: mockBracketsService },
         { provide: getDataSourceToken(), useValue: mockDataSource },
       ],
@@ -170,7 +171,7 @@ describe('AdminService', () => {
   describe('assignOperator', () => {
     it('should throw NotFoundException if user email not found', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
-      mockUsersRepo.findOne.mockResolvedValue(null);
+      mockUsersService.findByEmail.mockResolvedValue(null);
       await expect(
         service.assignOperator('tournament-1', 'unknown@test.com', 'organizer-1'),
       ).rejects.toThrow(NotFoundException);
@@ -178,7 +179,7 @@ describe('AdminService', () => {
 
     it('should assign operator if user exists and not already assigned', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
-      mockUsersRepo.findOne.mockResolvedValue({ id: 'user-2', email: 'op@test.com' });
+      mockUsersService.findByEmail.mockResolvedValue({ id: 'user-2', email: 'op@test.com' });
       mockOperatorsRepo.findOne.mockResolvedValue(null);
       mockOperatorsRepo.create.mockReturnValue({
         tournamentId: 'tournament-1',

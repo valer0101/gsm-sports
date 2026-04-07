@@ -1,19 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useOperatorTournaments } from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function OperatorPage() {
+  const t = useTranslations('operator');
   const { data: tournaments, isLoading } = useOperatorTournaments();
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-black text-white">Панель оператора</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          Турниры, в которых вы назначены оператором
-        </p>
+        <h1 className="text-2xl font-black text-white">{t('title')}</h1>
       </div>
 
       {isLoading ? (
@@ -27,10 +26,7 @@ export default function OperatorPage() {
           className="rounded-2xl border border-white/10 p-12 text-center"
           style={{ backgroundColor: 'var(--color-secondary)' }}
         >
-          <p className="text-white font-semibold mb-1">Нет активных турниров</p>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Вас пока не назначили оператором ни на один турнир
-          </p>
+          <p className="text-white font-semibold mb-1">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">

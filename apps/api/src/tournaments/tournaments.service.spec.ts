@@ -7,6 +7,7 @@ import { TournamentsService } from './tournaments.service';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
 import { TournamentOperator } from './entities/tournament-operator.entity';
+import { BracketsService } from '../brackets/brackets.service';
 
 // QueryBuilder mock — chainable, returns self for builder methods
 const makeQb = (result: [Tournament[], number] = [[], 0]) => {
@@ -121,6 +122,7 @@ describe('TournamentsService', () => {
         { provide: getRepositoryToken(WeightCategory), useFactory: mockWeightCategoriesRepo },
         { provide: getRepositoryToken(TournamentOperator), useFactory: mockOperatorsRepo },
         { provide: DataSource, useFactory: mockDataSource },
+        { provide: BracketsService, useValue: { generateWithWeightBuckets: vi.fn() } },
       ],
     }).compile();
 

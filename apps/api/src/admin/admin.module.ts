@@ -2,22 +2,17 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
-import { Tournament } from '../tournaments/entities/tournament.entity';
-import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
-import { WeightCategory } from '../tournaments/entities/weight-category.entity';
-import { User } from '../users/entities/user.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
+import { TournamentsModule } from '../tournaments/tournaments.module';
+import { UsersModule } from '../users/users.module';
 import { BracketsModule } from '../brackets/brackets.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Tournament,
-      TournamentOperator,
-      WeightCategory,
-      User,
-      TournamentEntry,
-    ]),
+    // TournamentEntry is needed for direct query operations in AdminService
+    TypeOrmModule.forFeature([TournamentEntry]),
+    TournamentsModule,
+    UsersModule,
     BracketsModule,
   ],
   controllers: [AdminController],

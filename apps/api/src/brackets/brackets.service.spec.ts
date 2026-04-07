@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { BracketsService } from './brackets.service';
 import { Bracket } from './entities/bracket.entity';
@@ -85,6 +85,7 @@ describe('BracketsService', () => {
         { provide: TournamentsService, useFactory: mockTournamentsService },
         { provide: EntriesService, useFactory: mockEntriesService },
         { provide: EventsGateway, useValue: { emitBracketUpdate: vi.fn() } },
+        { provide: getDataSourceToken(), useValue: { getRepository: vi.fn(), transaction: vi.fn() } },
       ],
     }).compile();
 

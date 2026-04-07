@@ -12,29 +12,16 @@ import {
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
-import { IsEmail, IsString } from 'class-validator';
-
-class AssignOperatorDto {
-  @IsEmail()
-  email: string;
-}
-
-class RecordResultDto {
-  @IsString()
-  bracketId: string;
-
-  @IsString()
-  matchId: string;
-
-  @IsString()
-  winnerId: string;
-}
+import { AssignOperatorDto } from './dto/assign-operator.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles('admin', 'organizer')
 @Controller('v1/admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}

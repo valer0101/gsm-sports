@@ -1,6 +1,8 @@
 import {
   Injectable,
   Logger,
+  Inject,
+  forwardRef,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -8,12 +10,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { generateDoubleElimination } from '@gsm/bracket-engine';
-import type { Player } from '@gsm/bracket-engine';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
 import { TournamentOperator } from './entities/tournament-operator.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
+import { BracketsService } from '../brackets/brackets.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 
@@ -23,24 +24,6 @@ interface FindAllOptions {
   country?: string;
   page?: number;
   limit?: number;
-}
-
-// Standard arm wrestling weight buckets (kg)
-const WEIGHT_BUCKETS = [
-  { label: 'до 60 кг', min: null as number | null, max: 60 },
-  { label: 'до 70 кг', min: 60, max: 70 },
-  { label: 'до 80 кг', min: 70, max: 80 },
-  { label: 'до 90 кг', min: 80, max: 90 },
-  { label: 'свыше 90 кг', min: 90, max: null as number | null },
-];
-
-function getWeightBucket(weightKg: number) {
-  for (const bucket of WEIGHT_BUCKETS) {
-    const aboveMin = bucket.min === null || weightKg >= bucket.min;
-    const belowMax = bucket.max === null || weightKg < bucket.max;
-    if (aboveMin && belowMax) return bucket;
-  }
-  return WEIGHT_BUCKETS[WEIGHT_BUCKETS.length - 1];
 }
 
 @Injectable()
@@ -55,6 +38,8 @@ export class TournamentsService {
     @InjectRepository(TournamentOperator)
     private readonly operatorsRepository: Repository<TournamentOperator>,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => BracketsService))
+    private readonly bracketsService: BracketsService,
   ) {}
 
   // ─── Tournaments CRUD ────────────────────────────────────────────────────────
@@ -170,7 +155,7 @@ export class TournamentsService {
     options: { ageGroup?: string; hand?: string; page?: number; limit?: number } = {},
   ) {
     const { ageGroup, hand, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.dataSource
@@ -228,7 +213,7 @@ export class TournamentsService {
         }
       }
 
-      const entry = repo.create({
+      const newEntry = repo.create({
         tournamentId,
         userId,
         ageGroup: dto.ageGroup as any,
@@ -237,16 +222,18 @@ export class TournamentsService {
         notes: dto.notes ?? null,
         status: 'pending' as any,
       });
-      const saved = await repo.save(entry);
+      const saved = await repo.save(newEntry);
 
       this.logger.log(
         `User ${userId} registered for tournament ${tournamentId} [${dto.ageGroup}/${dto.hand}]`,
       );
 
-      return entryRepo.findOne({
+      const entry = await entryRepo.findOne({
         where: { id: (saved as any).id },
         relations: ['user', 'tournament'],
       });
+      if (!entry) throw new NotFoundException('Entry not found after creation');
+      return entry;
     });
   }
 
@@ -289,171 +276,9 @@ export class TournamentsService {
       throw new BadRequestException('Bracket has already been generated');
     }
 
-    const entryRepo = this.dataSource.getRepository(TournamentEntry);
-    const bracketRepo = this.dataSource.getRepository('brackets');
-
-    // Load all active entries with user data
-    const entries: any[] = await entryRepo
-      .createQueryBuilder('e')
-      .leftJoinAndSelect('e.user', 'user')
-      .where('e.tournamentId = :tournamentId', { tournamentId })
-      .andWhere('e.status IN (:...statuses)', { statuses: ['pending', 'confirmed'] })
-      .getMany();
-
-    if (entries.length < 2) {
-      throw new BadRequestException('At least 2 registered participants are required');
-    }
-
-    // Group entries by (ageGroup, hand, weightBucket)
-    const groups = new Map<
-      string,
-      { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] }
-    >();
-
-    for (const entry of entries) {
-      const bucket = getWeightBucket(Number(entry.weightKg ?? 80));
-      const key = `${entry.ageGroup}|${entry.hand}|${bucket.label}`;
-      if (!groups.has(key)) {
-        groups.set(key, { bucket, ageGroup: entry.ageGroup, hand: entry.hand, entries: [] });
-      }
-      groups.get(key)!.entries.push(entry);
-    }
-
-    // Merge categories with < 2 participants into the next heavier bucket
-    const mergedGroups = this.mergeSmallCategories(groups);
-
-    // Delete existing weight categories (re-generate)
-    await this.weightCategoriesRepository.delete({ tournamentId });
-
-    const brackets: any[] = [];
-
-    for (const [, group] of mergedGroups) {
-      if (group.entries.length < 2) continue;
-
-      // Create WeightCategory record
-      const ageLabel = this.ageGroupLabel(group.ageGroup);
-      const handLabel = group.hand === 'right' ? 'Правая' : 'Левая';
-      const catName = `${ageLabel} · ${group.bucket.label} · ${handLabel}`;
-
-      const category = await this.weightCategoriesRepository.save(
-        this.weightCategoriesRepository.create({
-          tournamentId,
-          name: catName,
-          minWeight: group.bucket.min,
-          maxWeight: group.bucket.max,
-          gender: 'male',
-        }),
-      );
-
-      // Link entries to this category and confirm them
-      for (const entry of group.entries) {
-        await entryRepo.update(entry.id, { weightCategoryId: category.id, status: 'confirmed' });
-      }
-
-      // Generate bracket
-      const players: Player[] = group.entries.map((entry, idx) => ({
-        id: entry.id,
-        firstName: entry.user?.firstName ?? 'Player',
-        lastName: entry.user?.lastName ?? String(idx + 1),
-        number: idx + 1,
-      }));
-
-      const bracketData = generateDoubleElimination(players);
-
-      const bracket = bracketRepo.create({
-        tournamentId,
-        weightCategoryId: category.id,
-        name: catName,
-        status: 'active',
-        bracketData: bracketData as unknown as Record<string, unknown>,
-      });
-      brackets.push(await bracketRepo.save(bracket));
-    }
-
-    if (brackets.length === 0) {
-      throw new BadRequestException(
-        'No categories with enough participants (minimum 2 per category)',
-      );
-    }
-
-    // Update tournament state
-    await this.tournamentsRepository.update(tournamentId, {
-      registrationOpen: false,
-      bracketGenerated: true,
-      status: 'bracket_ready',
-    });
-
-    this.logger.log(`Tournament ${tournamentId} closed: ${brackets.length} brackets generated`);
+    const bracketCount = await this.bracketsService.generateWithWeightBuckets(tournamentId);
+    this.logger.log(`Tournament ${tournamentId} closed: ${bracketCount} brackets generated`);
     return this.findById(tournamentId);
-  }
-
-  private mergeSmallCategories(
-    groups: Map<
-      string,
-      { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] }
-    >,
-  ) {
-    // Convert to sorted array (by weight bucket index), merge <2 participant groups
-    const sorted = Array.from(groups.entries()).sort(([, a], [, b]) => {
-      const ai = WEIGHT_BUCKETS.indexOf(a.bucket);
-      const bi = WEIGHT_BUCKETS.indexOf(b.bucket);
-      return ai - bi;
-    });
-
-    const result = new Map(sorted);
-    let changed = true;
-
-    while (changed) {
-      changed = false;
-      const keys = Array.from(result.keys());
-      for (let i = 0; i < keys.length; i++) {
-        const group = result.get(keys[i])!;
-        if (group.entries.length >= 2) continue;
-
-        // Find adjacent group with same ageGroup + hand to merge into
-        const nextKey = keys.find((k, j) => {
-          if (j <= i) return false;
-          const g = result.get(k)!;
-          return g.ageGroup === group.ageGroup && g.hand === group.hand;
-        });
-
-        if (nextKey) {
-          const nextGroup = result.get(nextKey)!;
-          nextGroup.entries.push(...group.entries);
-          result.delete(keys[i]);
-          changed = true;
-          break;
-        } else {
-          // Merge into previous
-          const prevKey = keys
-            .slice(0, i)
-            .reverse()
-            .find((k) => {
-              const g = result.get(k)!;
-              return g.ageGroup === group.ageGroup && g.hand === group.hand;
-            });
-          if (prevKey) {
-            result.get(prevKey)!.entries.push(...group.entries);
-            result.delete(keys[i]);
-            changed = true;
-            break;
-          }
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private ageGroupLabel(ageGroup: string): string {
-    switch (ageGroup) {
-      case 'juniors':
-        return 'Юниоры';
-      case 'veterans':
-        return 'Ветераны';
-      default:
-        return 'Взрослые';
-    }
   }
 
   // ─── Operators ──────────────────────────────────────────────────────────────

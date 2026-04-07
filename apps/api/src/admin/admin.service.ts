@@ -11,7 +11,7 @@ import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
-import { User } from '../users/entities/user.entity';
+import { UsersService } from '../users/users.service';
 import { BracketsService } from '../brackets/brackets.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
@@ -27,10 +27,9 @@ export class AdminService {
     private readonly operatorsRepository: Repository<TournamentOperator>,
     @InjectRepository(WeightCategory)
     private readonly weightCategoriesRepository: Repository<WeightCategory>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
     @InjectRepository(TournamentEntry)
     private readonly entriesRepository: Repository<TournamentEntry>,
+    private readonly usersService: UsersService,
     private readonly bracketsService: BracketsService,
     private readonly dataSource: DataSource,
   ) {}
@@ -130,7 +129,7 @@ export class AdminService {
     return this.getTournament(id, organizerId);
   }
 
-  /** Close registration AND generate brackets grouped by (ageGroup, hand) */
+  /** Close registration AND generate brackets grouped by (ageGroup, hand, weightBucket) */
   async closeAndGenerateBrackets(
     id: string,
     organizerId: string,
@@ -141,69 +140,7 @@ export class AdminService {
       throw new BadRequestException('Bracket already generated for this tournament');
     }
 
-    // Close registration
-    if (t.registrationOpen) {
-      await this.tournamentsRepository.update(id, {
-        registrationOpen: false,
-        status: 'registration_closed',
-      });
-    }
-
-    // Confirm all pending entries
-    await this.entriesRepository
-      .createQueryBuilder()
-      .update(TournamentEntry)
-      .set({ status: 'confirmed' as any })
-      .where('tournament_id = :id', { id })
-      .andWhere('status = :status', { status: 'pending' })
-      .execute();
-
-    // Get distinct (ageGroup, hand) groups
-    const groups: { ageGroup: string; hand: string }[] = await this.entriesRepository
-      .createQueryBuilder('e')
-      .select(['e.ageGroup AS "ageGroup"', 'e.hand AS hand'])
-      .where('e.tournamentId = :id', { id })
-      .andWhere('e.status = :status', { status: 'confirmed' })
-      .groupBy('e.ageGroup, e.hand')
-      .getRawMany();
-
-    if (groups.length === 0) {
-      // Fallback: one bracket for everyone
-      groups.push({ ageGroup: '', hand: '' });
-    }
-
-    const AGE_LABELS: Record<string, string> = {
-      juniors: 'Юниоры',
-      adults: 'Взрослые',
-      veterans: 'Ветераны',
-    };
-    const HAND_LABELS: Record<string, string> = { right: 'Правая', left: 'Левая' };
-
-    let bracketsCreated = 0;
-    for (const group of groups) {
-      const label = [
-        AGE_LABELS[group.ageGroup] ?? group.ageGroup,
-        HAND_LABELS[group.hand] ?? group.hand,
-      ]
-        .filter(Boolean)
-        .join(' / ');
-
-      try {
-        await this.bracketsService.generateForGroup(
-          { tournamentId: id, ageGroup: group.ageGroup, hand: group.hand, name: label },
-          organizerId,
-        );
-        bracketsCreated++;
-      } catch (err: any) {
-        this.logger.warn(`Bracket skipped [${label}]: ${err.message}`);
-      }
-    }
-
-    await this.tournamentsRepository.update(id, {
-      bracketGenerated: true,
-      status: 'bracket_ready',
-    });
-
+    const bracketsCreated = await this.bracketsService.generateWithWeightBuckets(id);
     this.logger.log(`Tournament ${id}: ${bracketsCreated} bracket(s) generated`);
     return { bracketsCreated };
   }
@@ -218,7 +155,7 @@ export class AdminService {
     // Enrich with user info
     return Promise.all(
       ops.map(async (op) => {
-        const user = await this.usersRepository.findOne({ where: { id: op.operatorId } });
+        const user = await this.usersService.findById(op.operatorId);
         return {
           ...op,
           user: user
@@ -233,7 +170,7 @@ export class AdminService {
   async assignOperator(tournamentId: string, email: string, organizerId: string) {
     await this.getTournament(tournamentId, organizerId);
 
-    const user = await this.usersRepository.findOne({ where: { email } });
+    const user = await this.usersService.findByEmail(email);
     if (!user) throw new NotFoundException(`User with email ${email} not found`);
 
     const exists = await this.operatorsRepository.findOne({

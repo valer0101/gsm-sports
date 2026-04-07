@@ -291,7 +291,7 @@ export default function NewTournamentPage() {
               onChange={handleChange}
               required
               placeholder="Чемпионат Армении 2026"
-              className="inp"
+              className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
             />
           </Field>
           <Field label="Вид спорта *">
@@ -301,7 +301,7 @@ export default function NewTournamentPage() {
               onChange={handleChange}
               required
               disabled={sportsLoading}
-              className="inp"
+              className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               style={{ backgroundColor: 'var(--color-bg)' }}
             >
               <option value="">
@@ -327,7 +327,7 @@ export default function NewTournamentPage() {
                 onChange={handleChange}
                 required
                 min={nowStr}
-                className="inp"
+                className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               />
             </Field>
             <Field label="Дата окончания">
@@ -349,7 +349,7 @@ export default function NewTournamentPage() {
                 value={form.city}
                 onChange={handleChange}
                 placeholder="Ереван"
-                className="inp"
+                className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               />
             </Field>
             <Field label="Страна">
@@ -358,7 +358,7 @@ export default function NewTournamentPage() {
                 value={form.country}
                 onChange={handleChange}
                 placeholder="Армения"
-                className="inp"
+                className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               />
             </Field>
           </div>
@@ -369,7 +369,7 @@ export default function NewTournamentPage() {
               onChange={handleChange}
               required
               placeholder="Спортивный комплекс «Арена»"
-              className="inp"
+              className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
             />
           </Field>
           <Field label="Макс. участников">
@@ -380,7 +380,7 @@ export default function NewTournamentPage() {
               onChange={handleChange}
               min={2}
               placeholder="64"
-              className="inp"
+              className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
             />
           </Field>
           <Field label="Описание (рус.)">
@@ -586,7 +586,7 @@ export default function NewTournamentPage() {
                   value={entryFeeDesc}
                   onChange={(e) => setEntryFeeDesc(e.target.value)}
                   placeholder="Оплата на месте, наличными"
-                  className="inp"
+                  className="w-full px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
                 />
               </Field>
             </div>
@@ -703,21 +703,7 @@ export default function NewTournamentPage() {
         </div>
       </form>
 
-      <style jsx>{`
-        .inp {
-          width: 100%;
-          padding: 0.625rem 1rem;
-          border-radius: 0.75rem;
-          background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: white;
-          outline: none;
-          transition: border-color 0.15s;
-        }
-        .inp:focus {
-          border-color: var(--color-accent);
-        }
-      `}</style>
+
     </div>
   );
 }
