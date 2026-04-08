@@ -5,6 +5,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +21,7 @@ export class EntriesService {
   constructor(
     @InjectRepository(TournamentEntry)
     private readonly entriesRepository: Repository<TournamentEntry>,
+    @Inject(forwardRef(() => TournamentsService))
     private readonly tournamentsService: TournamentsService,
   ) {}
 
