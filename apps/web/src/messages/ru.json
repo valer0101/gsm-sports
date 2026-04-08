@@ -165,7 +165,11 @@
     "has_account": "Уже есть аккаунт?",
     "go_login": "Войти",
     "error_invalid": "Неверный логин или пароль",
-    "error_register": "Ошибка регистрации"
+    "error_register": "Ошибка регистрации",
+    "field_required": "Обязательное поле",
+    "error_invalid_email": "Некорректный email",
+    "error_password_min": "Минимум 8 символов",
+    "error_passwords_mismatch": "Пароли не совпадают"
   },
   "admin": {
     "title": "Панель администратора",
@@ -224,7 +228,8 @@
     "operator_email_placeholder": "email оператора",
     "assign_btn": "Назначить",
     "assign_error": "Ошибка назначения оператора",
-    "view_public": "Открыть публичную страницу →"
+    "view_public": "Открыть публичную страницу →",
+    "error": "Ошибка"
   },
   "operator_tournament": {
     "no_bracket": "Сетка ещё не сформирована",
@@ -243,7 +248,8 @@
     "no_matches": "Нет активных матчей",
     "confirm": "Подтвердить",
     "cancel": "Отмена",
-    "winner_result": "Победитель: {name}"
+    "winner_result": "Победитель: {name}",
+    "error": "Ошибка"
   },
   "register_modal": {
     "age_juniors": "Юниоры (до 18)",

@@ -8,12 +8,18 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+// Map MIME type to safe extension — never trust client-supplied filename/extension
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 @ApiTags('upload')
@@ -28,12 +34,13 @@ export class UploadController {
       storage: diskStorage({
         destination: join(process.cwd(), 'uploads'),
         filename: (_req, file, cb) => {
-          cb(null, `${uuidv4()}${extname(file.originalname)}`);
+          const safeExt = MIME_TO_EXT[file.mimetype] ?? '.bin';
+          cb(null, `${uuidv4()}${safeExt}`);
         },
       }),
       limits: { fileSize: MAX_SIZE },
       fileFilter: (_req, file, cb) => {
-        if (!ALLOWED_MIME.includes(file.mimetype)) {
+        if (!MIME_TO_EXT[file.mimetype]) {
           return cb(new BadRequestException('Only JPEG, PNG, WebP, GIF images are allowed'), false);
         }
         cb(null, true);

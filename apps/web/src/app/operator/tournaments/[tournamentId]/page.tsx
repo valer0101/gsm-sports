@@ -281,7 +281,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
               </div>
               {record.error && (
                 <p className="mt-2 text-xs text-red-400">
-                  {(record.error as any)?.response?.data?.message ?? 'Ошибка'}
+                  {(record.error as any)?.response?.data?.message ?? t('error')}
                 </p>
               )}
             </div>

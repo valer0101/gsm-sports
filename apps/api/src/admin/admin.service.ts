@@ -99,7 +99,8 @@ export class AdminService {
     if (t.bracketGenerated) {
       throw new BadRequestException('Cannot edit tournament after bracket has been generated');
     }
-    await this.tournamentsRepository.update(id, dto as any);
+    const { weightCategories: _wc, ...updateFields } = dto as any;
+    await this.tournamentsRepository.update(id, updateFields);
     return this.getTournament(id, organizerId);
   }
 
@@ -198,10 +199,7 @@ export class AdminService {
 
   /** Get participant count for a tournament */
   async getParticipantCount(tournamentId: string): Promise<number> {
-    const result = await this.dataSource
-      .getRepository('tournament_entries')
-      .count({ where: { tournamentId, status: 'confirmed' } } as any);
-    return result;
+    return this.entriesRepository.count({ where: { tournamentId, status: 'confirmed' } });
   }
 
   private slugify(text: string): string {

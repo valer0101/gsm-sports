@@ -14,6 +14,6 @@ import { BracketsModule } from '../brackets/brackets.module';
   ],
   controllers: [TournamentsController],
   providers: [TournamentsService],
-  exports: [TournamentsService, TypeOrmModule],
+  exports: [TournamentsService],
 })
 export class TournamentsModule {}

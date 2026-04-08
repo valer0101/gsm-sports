@@ -31,7 +31,7 @@ const WEIGHT_PRESETS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110];
 
 function buildWeightCategories(selected: number[], hasPlus: boolean, custom: string) {
   const sorted = [...selected].sort((a, b) => a - b);
-  const result = sorted.map((kg, idx) => ({
+  const result: { name: string; minWeight: number | null; maxWeight: number | null; sortOrder: number }[] = sorted.map((kg, idx) => ({
     name: `${kg} кг`,
     minWeight: idx === 0 ? null : sorted[idx - 1],
     maxWeight: kg,

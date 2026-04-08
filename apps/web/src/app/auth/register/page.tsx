@@ -9,25 +9,32 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 
-const schema = z
-  .object({
-    firstName: z.string().min(1, 'Обязательное поле'),
-    lastName: z.string().min(1, 'Обязательное поле'),
-    email: z.string().email('Некорректный email'),
-    phone: z.string().optional(),
-    password: z.string().min(8, 'Минимум 8 символов'),
-    confirmPassword: z.string().min(1, 'Обязательное поле'),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: 'Пароли не совпадают',
-    path: ['confirmPassword'],
-  });
-
-type FormData = z.infer<typeof schema>;
+type FormData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  confirmPassword: string;
+};
 
 export default function RegisterPage() {
   const t = useTranslations('auth');
   const router = useRouter();
+
+  const schema = z
+    .object({
+      firstName: z.string().min(1, t('field_required')),
+      lastName: z.string().min(1, t('field_required')),
+      email: z.string().email(t('error_invalid_email')),
+      phone: z.string().optional(),
+      password: z.string().min(8, t('error_password_min')),
+      confirmPassword: z.string().min(1, t('field_required')),
+    })
+    .refine((d) => d.password === d.confirmPassword, {
+      message: t('error_passwords_mismatch'),
+      path: ['confirmPassword'],
+    });
 
   const {
     register,

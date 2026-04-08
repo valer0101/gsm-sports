@@ -165,7 +165,11 @@
     "has_account": "Արդեն ունե՞ք հաշիվ:",
     "go_login": "Մուտք",
     "error_invalid": "Սխալ մուտք կամ գաղտնաբառ",
-    "error_register": "Գրանցման սխալ"
+    "error_register": "Գրանցման սխալ",
+    "field_required": "Պարտադիր դաշտ",
+    "error_invalid_email": "Անվավեր email",
+    "error_password_min": "Նվազագույնը 8 նիշ",
+    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում"
   },
   "admin": {
     "title": "Ադմինի վահանակ",
@@ -238,7 +242,8 @@
     "operator_email_placeholder": "операторы эл. почта",
     "assign_btn": "Нышанакел",
     "assign_error": "Операторы нышанакуме чи хаjогецав",
-    "view_public": "Бацель хамаины эдже →"
+    "view_public": "Бацель хамаины эдже →",
+    "error": "Սխալ"
   },
   "operator_tournament": {
     "no_bracket": "Цанцне дер чи дзеваворвел",
@@ -257,7 +262,8 @@
     "no_matches": "Актив матчер чка",
     "confirm": "Хастателу",
     "cancel": "Чегаркел",
-    "winner_result": "Хетастох: {name}"
+    "winner_result": "Хетастох: {name}",
+    "error": "Սխալ"
   },
   "register_modal": {
     "age_juniors": "Джуниорнер (18-ы мутк)",

@@ -165,7 +165,11 @@
     "has_account": "Already have an account?",
     "go_login": "Sign In",
     "error_invalid": "Invalid login or password",
-    "error_register": "Registration failed"
+    "error_register": "Registration failed",
+    "field_required": "Required field",
+    "error_invalid_email": "Invalid email address",
+    "error_password_min": "Minimum 8 characters",
+    "error_passwords_mismatch": "Passwords do not match"
   },
   "admin": {
     "title": "Admin Panel",
@@ -224,7 +228,8 @@
     "operator_email_placeholder": "operator email",
     "assign_btn": "Assign",
     "assign_error": "Failed to assign operator",
-    "view_public": "View public page →"
+    "view_public": "View public page →",
+    "error": "Error"
   },
   "operator_tournament": {
     "no_bracket": "Bracket not generated yet",
@@ -243,7 +248,8 @@
     "no_matches": "No active matches",
     "confirm": "Confirm",
     "cancel": "Cancel",
-    "winner_result": "Winner: {name}"
+    "winner_result": "Winner: {name}",
+    "error": "Error"
   },
   "register_modal": {
     "age_juniors": "Juniors (under 18)",

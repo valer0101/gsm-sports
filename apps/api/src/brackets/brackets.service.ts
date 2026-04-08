@@ -174,7 +174,7 @@ export class BracketsService {
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.user', 'user')
       .where('e.tournamentId = :tournamentId', { tournamentId })
-      .andWhere('e.status IN (:...statuses)', { statuses: ['pending', 'confirmed'] })
+      .andWhere('e.status IN (:...statuses)', { statuses: ['confirmed'] })
       .getMany();
 
     if (entries.length < 2) {

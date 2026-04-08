@@ -176,7 +176,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             )}
             {generateBrackets.error && (
               <p className="mt-2 text-red-400 text-sm">
-                {(generateBrackets.error as any)?.response?.data?.message ?? 'Ошибка'}
+                {(generateBrackets.error as any)?.response?.data?.message ?? t('error')}
               </p>
             )}
           </div>

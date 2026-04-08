@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,17 +10,25 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 
-const schema = z.object({
-  login: z.string().min(1, 'Обязательное поле'),
-  password: z.string().min(1, 'Обязательное поле'),
-});
-
-type FormData = z.infer<typeof schema>;
+type FormData = { login: string; password: string };
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const schema = z.object({
+    login: z.string().min(1, t('field_required')),
+    password: z.string().min(1, t('field_required')),
+  });
 
   const {
     register,
