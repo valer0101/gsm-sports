@@ -4,6 +4,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -111,6 +113,7 @@ export class BracketsService {
     private readonly bracketsRepository: Repository<Bracket>,
     @InjectRepository(TournamentOperator)
     private readonly operatorsRepository: Repository<TournamentOperator>,
+    @Inject(forwardRef(() => TournamentsService))
     private readonly tournamentsService: TournamentsService,
     private readonly entriesService: EntriesService,
     private readonly eventsGateway: EventsGateway,
