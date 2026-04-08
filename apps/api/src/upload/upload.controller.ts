@@ -10,7 +10,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 
 // Map MIME type to safe extension — never trust client-supplied filename/extension
@@ -24,7 +24,7 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 @ApiTags('upload')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 @Controller('v1/upload')
 export class UploadController {
   @Post('image')

@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminPage() {
   const t = useTranslations('admin');
-  const { data: tournaments, isLoading } = useAdminTournaments();
+  const { data: tournaments, isLoading, isError } = useAdminTournaments();
   const deleteMutation = useDeleteTournament();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -56,6 +56,10 @@ export default function AdminPage() {
             <Skeleton key={i} className="h-20 w-full rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-center py-12" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('error')}
+        </p>
       ) : !tournaments?.length ? (
         <div
           className="rounded-2xl border border-white/10 p-12 text-center"

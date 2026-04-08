@@ -193,11 +193,14 @@
     "status_bracket_ready": "Bracket ready",
     "status_active": "Active",
     "status_completed": "Completed",
-    "status_cancelled": "Cancelled"
+    "status_cancelled": "Cancelled",
+    "error": "Failed to load tournaments"
   },
   "operator": {
     "title": "Operator Panel",
-    "empty": "No active tournaments"
+    "empty": "No active tournaments",
+    "bracket_ready": "Bracket ready",
+    "error": "Failed to load tournaments"
   },
   "admin_tournament": {
     "not_found": "Tournament not found.",

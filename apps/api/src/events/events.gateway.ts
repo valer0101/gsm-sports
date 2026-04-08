@@ -10,6 +10,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import type { BracketData } from '@gsm/bracket-engine';
 
 @WebSocketGateway({
@@ -25,12 +27,36 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
   private logger = new Logger(EventsGateway.name);
 
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
+
   afterInit() {
     this.logger.log('WebSocket Gateway initialized (/brackets)');
   }
 
   handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+    const token =
+      client.handshake.auth?.token ??
+      client.handshake.headers?.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      this.logger.warn(`Unauthenticated connection rejected: ${client.id}`);
+      client.disconnect(true);
+      return;
+    }
+
+    try {
+      const secret =
+        this.configService.get<string>('JWT_ACCESS_SECRET') ?? 'dev-access-secret-change-in-prod';
+      const payload = this.jwtService.verify(token, { secret });
+      (client as any).user = payload;
+      this.logger.log(`Client connected: ${client.id} (user ${payload.sub})`);
+    } catch {
+      this.logger.warn(`Invalid token, connection rejected: ${client.id}`);
+      client.disconnect(true);
+    }
   }
 
   handleDisconnect(client: Socket) {

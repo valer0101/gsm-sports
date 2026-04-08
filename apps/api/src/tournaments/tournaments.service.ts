@@ -207,7 +207,11 @@ export class TournamentsService {
       }
 
       if (tournament.maxParticipants) {
-        const count = await repo.count({ where: { tournamentId, status: 'confirmed' } });
+        const count = await repo
+          .createQueryBuilder('e')
+          .where('e.tournamentId = :tournamentId', { tournamentId })
+          .andWhere('e.status != :withdrawn', { withdrawn: 'withdrawn' })
+          .getCount();
         if (count >= tournament.maxParticipants) {
           throw new BadRequestException('Tournament is full');
         }

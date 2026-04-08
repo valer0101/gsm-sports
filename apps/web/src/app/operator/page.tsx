@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function OperatorPage() {
   const t = useTranslations('operator');
-  const { data: tournaments, isLoading } = useOperatorTournaments();
+  const { data: tournaments, isLoading, isError } = useOperatorTournaments();
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
@@ -21,6 +21,10 @@ export default function OperatorPage() {
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-center py-12" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('error')}
+        </p>
       ) : !tournaments?.length ? (
         <div
           className="rounded-2xl border border-white/10 p-12 text-center"
@@ -30,24 +34,24 @@ export default function OperatorPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {tournaments.map((t) => (
+          {tournaments.map((tour) => (
             <Link
-              key={t.id}
-              href={`/operator/tournaments/${t.id}`}
+              key={tour.id}
+              href={`/operator/tournaments/${tour.id}`}
               className="flex items-center justify-between rounded-2xl border border-white/10 p-5 hover:border-white/20 transition-colors"
               style={{ backgroundColor: 'var(--color-secondary)' }}
             >
               <div>
-                <p className="font-bold text-white">{t.name}</p>
+                <p className="font-bold text-white">{tour.name}</p>
                 <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {[t.city, t.country].filter(Boolean).join(', ')} ·{' '}
-                  {new Date(t.startDate).toLocaleDateString('ru-RU')}
+                  {[tour.city, tour.country].filter(Boolean).join(', ')} ·{' '}
+                  {new Date(tour.startDate).toLocaleDateString('ru-RU')}
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                {t.bracketGenerated && (
+                {tour.bracketGenerated && (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-400">
-                    Сетка готова
+                    {t('bracket_ready')}
                   </span>
                 )}
                 <svg

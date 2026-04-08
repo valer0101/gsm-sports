@@ -193,11 +193,14 @@
     "status_bracket_ready": "Ցանցը պատրաստ է",
     "status_active": "Ակտիվ",
     "status_completed": "Ավարտված",
-    "status_cancelled": "Չեղարկված"
+    "status_cancelled": "Չեղարկված",
+    "error": "Մրցաշարերի բեռնումը ձախողվեց"
   },
   "operator": {
     "title": "Օպերատորի վահանակ",
-    "empty": "Ակտիվ մրցաշարեր չկան"
+    "empty": "Ակտիվ մրցաշարեր չկան",
+    "bracket_ready": "Ցանցը պատրաստ է",
+    "error": "Մրցաշարերի բեռնումը ձախողվեց"
   },
   "common": {
     "loading": "Բեռնում...",

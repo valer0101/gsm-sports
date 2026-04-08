@@ -59,7 +59,7 @@ export class TournamentEntry {
   hand: string | null; // 'left' | 'right' — for armwrestling
 
   // Weight provided by user at registration; used for auto-categorization on bracket generation
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ name: 'weight_kg', type: 'decimal', precision: 5, scale: 2, nullable: true })
   weightKg: number | null;
 
   @Column({ type: 'int', nullable: true })

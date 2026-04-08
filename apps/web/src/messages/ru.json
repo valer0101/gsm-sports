@@ -193,11 +193,14 @@
     "status_bracket_ready": "Сетка готова",
     "status_active": "Активный",
     "status_completed": "Завершён",
-    "status_cancelled": "Отменён"
+    "status_cancelled": "Отменён",
+    "error": "Ошибка загрузки турниров"
   },
   "operator": {
     "title": "Панель оператора",
-    "empty": "Нет активных турниров"
+    "empty": "Нет активных турниров",
+    "bracket_ready": "Сетка готова",
+    "error": "Ошибка загрузки турниров"
   },
   "admin_tournament": {
     "not_found": "Турнир не найден.",

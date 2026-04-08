@@ -7,6 +7,7 @@ import {
   IsUrl,
   MaxLength,
   Min,
+  IsNumber,
   IsUUID,
   IsObject,
   IsArray,
@@ -14,10 +15,24 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class WeightCategoryInput {
-  @IsString() name: string;
-  @IsOptional() minWeight?: number | null;
-  @IsOptional() maxWeight?: number | null;
-  @IsOptional() sortOrder?: number;
+  @ApiProperty({ example: 'до 70 кг' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 60, required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  minWeight?: number | null;
+
+  @ApiProperty({ example: 70, required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  maxWeight?: number | null;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
 }
 
 export class CreateTournamentDto {
