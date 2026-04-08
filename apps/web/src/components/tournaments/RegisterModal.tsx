@@ -25,14 +25,11 @@ const PRIZE_EMOJI: Record<string, string> = {
   custom: '🎁',
 };
 
-const AGE_GROUP_LABELS: Record<string, string> = {
-  juniors: 'Юниоры (до 18)',
-  adults: 'Взрослые',
-  veterans: 'Ветераны (40+)',
-};
+// Labels resolved via i18n inside the component
 
 export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
   const t = useTranslations('tournaments');
+  const tm = useTranslations('register_modal');
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('age_group');
@@ -48,23 +45,29 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
   const prizes: any[] = cfg.prizes ?? [];
   const entryFee = cfg.entryFee;
 
+  const ageGroupLabelMap: Record<string, string> = {
+    juniors: tm('age_juniors'),
+    adults: tm('age_adults'),
+    veterans: tm('age_veterans'),
+  };
+
   const ageGroupOptions =
     configuredAgeGroups.length > 0
-      ? configuredAgeGroups.map((v) => ({ value: v, label: AGE_GROUP_LABELS[v] ?? v }))
+      ? configuredAgeGroups.map((v) => ({ value: v, label: ageGroupLabelMap[v] ?? v }))
       : [
-          { value: 'juniors', label: 'Юниоры (до 18)' },
-          { value: 'adults', label: 'Взрослые' },
-          { value: 'veterans', label: 'Ветераны (40+)' },
+          { value: 'juniors', label: tm('age_juniors') },
+          { value: 'adults', label: tm('age_adults') },
+          { value: 'veterans', label: tm('age_veterans') },
         ];
 
   // Hand options — add "both" if both hands are configured
   const hasRight = configuredHands.includes('right');
   const hasLeft = configuredHands.includes('left');
   const handOptions: { value: HandChoice; label: string; emoji: string }[] = [
-    ...(hasRight ? [{ value: 'right' as HandChoice, label: 'Правая', emoji: '🤜' }] : []),
-    ...(hasLeft ? [{ value: 'left' as HandChoice, label: 'Левая', emoji: '🤛' }] : []),
+    ...(hasRight ? [{ value: 'right' as HandChoice, label: tm('hand_right'), emoji: '🤜' }] : []),
+    ...(hasLeft ? [{ value: 'left' as HandChoice, label: tm('hand_left'), emoji: '🤛' }] : []),
     ...(hasRight && hasLeft
-      ? [{ value: 'both' as HandChoice, label: 'Обе руки', emoji: '🤜🤛' }]
+      ? [{ value: 'both' as HandChoice, label: tm('hand_both'), emoji: '🤜🤛' }]
       : []),
   ];
 
@@ -171,7 +174,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/10"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                👤 {configuredAgeGroups.map((a) => AGE_GROUP_LABELS[a] ?? a).join(', ')}
+                👤 {configuredAgeGroups.map((a) => ageGroupLabelMap[a] ?? a).join(', ')}
               </span>
             )}
             {(hasRight || hasLeft) && (
@@ -179,7 +182,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/10"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                {hasRight && hasLeft ? '🤜🤛 Обе руки' : hasRight ? '🤜 Правая' : '🤛 Левая'}
+                {hasRight && hasLeft ? tm('hand_both_chip') : hasRight ? tm('hand_right_chip') : tm('hand_left_chip')}
               </span>
             )}
             {entryFee && (
@@ -190,8 +193,10 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 }}
               >
                 {entryFee.type === 'free'
-                  ? '🎁 Бесплатно'
-                  : `💰 ${entryFee.amount ? entryFee.amount.toLocaleString() + ' AMD' : 'Платный'}`}
+                  ? tm('entry_free')
+                  : entryFee.amount
+                    ? tm('entry_paid', { amount: entryFee.amount.toLocaleString() })
+                    : tm('entry_paid_no_amount')}
               </span>
             )}
           </div>
@@ -200,7 +205,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
           {prizes.length > 0 && (
             <div className="mb-5 p-3 rounded-xl border border-yellow-500/20 bg-yellow-500/5">
               <p className="text-xs font-semibold text-yellow-300 uppercase tracking-wider mb-2">
-                🏆 Призовой фонд
+                {tm('prizes_title')}
               </p>
               <div className="space-y-1.5">
                 {prizes.map((prize, idx) => (
@@ -290,7 +295,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                     <span className="text-2xl">{h.emoji}</span>
                     <span className="font-medium text-sm">{h.label}</span>
                     {h.value === 'both' && (
-                      <span className="text-xs opacity-50">2 регистрации</span>
+                      <span className="text-xs opacity-50">{tm('hand_both_note')}</span>
                     )}
                   </button>
                 ))}
@@ -300,7 +305,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 className="mt-3 text-sm hover:text-white transition-colors"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                ← Назад
+                {tm('back')}
               </button>
             </div>
           )}
@@ -308,9 +313,9 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
           {/* ─── Step 3: Weight ─── */}
           {step === 'weight' && (
             <div>
-              <p className="font-semibold text-white mb-1">Выберите весовую категорию</p>
+              <p className="font-semibold text-white mb-1">{tm('select_weight')}</p>
               <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                Выберите категорию, в которой будете выступать
+                {tm('select_weight_desc')}
               </p>
 
               {/* Weight category buttons */}
@@ -337,14 +342,14 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                         }}
                       >
                         <span className="text-lg font-black">{weightKg}</span>
-                        <span className="text-xs opacity-60">кг</span>
+                        <span className="text-xs opacity-60">{tm('kg')}</span>
                       </button>
                     );
                   })}
                 </div>
               ) : (
                 <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                  Весовые категории не заданы
+                  {tm('no_weight_categories')}
                 </p>
               )}
 
@@ -354,25 +359,25 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
               >
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Возраст</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_age')}</span>
                   <span className="text-white font-medium">
-                    {ageGroup ? (AGE_GROUP_LABELS[ageGroup] ?? ageGroup) : '—'}
+                    {ageGroup ? (ageGroupLabelMap[ageGroup] ?? ageGroup) : '—'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Рука</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_hand')}</span>
                   <span className="text-white font-medium">
                     {hand === 'right'
-                      ? 'Правая 🤜'
+                      ? tm('hand_right_summary')
                       : hand === 'left'
-                        ? 'Левая 🤛'
+                        ? tm('hand_left_summary')
                         : hand === 'both'
-                          ? 'Обе 🤜🤛'
+                          ? tm('hand_both_summary')
                           : '—'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Категория</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_category')}</span>
                   <span
                     className="font-semibold"
                     style={{
@@ -397,10 +402,10 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
               >
                 {isPending
-                  ? 'Регистрация...'
+                  ? t('registering')
                   : hand === 'both'
-                    ? 'Зарегистрироваться на обе руки'
-                    : 'Подтвердить регистрацию'}
+                    ? tm('register_both')
+                    : t('confirm_register')}
               </button>
 
               <button
@@ -408,7 +413,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 className="mt-3 w-full text-sm hover:text-white transition-colors"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                ← Назад
+                {tm('back')}
               </button>
             </div>
           )}

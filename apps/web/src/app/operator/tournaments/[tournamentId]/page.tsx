@@ -2,6 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useOperatorBrackets, useRecordResult } from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { Bracket, BracketMatch } from '@/types/api';
@@ -12,6 +13,7 @@ export default function OperatorTournamentPage({
   params: Promise<{ tournamentId: string }>;
 }) {
   const { tournamentId } = use(params);
+  const t = useTranslations('operator_tournament');
   const { data: brackets, isLoading } = useOperatorBrackets(tournamentId);
   const [selectedBracketIdx, setSelectedBracketIdx] = useState(0);
 
@@ -27,16 +29,16 @@ export default function OperatorTournamentPage({
   if (!brackets?.length) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-10 text-center">
-        <p className="text-white mb-2 font-semibold">Сетка ещё не сформирована</p>
+        <p className="text-white mb-2 font-semibold">{t('no_bracket')}</p>
         <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-          Дождитесь, пока администратор сформирует сетку
+          {t('no_bracket_desc')}
         </p>
         <Link
           href="/operator"
           className="underline text-sm"
           style={{ color: 'var(--color-text-secondary)' }}
         >
-          ← Назад
+          {t('back')}
         </Link>
       </div>
     );
@@ -51,10 +53,10 @@ export default function OperatorTournamentPage({
         className="inline-flex items-center gap-2 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        ← Мои турниры
+        {t('my_tournaments')}
       </Link>
 
-      <h1 className="text-xl font-black text-white mb-4">Ввод результатов</h1>
+      <h1 className="text-xl font-black text-white mb-4">{t('title')}</h1>
 
       {/* Category tabs */}
       {brackets.length > 1 && (
@@ -75,7 +77,7 @@ export default function OperatorTournamentPage({
                   idx === selectedBracketIdx ? 'var(--color-accent-dim)' : 'transparent',
               }}
             >
-              {b.weightCategory?.name ?? `Категория ${idx + 1}`}
+              {b.weightCategory?.name ?? t('category', { n: idx + 1 })}
             </button>
           ))}
         </div>
@@ -87,6 +89,7 @@ export default function OperatorTournamentPage({
 }
 
 function MatchList({ bracket }: { bracket: Bracket }) {
+  const t = useTranslations('operator_tournament');
   const record = useRecordResult(bracket.id);
   const [confirm, setConfirm] = useState<{
     matchId: string;
@@ -97,7 +100,6 @@ function MatchList({ bracket }: { bracket: Bracket }) {
 
   const bd = bracket.bracketData;
 
-  // Collect pending matches from WB + LB + Grand Final
   const pendingMatches: (BracketMatch & { sectionLabel: string })[] = [];
 
   const isTBD = (id: string) => id === 'tbd' || id === 'bye';
@@ -110,22 +112,22 @@ function MatchList({ bracket }: { bracket: Bracket }) {
 
   bd.winnersBracket.forEach((round, ri) => {
     round.forEach((m) => {
-      if (isPlayable(m)) pendingMatches.push({ ...m, sectionLabel: `WB Раунд ${ri + 1}` });
+      if (isPlayable(m)) pendingMatches.push({ ...m, sectionLabel: t('wb_round', { n: ri + 1 }) });
     });
   });
 
   bd.losersBracket.forEach((round, ri) => {
     round.forEach((m) => {
-      if (isPlayable(m)) pendingMatches.push({ ...m, sectionLabel: `LB Раунд ${ri + 1}` });
+      if (isPlayable(m)) pendingMatches.push({ ...m, sectionLabel: t('lb_round', { n: ri + 1 }) });
     });
   });
 
   if (isPlayable(bd.grandFinal as BracketMatch)) {
-    pendingMatches.push({ ...(bd.grandFinal as BracketMatch), sectionLabel: 'Гранд-финал' });
+    pendingMatches.push({ ...(bd.grandFinal as BracketMatch), sectionLabel: t('grand_final') });
   }
 
   if (bd.superFinal.needed !== false && isPlayable(bd.superFinal as BracketMatch)) {
-    pendingMatches.push({ ...(bd.superFinal as BracketMatch), sectionLabel: 'Супер-финал' });
+    pendingMatches.push({ ...(bd.superFinal as BracketMatch), sectionLabel: t('super_final') });
   }
 
   function playerName(p: BracketMatch['player1']) {
@@ -138,7 +140,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
       { matchId: confirm.matchId, winnerId: confirm.winnerId },
       {
         onSuccess: () => {
-          setLastResult(`Победитель: ${confirm.winnerName}`);
+          setLastResult(t('winner_result', { name: confirm.winnerName }));
           setConfirm(null);
           setTimeout(() => setLastResult(null), 3000);
         },
@@ -158,7 +160,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
           {champ ? `${champ.firstName} ${champ.lastName}` : bd.champion}
         </p>
         <p className="text-sm mt-1" style={{ color: '#fbbf24' }}>
-          Чемпион турнира!
+          {t('champion_label')}
         </p>
       </div>
     );
@@ -167,7 +169,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
   if (pendingMatches.length === 0) {
     return (
       <p className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
-        Нет активных матчей
+        {t('no_matches')}
       </p>
     );
   }
@@ -217,7 +219,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
               </p>
               <p className="font-bold text-white text-lg leading-tight">{match.player1.lastName}</p>
               <p className="text-xs mt-2 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                Победил
+                {t('winner_btn')}
               </p>
             </button>
 
@@ -244,7 +246,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
               </p>
               <p className="font-bold text-white text-lg leading-tight">{match.player2.lastName}</p>
               <p className="text-xs mt-2 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                Победил
+                {t('winner_btn')}
               </p>
             </button>
           </div>
@@ -254,7 +256,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
             <div className="px-4 pb-4">
               <div className="rounded-xl p-3 bg-white/5 border border-white/10 flex items-center justify-between gap-3">
                 <p className="text-sm text-white">
-                  Победитель:{' '}
+                  {t('winner_label')}{' '}
                   <span className="font-bold" style={{ color: 'var(--color-accent)' }}>
                     {confirm.winnerName}
                   </span>
@@ -266,14 +268,14 @@ function MatchList({ bracket }: { bracket: Bracket }) {
                     className="px-3 py-1.5 rounded-lg text-sm font-bold disabled:opacity-50"
                     style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
                   >
-                    {record.isPending ? '...' : 'Подтвердить'}
+                    {record.isPending ? '...' : t('confirm')}
                   </button>
                   <button
                     onClick={() => setConfirm(null)}
                     className="px-3 py-1.5 rounded-lg text-sm border border-white/10 hover:bg-white/10 transition-colors"
                     style={{ color: 'var(--color-text-secondary)' }}
                   >
-                    Отмена
+                    {t('cancel')}
                   </button>
                 </div>
               </div>
