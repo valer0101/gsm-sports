@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TournamentsService } from './tournaments.service';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
+import { TournamentOperator } from './entities/tournament-operator.entity';
+import { BracketsService } from '../brackets/brackets.service';
 
 // QueryBuilder mock — chainable, returns self for builder methods
 const makeQb = (result: [Tournament[], number] = [[], 0]) => {
@@ -32,6 +35,37 @@ const mockWeightCategoriesRepo = () => ({
   save: vi.fn(),
 });
 
+const mockOperatorsRepo = () => ({
+  find: vi.fn(),
+  findOne: vi.fn(),
+  create: vi.fn(),
+  save: vi.fn(),
+  count: vi.fn(),
+  remove: vi.fn(),
+});
+
+const mockDataSource = () => ({
+  getRepository: vi.fn().mockReturnValue({
+    createQueryBuilder: vi.fn().mockReturnValue({
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+    }),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  }),
+  transaction: vi.fn(),
+});
+
 const makeTournament = (overrides = {}): Tournament => ({
   id: 'tournament-uuid-1',
   sportId: 'sport-uuid-1',
@@ -52,6 +86,7 @@ const makeTournament = (overrides = {}): Tournament => ({
   format: 'double_elimination',
   maxParticipants: null,
   registrationOpen: false,
+  bracketGenerated: false,
   registrationDeadline: null,
   status: 'draft',
   isFeatured: false,
@@ -85,6 +120,9 @@ describe('TournamentsService', () => {
         TournamentsService,
         { provide: getRepositoryToken(Tournament), useFactory: mockTournamentsRepo },
         { provide: getRepositoryToken(WeightCategory), useFactory: mockWeightCategoriesRepo },
+        { provide: getRepositoryToken(TournamentOperator), useFactory: mockOperatorsRepo },
+        { provide: DataSource, useFactory: mockDataSource },
+        { provide: BracketsService, useValue: { generateWithWeightBuckets: vi.fn() } },
       ],
     }).compile();
 
@@ -287,9 +325,7 @@ describe('TournamentsService', () => {
     it('should update tournament when user is organizer', async () => {
       const tournament = makeTournament();
       const updated = makeTournament({ name: 'Updated Name' });
-      tournamentsRepo.findOne
-        .mockResolvedValueOnce(tournament) // findById in update
-        .mockResolvedValueOnce(updated); // findById after update
+      tournamentsRepo.findOne.mockResolvedValueOnce(tournament).mockResolvedValueOnce(updated);
       tournamentsRepo.update.mockResolvedValue(undefined);
 
       const result = await service.update(
@@ -353,37 +389,45 @@ describe('TournamentsService', () => {
 
     it('should throw NotFoundException when tournament not found', async () => {
       tournamentsRepo.findOne.mockResolvedValue(null);
-      await expect(service.updateStatus('missing', 'active', 'some-user')).rejects.toThrow(NotFoundException);
+      await expect(service.updateStatus('missing', 'active', 'some-user')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('toggleRegistration', () => {
     it('should open registration when currently closed', async () => {
-      const tournament = makeTournament({ registrationOpen: false });
+      const tournament = makeTournament({ registrationOpen: false, bracketGenerated: false });
       tournamentsRepo.findOne
         .mockResolvedValueOnce(tournament)
-        .mockResolvedValueOnce(makeTournament({ registrationOpen: true }));
+        .mockResolvedValueOnce(
+          makeTournament({ registrationOpen: true, status: 'registration_open' }),
+        );
       tournamentsRepo.update.mockResolvedValue(undefined);
 
       const result = await service.toggleRegistration('tournament-uuid-1', 'organizer-uuid-1');
 
       expect(tournamentsRepo.update).toHaveBeenCalledWith('tournament-uuid-1', {
         registrationOpen: true,
+        status: 'registration_open',
       });
       expect(result.registrationOpen).toBe(true);
     });
 
     it('should close registration when currently open', async () => {
-      const tournament = makeTournament({ registrationOpen: true });
+      const tournament = makeTournament({ registrationOpen: true, bracketGenerated: false });
       tournamentsRepo.findOne
         .mockResolvedValueOnce(tournament)
-        .mockResolvedValueOnce(makeTournament({ registrationOpen: false }));
+        .mockResolvedValueOnce(
+          makeTournament({ registrationOpen: false, status: 'registration_closed' }),
+        );
       tournamentsRepo.update.mockResolvedValue(undefined);
 
       const result = await service.toggleRegistration('tournament-uuid-1', 'organizer-uuid-1');
 
       expect(tournamentsRepo.update).toHaveBeenCalledWith('tournament-uuid-1', {
         registrationOpen: false,
+        status: 'registration_closed',
       });
       expect(result.registrationOpen).toBe(false);
     });

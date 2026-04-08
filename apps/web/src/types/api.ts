@@ -47,13 +47,76 @@ export interface Tournament {
   maxParticipants: number | null;
   registrationOpen: boolean;
   registrationDeadline: string | null;
-  status: 'draft' | 'upcoming' | 'active' | 'completed' | 'cancelled';
+  bracketGenerated: boolean;
+  status:
+    | 'draft'
+    | 'upcoming'
+    | 'registration_open'
+    | 'registration_closed'
+    | 'bracket_ready'
+    | 'active'
+    | 'completed'
+    | 'cancelled';
   isFeatured: boolean;
   isLive: boolean;
   posterUrl: string | null;
   streamUrl: string | null;
   sport: Sport | null;
   weightCategories: WeightCategory[];
+  sportConfig: Record<string, any> | null;
+}
+
+export type AgeGroup = 'juniors' | 'adults' | 'veterans';
+
+export interface TournamentEntry {
+  id: string;
+  tournamentId: string;
+  userId: string;
+  ageGroup: AgeGroup | null;
+  hand: 'left' | 'right' | null;
+  weightKg: number | null;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  notes: string | null;
+  createdAt: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+    country: string | null;
+  };
+}
+
+export interface BracketMatch {
+  id: string;
+  round: number;
+  matchIndex: number;
+  player1: { id: string; firstName: string; lastName: string; number: string | number };
+  player2: { id: string; firstName: string; lastName: string; number: string | number };
+  winner: string | null;
+  loser: string | null;
+  feeder1?: string;
+  feeder2?: string;
+  isLosers?: boolean;
+}
+
+export interface Bracket {
+  id: string;
+  tournamentId: string;
+  weightCategoryId: string | null;
+  bracketData: {
+    players: { id: string; firstName: string; lastName: string; number: string | number }[];
+    bracketSize: number;
+    wbRounds: number;
+    winnersBracket: BracketMatch[][];
+    losersBracket: BracketMatch[][];
+    grandFinal: BracketMatch;
+    superFinal: BracketMatch & { needed: boolean };
+    champion: string | null;
+    status: 'active' | 'completed';
+  };
+  status: 'pending' | 'active' | 'completed';
+  weightCategory?: WeightCategory;
 }
 
 export interface Athlete {

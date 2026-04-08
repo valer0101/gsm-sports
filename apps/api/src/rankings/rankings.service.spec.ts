@@ -17,14 +17,27 @@ const makeQb = (result: [RankingEntry[], number] = [[], 0]) => ({
   getManyAndCount: vi.fn().mockResolvedValue(result),
 });
 
-const mockRepo = () => ({
-  findOne: vi.fn(),
-  find: vi.fn(),
-  create: vi.fn(),
-  save: vi.fn(),
-  update: vi.fn(),
-  createQueryBuilder: vi.fn(),
+const makeTransactionManager = () => ({
+  update: vi.fn().mockResolvedValue(undefined),
 });
+
+const mockRepo = () => {
+  const emUpdate = vi.fn().mockResolvedValue(undefined);
+  return {
+    findOne: vi.fn(),
+    find: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
+    manager: {
+      transaction: vi.fn().mockImplementation(async (cb: (em: any) => Promise<void>) => {
+        await cb({ update: emUpdate });
+      }),
+      _emUpdate: emUpdate, // exposed for assertions
+    },
+  };
+};
 
 const mockAthletesService = () => ({
   findById: vi.fn(),
@@ -106,11 +119,11 @@ describe('RankingsService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('r.season = :season', { season: 2025 });
     });
 
-    it('should cap limit at 200', async () => {
+    it('should cap limit at 100', async () => {
       const qb = makeQb();
       repo.createQueryBuilder.mockReturnValue(qb);
       await service.findWorldRankings({ limit: 999 });
-      expect(qb.take).toHaveBeenCalledWith(200);
+      expect(qb.take).toHaveBeenCalledWith(100);
     });
   });
 
@@ -216,15 +229,15 @@ describe('RankingsService', () => {
         makeEntry({ id: 'e3', athleteId: 'a3', points: 100, country: 'Russia' }),
       ];
       repo.find.mockResolvedValue(entries);
-      repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
       await service.recalculate('sport-uuid-1', 2025);
 
-      // World positions: 1st, 2nd, 3rd
-      expect(repo.update).toHaveBeenCalledWith('e1', { worldPosition: 1 });
-      expect(repo.update).toHaveBeenCalledWith('e2', { worldPosition: 2 });
-      expect(repo.update).toHaveBeenCalledWith('e3', { worldPosition: 3 });
+      // em.update is called inside the transaction with RankingEntry class + id + payload
+      const emUpdate = repo.manager._emUpdate;
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e1', { worldPosition: 1 });
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e2', { worldPosition: 2 });
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e3', { worldPosition: 3 });
     });
 
     it('should assign country positions per country', async () => {
@@ -234,20 +247,19 @@ describe('RankingsService', () => {
         makeEntry({ id: 'e3', athleteId: 'a3', points: 100, country: 'Russia' }),
       ];
       repo.find.mockResolvedValue(entries);
-      repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
       await service.recalculate('sport-uuid-1', 2025);
 
-      expect(repo.update).toHaveBeenCalledWith('e1', { countryPosition: 1 });
-      expect(repo.update).toHaveBeenCalledWith('e2', { countryPosition: 2 });
-      expect(repo.update).toHaveBeenCalledWith('e3', { countryPosition: 1 }); // #1 in Russia
+      const emUpdate = repo.manager._emUpdate;
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e1', { countryPosition: 1 });
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e2', { countryPosition: 2 });
+      expect(emUpdate).toHaveBeenCalledWith(expect.anything(), 'e3', { countryPosition: 1 });
     });
 
     it('should sync cached worldRank on athlete entities', async () => {
       const entries = [makeEntry({ id: 'e1', athleteId: 'a1', points: 500, worldPosition: 1 })];
       repo.find.mockResolvedValue(entries);
-      repo.update.mockResolvedValue(undefined);
       athletesService.updateRankingCache.mockResolvedValue(undefined);
 
       await service.recalculate('sport-uuid-1', 2025);

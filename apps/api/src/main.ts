@@ -1,10 +1,17 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
+import { SportsService } from './sports/sports.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  app.use(cookieParser());
   const logger = new Logger('Bootstrap');
 
   // Global validation pipe
@@ -21,9 +28,13 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3001',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
   });
 
@@ -41,5 +52,9 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`GSM Sports API running on http://localhost:${port}`);
   logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
+
+  // Seed default sports (arm wrestling) if table is empty
+  const sportsService = app.get(SportsService);
+  await sportsService.seed();
 }
 bootstrap();

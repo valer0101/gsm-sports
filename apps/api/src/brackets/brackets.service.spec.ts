@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { BracketsService } from './brackets.service';
 import { Bracket } from './entities/bracket.entity';
+import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
+import { EventsGateway } from '../events/events.gateway';
 
 vi.mock('@gsm/bracket-engine', () => ({
   generateDoubleElimination: vi.fn(() => ({
@@ -76,8 +78,14 @@ describe('BracketsService', () => {
       providers: [
         BracketsService,
         { provide: getRepositoryToken(Bracket), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(TournamentOperator),
+          useFactory: () => ({ count: vi.fn().mockResolvedValue(0) }),
+        },
         { provide: TournamentsService, useFactory: mockTournamentsService },
         { provide: EntriesService, useFactory: mockEntriesService },
+        { provide: EventsGateway, useValue: { emitBracketUpdate: vi.fn() } },
+        { provide: getDataSourceToken(), useValue: { getRepository: vi.fn(), transaction: vi.fn() } },
       ],
     }).compile();
 
@@ -136,20 +144,20 @@ describe('BracketsService', () => {
       repo.update.mockResolvedValue(undefined);
       repo.findOne.mockResolvedValueOnce(makeBracket());
 
-      const result = await service.recordResult('bracket-1', 'match-1', 'u1', 'org-1');
+      const result = await service.recordResult('bracket-1', 'match-1', 'u1', 'org-1', []);
       expect(repo.update).toHaveBeenCalled();
     });
 
     it('should throw if not organizer', async () => {
       repo.findOne.mockResolvedValue(makeBracket());
-      await expect(service.recordResult('b1', 'm1', 'u1', 'wrong')).rejects.toThrow(
+      await expect(service.recordResult('b1', 'm1', 'u1', 'wrong', [])).rejects.toThrow(
         ForbiddenException,
       );
     });
 
     it('should throw if bracket is completed', async () => {
       repo.findOne.mockResolvedValue(makeBracket({ status: 'completed' }));
-      await expect(service.recordResult('b1', 'm1', 'u1', 'org-1')).rejects.toThrow(
+      await expect(service.recordResult('b1', 'm1', 'u1', 'org-1', [])).rejects.toThrow(
         BadRequestException,
       );
     });

@@ -5,6 +5,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +21,7 @@ export class EntriesService {
   constructor(
     @InjectRepository(TournamentEntry)
     private readonly entriesRepository: Repository<TournamentEntry>,
+    @Inject(forwardRef(() => TournamentsService))
     private readonly tournamentsService: TournamentsService,
   ) {}
 
@@ -45,9 +48,11 @@ export class EntriesService {
       }
 
       if (tournament.maxParticipants) {
-        const count = await repo.count({
-          where: { tournamentId: dto.tournamentId, status: 'confirmed' as EntryStatus },
-        });
+        const count = await repo
+          .createQueryBuilder('e')
+          .where('e.tournamentId = :tournamentId', { tournamentId: dto.tournamentId })
+          .andWhere('e.status != :withdrawn', { withdrawn: 'withdrawn' })
+          .getCount();
         if (count >= tournament.maxParticipants) {
           throw new BadRequestException('Tournament is full');
         }
@@ -56,9 +61,10 @@ export class EntriesService {
       const entry = repo.create({
         tournamentId: dto.tournamentId,
         userId,
+        ageGroup: dto.ageGroup ?? null,
         weightCategoryId: dto.weightCategoryId ?? null,
         hand: dto.hand ?? null,
-        registeredWeight: dto.registeredWeight ?? null,
+        weightKg: dto.weightKg ?? null,
         notes: dto.notes ?? null,
         status: 'pending' as EntryStatus,
       });
@@ -66,7 +72,7 @@ export class EntriesService {
     });
 
     this.logger.log(`User ${userId} registered for tournament ${dto.tournamentId}`);
-    return this.findById(saved.id);
+    return this.findById((saved as TournamentEntry).id);
   }
 
   async findById(id: string): Promise<TournamentEntry> {
@@ -88,21 +94,21 @@ export class EntriesService {
     } = {},
   ) {
     const { status, weightCategoryId, page = 1, limit = 50 } = options;
-    const take = Math.min(limit, 200);
+    const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
     const qb = this.entriesRepository
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.user', 'user')
       .leftJoinAndSelect('e.weightCategory', 'wc')
-      .where('e.tournament_id = :tournamentId', { tournamentId })
-      .orderBy('e.created_at', 'ASC')
+      .where('e.tournamentId = :tournamentId', { tournamentId })
+      .orderBy('e.createdAt', 'ASC')
       .take(take)
       .skip(skip);
 
     if (status) qb.andWhere('e.status = :status', { status });
     if (weightCategoryId)
-      qb.andWhere('e.weight_category_id = :weightCategoryId', { weightCategoryId });
+      qb.andWhere('e.weightCategoryId = :weightCategoryId', { weightCategoryId });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit: take, totalPages: Math.ceil(total / take) } };
@@ -147,6 +153,24 @@ export class EntriesService {
     return this.findById(id);
   }
 
+  async findByGroup(
+    tournamentId: string,
+    ageGroup: string,
+    hand: string,
+  ): Promise<TournamentEntry[]> {
+    const qb = this.entriesRepository
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.user', 'user')
+      .where('e.tournamentId = :tournamentId', { tournamentId })
+      .andWhere('e.status = :status', { status: 'confirmed' })
+      .orderBy('e.createdAt', 'ASC');
+
+    if (ageGroup) qb.andWhere('e.ageGroup = :ageGroup', { ageGroup });
+    if (hand) qb.andWhere('e.hand = :hand', { hand });
+
+    return qb.getMany();
+  }
+
   async setSeedNumbers(
     tournamentId: string,
     seeds: { entryId: string; seed: number }[],
@@ -165,7 +189,7 @@ export class EntriesService {
     const matchingCount = await this.entriesRepository
       .createQueryBuilder('e')
       .where('e.id IN (:...ids)', { ids: entryIds })
-      .andWhere('e.tournament_id = :tournamentId', { tournamentId })
+      .andWhere('e.tournamentId = :tournamentId', { tournamentId })
       .getCount();
 
     if (matchingCount !== entryIds.length) {

@@ -5,6 +5,7 @@ import { User } from './users/entities/user.entity';
 import { Sport } from './sports/entities/sport.entity';
 import { Tournament } from './tournaments/entities/tournament.entity';
 import { WeightCategory } from './tournaments/entities/weight-category.entity';
+import { TournamentOperator } from './tournaments/entities/tournament-operator.entity';
 import { TournamentEntry } from './entries/entities/tournament-entry.entity';
 import { Bracket } from './brackets/entities/bracket.entity';
 import { Athlete } from './athletes/entities/athlete.entity';
@@ -22,6 +23,7 @@ export const AppDataSource = new DataSource({
     Sport,
     Tournament,
     WeightCategory,
+    TournamentOperator,
     TournamentEntry,
     Bracket,
     Athlete,

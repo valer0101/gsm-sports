@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { getLocale } from 'next-intl/server';
 import type { Tournament } from '@/types/api';
+import { TournamentDetailClient } from './TournamentDetailClient';
 
 async function getTournament(slug: string): Promise<Tournament | null> {
   try {
@@ -164,26 +165,8 @@ export default async function TournamentDetailPage({
         </dl>
       </div>
 
-      {/* Weight categories */}
-      {tournament.weightCategories?.length > 0 && (
-        <div
-          className="rounded-xl border border-white/10 p-6"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
-        >
-          <h2 className="font-bold text-white mb-4">{t('weight_categories')}</h2>
-          <div className="flex flex-wrap gap-2">
-            {tournament.weightCategories.map((wc) => (
-              <span
-                key={wc.id}
-                className="px-3 py-1.5 rounded-full text-sm border border-white/15"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                {wc.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Tabs (Participants / Bracket) + Register button — client part */}
+      <TournamentDetailClient tournament={tournament} />
     </div>
   );
 }

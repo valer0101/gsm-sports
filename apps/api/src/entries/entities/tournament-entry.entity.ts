@@ -14,9 +14,12 @@ import { User } from '../../users/entities/user.entity';
 import { WeightCategory } from '../../tournaments/entities/weight-category.entity';
 
 export type EntryStatus = 'pending' | 'confirmed' | 'rejected' | 'withdrawn';
+export type AgeGroup = 'juniors' | 'adults' | 'veterans';
 
+// Unique per: one user can register in same tournament multiple times
+// but not in the same (ageGroup + hand) combination
 @Entity('tournament_entries')
-@Unique(['tournamentId', 'userId'])
+@Unique(['tournamentId', 'userId', 'ageGroup', 'hand'])
 export class TournamentEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -48,11 +51,16 @@ export class TournamentEntry {
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   status: EntryStatus;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
-  hand: string | null; // 'left' | 'right' | 'both' — for armwrestling
+  // 'juniors' (< 18), 'adults' (18–40), 'veterans' (40+)
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  ageGroup: AgeGroup | null;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  registeredWeight: number | null;
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  hand: string | null; // 'left' | 'right' — for armwrestling
+
+  // Weight provided by user at registration; used for auto-categorization on bracket generation
+  @Column({ name: 'weight_kg', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  weightKg: number | null;
 
   @Column({ type: 'int', nullable: true })
   seedNumber: number | null;

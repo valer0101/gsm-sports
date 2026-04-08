@@ -83,11 +83,15 @@ export class Tournament {
   @Column({ type: 'boolean', default: false })
   registrationOpen: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  bracketGenerated: boolean;
+
   @Column({ type: 'timestamptz', nullable: true })
   registrationDeadline: Date | null;
 
+  // draft | upcoming | registration_open | registration_closed | bracket_ready | active | completed | cancelled
   @Index()
-  @Column({ type: 'varchar', length: 20, default: 'draft' })
+  @Column({ type: 'varchar', length: 30, default: 'draft' })
   status: string;
 
   @Column({ type: 'boolean', default: false })

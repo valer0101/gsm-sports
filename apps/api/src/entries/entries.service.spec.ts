@@ -22,9 +22,9 @@ const mockRepo = () => {
     createQueryBuilder: vi.fn(),
   };
   repo.manager = {
-    transaction: vi.fn().mockImplementation(async (cb: (em: any) => any) =>
-      cb({ getRepository: () => repo }),
-    ),
+    transaction: vi
+      .fn()
+      .mockImplementation(async (cb: (em: any) => any) => cb({ getRepository: () => repo })),
   };
   return repo;
 };
@@ -82,40 +82,55 @@ describe('EntriesService', () => {
       // findById call after save
       repo.findOne.mockResolvedValueOnce(makeEntry());
 
-      const result = await service.register({ tournamentId: 'tournament-1' }, 'user-1');
+      const result = await service.register(
+        { tournamentId: 'tournament-1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+        'user-1',
+      );
       expect(result.status).toBe('pending');
     });
 
     it('should throw if registration is closed', async () => {
       tournamentsService.findById.mockResolvedValue(makeTournament({ registrationOpen: false }));
-      await expect(service.register({ tournamentId: 't1' }, 'u1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.register(
+          { tournamentId: 't1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+          'u1',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw if already registered', async () => {
       tournamentsService.findById.mockResolvedValue(makeTournament());
       repo.findOne.mockResolvedValue(makeEntry()); // existing entry
-      await expect(service.register({ tournamentId: 'tournament-1' }, 'user-1')).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.register(
+          { tournamentId: 'tournament-1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+          'user-1',
+        ),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should throw if tournament is full', async () => {
       tournamentsService.findById.mockResolvedValue(makeTournament({ maxParticipants: 2 }));
       repo.findOne.mockResolvedValue(null);
       repo.count.mockResolvedValue(2); // already full
-      await expect(service.register({ tournamentId: 't1' }, 'u2')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.register(
+          { tournamentId: 't1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+          'u2',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw if registration deadline passed', async () => {
       const past = new Date(Date.now() - 1000 * 60 * 60);
       tournamentsService.findById.mockResolvedValue(makeTournament({ registrationDeadline: past }));
-      await expect(service.register({ tournamentId: 't1' }, 'u1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.register(
+          { tournamentId: 't1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+          'u1',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

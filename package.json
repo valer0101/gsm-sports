@@ -16,11 +16,14 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
-    "turbo": "^2.4.0",
-    "prettier": "^3.5.0"
+    "prettier": "^3.5.0",
+    "turbo": "^2.4.0"
   },
   "packageManager": "npm@10.8.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }

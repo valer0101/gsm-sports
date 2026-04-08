@@ -30,12 +30,14 @@ export class BracketsController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id/result')
-  recordResult(
-    @Param('id') id: string,
-    @Body() dto: RecordResultDto,
-    @Request() req: any,
-  ) {
-    return this.bracketsService.recordResult(id, dto.matchId, dto.winnerId, req.user.sub);
+  recordResult(@Param('id') id: string, @Body() dto: RecordResultDto, @Request() req: any) {
+    return this.bracketsService.recordResult(
+      id,
+      dto.matchId,
+      dto.winnerId,
+      req.user.sub,
+      req.user.roles ?? [],
+    );
   }
 
   @ApiBearerAuth()
