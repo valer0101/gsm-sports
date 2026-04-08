@@ -4,12 +4,13 @@ import { Bracket } from './entities/bracket.entity';
 import { BracketsService } from './brackets.service';
 import { BracketsController } from './brackets.controller';
 import { TournamentsModule } from '../tournaments/tournaments.module';
+import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { EntriesModule } from '../entries/entries.module';
 import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Bracket]),
+    TypeOrmModule.forFeature([Bracket, TournamentOperator]),
     forwardRef(() => TournamentsModule),
     EntriesModule,
     EventsModule,
