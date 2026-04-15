@@ -74,6 +74,35 @@ export function useGenerateBrackets(id: string) {
   });
 }
 
+/* ─── Users ─── */
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export function useAdminUsers(page = 1, limit = 20) {
+  return useQuery<{ users: AdminUser[]; total: number }>({
+    queryKey: ['admin', 'users', page, limit],
+    queryFn: () => api.get(`/admin/users?page=${page}&limit=${limit}`).then((r: any) => r.data),
+  });
+}
+
+export function useUpdateUserRoles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, roles }: { id: string; roles: string[] }) =>
+      api.patch(`/admin/users/${id}/roles`, { roles }).then((r: any) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+}
+
 /* ─── Operators ─── */
 
 export interface OperatorEntry {

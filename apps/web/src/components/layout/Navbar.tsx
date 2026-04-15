@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useCurrentUser, clearStoredUser } from '@/hooks/useCurrentUser';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
 const NAV_LINKS = [
   { key: 'home', href: '/' },
@@ -13,6 +16,21 @@ const NAV_LINKS = [
 export function Navbar() {
   const t = useTranslations('nav');
   const [menuOpen, setMenuOpen] = useState(false);
+  const { data: user } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const isAdmin = user?.roles.includes('admin');
+  const isOrganizer = user?.roles.includes('organizer');
+  const isEditor = user?.roles.includes('editor');
+
+  const handleLogout = async () => {
+    await api.post('/auth/logout').catch(() => {});
+    clearStoredUser();
+    queryClient.setQueryData(['currentUser'], null);
+    window.location.href = '/';
+  };
 
   return (
     <header
@@ -43,24 +61,57 @@ export function Navbar() {
                 {t(key)}
               </Link>
             ))}
+            {(isAdmin || isOrganizer) && (
+              <Link
+                href="/admin"
+                className="text-sm font-medium transition-colors hover:text-white"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {t('admin')}
+              </Link>
+            )}
+            {isEditor && !isAdmin && (
+              <Link
+                href="/admin/news"
+                className="text-sm font-medium transition-colors hover:text-white"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {t('editor')}
+              </Link>
+            )}
           </div>
 
-          {/* Auth buttons */}
+          {/* Auth area */}
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/auth/login"
-              className="text-sm font-medium px-4 py-2 rounded-lg transition-colors hover:text-white"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {t('login')}
-            </Link>
-            <Link
-              href="/auth/register"
-              className="text-sm font-semibold px-4 py-2 rounded-lg text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: 'var(--color-primary)' }}
-            >
-              {t('register')}
-            </Link>
+            {!mounted ? null : user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-white">{user.firstName}</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Выйти
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="text-sm font-medium px-4 py-2 rounded-lg transition-colors hover:text-white"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {t('login')}
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="text-sm font-semibold px-4 py-2 rounded-lg text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--color-primary)' }}
+                >
+                  {t('register')}
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile burger */}
@@ -103,21 +154,41 @@ export function Navbar() {
                 {t(key)}
               </Link>
             ))}
-            <div className="pt-3 flex flex-col gap-2 px-3">
+            {(isAdmin || isOrganizer) && (
               <Link
-                href="/auth/login"
-                className="text-sm font-medium py-2"
+                href="/admin"
+                className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/5"
                 style={{ color: 'var(--color-text-secondary)' }}
+                onClick={() => setMenuOpen(false)}
               >
-                {t('login')}
+                {t('admin')}
               </Link>
-              <Link
-                href="/auth/register"
-                className="text-sm font-semibold px-4 py-2 rounded-lg text-white text-center"
-                style={{ backgroundColor: 'var(--color-primary)' }}
-              >
-                {t('register')}
-              </Link>
+            )}
+            <div className="pt-3 flex flex-col gap-2 px-3">
+              {!mounted ? null : user ? (
+                <>
+                  <span className="text-sm text-white py-2">
+                    {user.firstName} {user.lastName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/login"
+                    className="text-sm font-medium py-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {t('login')}
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    className="text-sm font-semibold px-4 py-2 rounded-lg text-white text-center"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
+                  >
+                    {t('register')}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

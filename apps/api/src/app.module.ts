@@ -13,6 +13,7 @@ import { EventsModule } from './events/events.module';
 import { AdminModule } from './admin/admin.module';
 import { OperatorModule } from './operator/operator.module';
 import { UploadModule } from './upload/upload.module';
+import { NewsModule } from './news/news.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { UploadModule } from './upload/upload.module';
     AdminModule,
     OperatorModule,
     UploadModule,
+    NewsModule,
   ],
 })
 export class AppModule {}

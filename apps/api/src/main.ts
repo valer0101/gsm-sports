@@ -7,6 +7,7 @@ import { join } from 'path';
 const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { SportsService } from './sports/sports.service';
+import { UsersService } from './users/users.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -56,5 +57,9 @@ async function bootstrap() {
   // Seed default sports (arm wrestling) if table is empty
   const sportsService = app.get(SportsService);
   await sportsService.seed();
+
+  // Seed first admin from ENV (ADMIN_EMAIL + ADMIN_PASSWORD)
+  const usersService = app.get(UsersService);
+  await usersService.seedAdmin();
 }
 bootstrap();

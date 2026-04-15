@@ -17,7 +17,9 @@
     "news": "News",
     "videos": "Videos",
     "login": "Sign In",
-    "register": "Register"
+    "register": "Register",
+    "admin": "Panel",
+    "editor": "Editor"
   },
   "sport": {
     "title": "SPORT",

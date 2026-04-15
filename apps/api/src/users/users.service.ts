@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 
 @Injectable()
@@ -24,6 +25,20 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async findAll(page = 1, limit = 20): Promise<{ users: User[]; total: number }> {
+    const [users, total] = await this.usersRepository.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: Math.min(limit, 100),
+    });
+    return { users, total };
+  }
+
+  async updateRoles(id: string, roles: string[]): Promise<User> {
+    await this.usersRepository.update(id, { roles });
+    return this.findById(id) as Promise<User>;
+  }
+
   async create(data: Partial<User>): Promise<User> {
     const user = this.usersRepository.create(data);
     const saved = await this.usersRepository.save(user);
@@ -34,5 +49,33 @@ export class UsersService {
   async update(id: string, data: Partial<User>): Promise<User> {
     await this.usersRepository.update(id, data);
     return this.findById(id) as Promise<User>;
+  }
+
+  async seedAdmin(): Promise<void> {
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+
+    if (!email || !password) return;
+
+    const existing = await this.findByEmail(email);
+    if (existing) {
+      const updates: Partial<User> = {};
+      if (!existing.roles.includes('admin')) updates.roles = ['admin'];
+      updates.passwordHash = await bcrypt.hash(password, 12);
+      await this.usersRepository.update(existing.id, updates);
+      this.logger.log(`Admin user updated: ${email}`);
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await this.create({
+      email,
+      passwordHash,
+      firstName: 'Admin',
+      lastName: 'GSM',
+      roles: ['admin'],
+      isVerified: true,
+    });
+    this.logger.log(`Admin user created: ${email}`);
   }
 }

@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 
@@ -24,6 +24,7 @@ function LoginForm() {
   const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const schema = z.object({
     login: z.string().min(1, t('field_required')),
@@ -37,8 +38,18 @@ function LoginForm() {
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) => api.post('/auth/login', data),
-    onSuccess: () => {
+    mutationFn: (data: FormData) => api.post('/auth/login', data).then((r: any) => r.data),
+    onSuccess: (data) => {
+      const user = {
+        id: data.user.id,
+        email: data.user.email,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        roles: data.user.roles,
+        avatarUrl: null,
+      };
+      localStorage.setItem('gsm_user', JSON.stringify(user));
+      queryClient.setQueryData(['currentUser'], user);
       const raw = searchParams.get('redirect') || '/admin';
       const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/admin';
       router.push(redirect);
@@ -71,9 +82,7 @@ function LoginForm() {
               placeholder={t('login_placeholder')}
               className="w-full px-4 py-3 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
             />
-            {errors.login && (
-              <p className="text-xs text-red-400 mt-1">{errors.login.message}</p>
-            )}
+            {errors.login && <p className="text-xs text-red-400 mt-1">{errors.login.message}</p>}
           </div>
 
           <div>
