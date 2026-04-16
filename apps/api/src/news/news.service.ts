@@ -14,16 +14,16 @@ export class NewsService {
     private readonly newsRepository: Repository<News>,
   ) {}
 
-  async findAll(category?: string, status = 'published', page = 1, limit = 20) {
+  async findPublished(category?: string, page = 1, limit = 20) {
     const qb = this.newsRepository
       .createQueryBuilder('news')
+      .where('news.status = :status', { status: 'published' })
       .orderBy('news.publishedAt', 'DESC')
       .addOrderBy('news.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(Math.min(limit, 100));
 
     if (category) qb.andWhere('news.category = :category', { category });
-    if (status) qb.andWhere('news.status = :status', { status });
 
     const [items, total] = await qb.getManyAndCount();
     return { items, total };

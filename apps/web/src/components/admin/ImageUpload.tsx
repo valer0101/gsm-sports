@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 
 interface Props {
@@ -10,7 +11,8 @@ interface Props {
   label?: string;
 }
 
-export function ImageUpload({ value, onChange, label = 'Обложка' }: Props) {
+export function ImageUpload({ value, onChange, label }: Props) {
+  const t = useTranslations('common');
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +28,7 @@ export function ImageUpload({ value, onChange, label = 'Обложка' }: Props
       });
       onChange((res as any).data.url);
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Ошибка загрузки');
+      setError(e?.response?.data?.message ?? t('upload_error'));
     } finally {
       setUploading(false);
     }
@@ -40,12 +42,11 @@ export function ImageUpload({ value, onChange, label = 'Обложка' }: Props
 
   return (
     <div>
-      <label
-        className="block text-xs font-semibold uppercase tracking-wider mb-2"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
-        {label}
-      </label>
+      {label && (
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-[var(--color-text-secondary)]">
+          {label}
+        </label>
+      )}
 
       {value ? (
         <div className="relative rounded-xl overflow-hidden border border-white/15 group">
@@ -58,14 +59,14 @@ export function ImageUpload({ value, onChange, label = 'Обложка' }: Props
               onClick={() => inputRef.current?.click()}
               className="px-4 py-2 rounded-lg text-sm font-semibold text-white border border-white/30 hover:bg-white/20 transition-colors"
             >
-              Заменить
+              {t('replace')}
             </button>
             <button
               type="button"
               onClick={() => onChange('')}
               className="px-4 py-2 rounded-lg text-sm font-semibold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors"
             >
-              Удалить
+              {t('remove')}
             </button>
           </div>
         </div>
@@ -74,21 +75,17 @@ export function ImageUpload({ value, onChange, label = 'Обложка' }: Props
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
-          className="w-full aspect-[16/7] rounded-xl border-2 border-dashed border-white/20 hover:border-white/40 transition-colors flex flex-col items-center justify-center gap-3 cursor-pointer"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
+          className="w-full aspect-[16/7] rounded-xl border-2 border-dashed border-white/20 hover:border-white/40 transition-colors flex flex-col items-center justify-center gap-3 cursor-pointer bg-[var(--color-secondary)]"
         >
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Загрузка...
-              </p>
+              <p className="text-sm text-[var(--color-text-secondary)]">{t('uploading')}</p>
             </div>
           ) : (
             <>
               <svg
-                className="w-10 h-10"
-                style={{ color: 'var(--color-text-secondary)' }}
+                className="w-10 h-10 text-[var(--color-text-secondary)]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -101,9 +98,9 @@ export function ImageUpload({ value, onChange, label = 'Обложка' }: Props
                 />
               </svg>
               <div className="text-center">
-                <p className="text-sm font-semibold text-white">Нажмите или перетащите файл</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  JPEG, PNG, WebP — до 5 МБ
+                <p className="text-sm font-semibold text-white">{t('drop_or_click_file')}</p>
+                <p className="text-xs mt-1 text-[var(--color-text-secondary)]">
+                  {t('image_formats_hint')}
                 </p>
               </div>
             </>

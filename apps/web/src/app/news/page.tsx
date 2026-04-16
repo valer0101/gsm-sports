@@ -42,17 +42,11 @@ function NewsCard({
                 {item.title}
               </h2>
               {item.excerpt && (
-                <p
-                  className="text-base leading-relaxed mb-6"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
+                <p className="text-base leading-relaxed mb-6 text-[var(--color-text-secondary)]">
                   {item.excerpt}
                 </p>
               )}
-              <span
-                className="inline-block border px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors"
-                style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'var(--color-text-secondary)' }}
-              >
+              <span className="inline-block border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors text-[var(--color-text-secondary)]">
                 {readMore}
               </span>
             </Link>
@@ -83,19 +77,13 @@ function NewsCard({
               {item.title}
             </h3>
             {item.excerpt && (
-              <p
-                className="text-sm leading-relaxed line-clamp-2"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
+              <p className="text-sm leading-relaxed line-clamp-2 text-[var(--color-text-secondary)]">
                 {item.excerpt}
               </p>
             )}
           </Link>
           {item.publishedAt && (
-            <p
-              className="text-xs mt-3"
-              style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
-            >
+            <p className="text-xs mt-3 text-[var(--color-text-secondary)] opacity-60">
               {new Date(item.publishedAt).toLocaleDateString(locale, {
                 day: 'numeric',
                 month: 'long',
@@ -165,9 +153,7 @@ export default async function NewsPage({
       </div>
 
       {!data.items.length ? (
-        <p className="text-center py-20" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('empty')}
-        </p>
+        <p className="text-center py-20 text-[var(--color-text-secondary)]">{t('empty')}</p>
       ) : (
         <div className="space-y-8">
           {featured && <NewsCard item={featured} featured readMore={t('read_more')} locale={locale} />}
@@ -191,7 +177,7 @@ export default async function NewsPage({
               ← {t('prev')}
             </span>
           )}
-          <span className="px-5 py-2.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="px-5 py-2.5 text-sm text-[var(--color-text-secondary)]">
             {page} / {totalPages}
           </span>
           {page < totalPages ? (

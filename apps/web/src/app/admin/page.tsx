@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useAdminTournaments, useAdminUsers } from '@/hooks/useAdmin';
 import { useAdminNews } from '@/hooks/useNews';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -19,12 +20,9 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all group"
-      style={{ backgroundColor: 'var(--color-secondary)' }}
+      className="rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all group bg-[var(--color-secondary)]"
     >
-      <p className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-        {label}
-      </p>
+      <p className="text-sm mb-1 text-[var(--color-text-secondary)]">{label}</p>
       <p className="text-3xl font-black" style={{ color }}>
         {value}
       </p>
@@ -33,6 +31,7 @@ function StatCard({
 }
 
 export default function AdminDashboardPage() {
+  const t = useTranslations('admin_dashboard');
   const { data: user } = useCurrentUser();
   const { data: tournaments } = useAdminTournaments();
   const { data: users } = useAdminUsers();
@@ -45,10 +44,10 @@ export default function AdminDashboardPage() {
       .length ?? 0;
 
   const quickLinks = [
-    { label: 'Создать турнир', href: '/admin/tournaments/new', icon: '🏆' },
-    { label: 'Написать новость', href: '/admin/news/new', icon: '📰' },
-    { label: 'Все турниры', href: '/admin/tournaments', icon: '📋' },
-    ...(isAdmin ? [{ label: 'Пользователи', href: '/admin/users', icon: '👥' }] : []),
+    { label: t('create_tournament'), href: '/admin/tournaments/new', icon: '🏆' },
+    { label: t('write_news'), href: '/admin/news/new', icon: '📰' },
+    { label: t('all_tournaments_link'), href: '/admin/tournaments', icon: '📋' },
+    ...(isAdmin ? [{ label: t('users_link'), href: '/admin/users', icon: '👥' }] : []),
   ];
 
   return (
@@ -56,31 +55,29 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="mb-10">
         <h1 className="text-2xl font-black text-white">
-          Добро пожаловать{user?.firstName ? `, ${user.firstName}` : ''}
+          {t('welcome')}{user?.firstName ? `, ${user.firstName}` : ''}
         </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          Обзор платформы GSM Sports
-        </p>
+        <p className="text-sm mt-1 text-[var(--color-text-secondary)]">{t('overview')}</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
         <StatCard
-          label="Всего турниров"
+          label={t('stat_tournaments')}
           value={tournaments?.length ?? '—'}
           href="/admin/tournaments"
           color="var(--color-accent)"
         />
         <StatCard
-          label="Активных"
+          label={t('stat_active')}
           value={activeTournaments}
           href="/admin/tournaments"
           color="var(--color-success)"
         />
-        <StatCard label="Новостей" value={news?.total ?? '—'} href="/admin/news" color="#60a5fa" />
+        <StatCard label={t('stat_news')} value={news?.total ?? '—'} href="/admin/news" color="#60a5fa" />
         {isAdmin && (
           <StatCard
-            label="Пользователей"
+            label={t('stat_users')}
             value={users?.total ?? '—'}
             href="/admin/users"
             color="#c084fc"
@@ -90,11 +87,8 @@ export default function AdminDashboardPage() {
 
       {/* Quick actions */}
       <div className="mb-10">
-        <h2
-          className="text-sm font-semibold uppercase tracking-wider mb-4"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          Быстрые действия
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4 text-[var(--color-text-secondary)]">
+          {t('quick_actions')}
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {quickLinks.map((link) => (
@@ -114,24 +108,17 @@ export default function AdminDashboardPage() {
       {!!tournaments?.length && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2
-              className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Последние турниры
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              {t('recent_tournaments')}
             </h2>
             <Link
               href="/admin/tournaments"
-              className="text-xs hover:text-white transition-colors"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="text-xs hover:text-white transition-colors text-[var(--color-text-secondary)]"
             >
-              Все →
+              {t('all')}
             </Link>
           </div>
-          <div
-            className="rounded-2xl border border-white/10 overflow-hidden"
-            style={{ backgroundColor: 'var(--color-secondary)' }}
-          >
+          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[var(--color-secondary)]">
             {tournaments.slice(0, 5).map((tour, i) => (
               <div
                 key={tour.id}
@@ -140,8 +127,8 @@ export default function AdminDashboardPage() {
               >
                 <div>
                   <p className="text-sm font-semibold text-white">{tour.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {new Date(tour.startDate).toLocaleDateString('ru-RU')}
+                  <p className="text-xs mt-0.5 text-[var(--color-text-secondary)]">
+                    {new Date(tour.startDate).toLocaleDateString()}
                     {tour.location ? ` · ${tour.location}` : ''}
                   </p>
                 </div>
@@ -149,7 +136,7 @@ export default function AdminDashboardPage() {
                   href={`/admin/tournaments/${tour.id}`}
                   className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white hover:bg-white/10 transition-colors shrink-0"
                 >
-                  Открыть
+                  {t('open')}
                 </Link>
               </div>
             ))}

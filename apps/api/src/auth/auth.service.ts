@@ -56,8 +56,8 @@ export class AuthService {
   async login(dto: LoginDto) {
     const isPhone = /^\+?[\d\s\-()]{7,20}$/.test(dto.login) && !dto.login.includes('@');
     const user = isPhone
-      ? await this.usersService.findByPhone(dto.login)
-      : await this.usersService.findByEmail(dto.login);
+      ? await this.usersService.findByPhoneWithPassword(dto.login)
+      : await this.usersService.findByEmailWithPassword(dto.login);
 
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid login or password');

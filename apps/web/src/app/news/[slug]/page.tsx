@@ -76,8 +76,7 @@ export default async function NewsArticlePage({
       {/* Back */}
       <Link
         href="/news"
-        className="inline-flex items-center gap-2 text-sm mb-8 hover:text-white transition-colors"
-        style={{ color: 'var(--color-text-secondary)' }}
+        className="inline-flex items-center gap-2 text-sm mb-8 hover:text-white transition-colors text-[var(--color-text-secondary)]"
       >
         ← {t('back_all')}
       </Link>
@@ -91,7 +90,7 @@ export default async function NewsArticlePage({
           {categoryLabel}
         </span>
         {article.publishedAt && (
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-sm text-[var(--color-text-secondary)]">
             {new Date(article.publishedAt).toLocaleDateString(locale, {
               day: 'numeric',
               month: 'long',
@@ -108,10 +107,7 @@ export default async function NewsArticlePage({
 
       {/* Excerpt */}
       {article.excerpt && (
-        <p
-          className="text-lg mb-8 leading-relaxed"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
+        <p className="text-lg mb-8 leading-relaxed text-[var(--color-text-secondary)]">
           {article.excerpt}
         </p>
       )}

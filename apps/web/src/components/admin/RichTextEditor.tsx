@@ -58,7 +58,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         .setImage({ src: (res as any).data.url })
         .run();
     } catch {
-      alert('Ошибка загрузки изображения');
+      // silently fail — user sees no image inserted
     }
   };
 
@@ -67,7 +67,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
       StarterKit,
       Image,
       Link.configure({ openOnClick: false }),
-      Placeholder.configure({ placeholder: placeholder ?? 'Начните писать...' }),
+      Placeholder.configure({ placeholder }),
     ],
     immediatelyRender: false,
     content: value,
@@ -90,21 +90,15 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   const addImage = () => fileInputRef.current?.click();
 
   const setLink = () => {
-    const url = window.prompt('URL ссылки:');
+    const url = window.prompt('URL:');
     if (url) editor.chain().focus().setLink({ href: url }).run();
     else editor.chain().focus().unsetLink().run();
   };
 
   return (
-    <div
-      className="rounded-xl border border-white/15 overflow-hidden"
-      style={{ backgroundColor: 'var(--color-background)' }}
-    >
+    <div className="rounded-xl border border-white/15 overflow-hidden bg-[var(--color-background)]">
       {/* Toolbar */}
-      <div
-        className="flex flex-wrap gap-0.5 px-3 py-2 border-b border-white/10"
-        style={{ backgroundColor: 'var(--color-secondary)' }}
-      >
+      <div className="flex flex-wrap gap-0.5 px-3 py-2 border-b border-white/10 bg-[var(--color-secondary)]">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive('bold')}
@@ -124,10 +118,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
           <s>S</s>
         </ToolbarButton>
 
-        <div
-          className="w-px mx-1 self-stretch"
-          style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-        />
+        <div className="w-px mx-1 self-stretch bg-white/10" />
 
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -148,10 +139,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
           H3
         </ToolbarButton>
 
-        <div
-          className="w-px mx-1 self-stretch"
-          style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-        />
+        <div className="w-px mx-1 self-stretch bg-white/10" />
 
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -172,20 +160,14 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
           ❝
         </ToolbarButton>
 
-        <div
-          className="w-px mx-1 self-stretch"
-          style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-        />
+        <div className="w-px mx-1 self-stretch bg-white/10" />
 
         <ToolbarButton onClick={setLink} active={editor.isActive('link')}>
           🔗
         </ToolbarButton>
         <ToolbarButton onClick={addImage}>🖼</ToolbarButton>
 
-        <div
-          className="w-px mx-1 self-stretch"
-          style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-        />
+        <div className="w-px mx-1 self-stretch bg-white/10" />
 
         <ToolbarButton onClick={() => editor.chain().focus().undo().run()}>↩</ToolbarButton>
         <ToolbarButton onClick={() => editor.chain().focus().redo().run()}>↪</ToolbarButton>

@@ -13,16 +13,28 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
+  /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository.findOne({ where: { email }, select: { passwordHash: false } });
   }
 
   async findByPhone(phone: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { phone } });
+    return this.usersRepository.findOne({ where: { phone }, select: { passwordHash: false } });
   }
 
+  /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findById(id: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { id } });
+    return this.usersRepository.findOne({ where: { id }, select: { passwordHash: false } });
+  }
+
+  /** Used only by auth service — returns full entity including passwordHash for bcrypt.compare */
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { email } });
+  }
+
+  /** Used only by auth service — returns full entity including passwordHash for bcrypt.compare */
+  async findByPhoneWithPassword(phone: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phone } });
   }
 
   async findAll(

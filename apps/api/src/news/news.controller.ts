@@ -33,14 +33,14 @@ export class NewsController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    return this.newsService.findAll(category, 'published', Number(page), Number(limit));
+    return this.newsService.findPublished(category, Number(page), Number(limit));
   }
 
   /* ── Admin ── */
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'editor')
+  @Roles('admin')
   @Get('admin/all')
   findAllAdmin(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.newsService.findAllAdmin(Number(page), Number(limit));
@@ -48,7 +48,7 @@ export class NewsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'editor')
+  @Roles('admin')
   @Get('admin/:id')
   findOneAdmin(@Param('id') id: string) {
     return this.newsService.findById(id);
@@ -62,7 +62,7 @@ export class NewsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'editor')
+  @Roles('admin')
   @Post()
   create(@Body() dto: CreateNewsDto, @Request() req: any) {
     return this.newsService.create(dto, req.user.sub);
@@ -70,7 +70,7 @@ export class NewsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'editor')
+  @Roles('admin')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateNewsDto, @Request() req: any) {
     return this.newsService.update(id, dto, req.user.sub, req.user.roles);
@@ -78,7 +78,7 @@ export class NewsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'editor')
+  @Roles('admin')
   @Delete(':id')
   delete(@Param('id') id: string, @Request() req: any) {
     return this.newsService.delete(id, req.user.sub, req.user.roles);

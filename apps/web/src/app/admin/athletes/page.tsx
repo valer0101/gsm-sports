@@ -3,13 +3,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAthletes, useVerifyAthlete, useSports } from '@/hooks/useAthletes';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-const GENDER_LABEL: Record<string, string> = { male: 'М', female: 'Ж' };
-const HAND_LABEL: Record<string, string> = { left: 'Левая', right: 'Правая', both: 'Обе' };
-
 export default function AdminAthletesPage() {
+  const t = useTranslations('admin_athletes');
   const [search, setSearch] = useState('');
   const [sportFilter, setSportFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -30,17 +29,16 @@ export default function AdminAthletesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-black text-white">Спортсмены</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {data?.meta.total ?? 0} спортсменов в базе
+          <h1 className="text-2xl font-black text-white">{t('page_title')}</h1>
+          <p className="text-sm mt-1 text-[var(--color-text-secondary)]">
+            {t('count', { count: data?.meta.total ?? 0 })}
           </p>
         </div>
         <Link
           href="/admin/athletes/new"
-          className="px-4 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+          className="px-4 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90 bg-[var(--color-accent)] text-white"
         >
-          + Добавить
+          {t('add_btn')}
         </Link>
       </div>
 
@@ -52,7 +50,7 @@ export default function AdminAthletesPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="Поиск по имени..."
+          placeholder={t('search_placeholder')}
           className="px-4 py-2.5 rounded-xl border border-white/15 bg-transparent text-white text-sm outline-none focus:border-[var(--color-accent)] transition-colors w-64"
         />
         <select
@@ -61,10 +59,9 @@ export default function AdminAthletesPage() {
             setSportFilter(e.target.value);
             setPage(1);
           }}
-          className="px-4 py-2.5 rounded-xl border border-white/15 text-sm text-white outline-none"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
+          className="px-4 py-2.5 rounded-xl border border-white/15 text-sm text-white outline-none bg-[var(--color-secondary)]"
         >
-          <option value="">Все виды спорта</option>
+          <option value="">{t('all_sports')}</option>
           {sports?.map((s) => (
             <option key={s.id} value={s.slug}>
               {s.nameRu}
@@ -80,41 +77,29 @@ export default function AdminAthletesPage() {
           ))}
         </div>
       ) : isError ? (
-        <p className="text-center py-12" style={{ color: 'var(--color-text-secondary)' }}>
-          Ошибка загрузки
-        </p>
+        <p className="text-center py-12 text-[var(--color-text-secondary)]">{t('error')}</p>
       ) : !data?.data.length ? (
-        <div
-          className="rounded-2xl border border-white/10 p-12 text-center"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
-        >
-          <p className="text-white font-semibold mb-2">Спортсменов не найдено</p>
+        <div className="rounded-2xl border border-white/10 p-12 text-center bg-[var(--color-secondary)]">
+          <p className="text-white font-semibold mb-2">{t('no_results')}</p>
           <Link
             href="/admin/athletes/new"
-            className="px-5 py-2.5 rounded-xl font-bold text-sm inline-block mt-4"
-            style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+            className="px-5 py-2.5 rounded-xl font-bold text-sm inline-block mt-4 bg-[var(--color-accent)] text-white"
           >
-            Добавить первого
+            {t('add_first')}
           </Link>
         </div>
       ) : (
         <>
-          <div
-            className="rounded-2xl border border-white/10 overflow-hidden"
-            style={{ backgroundColor: 'var(--color-secondary)' }}
-          >
+          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[var(--color-secondary)]">
             <table className="w-full">
               <thead>
-                <tr
-                  className="border-b border-white/10 text-xs uppercase tracking-wider"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  <th className="text-left px-5 py-3">Спортсмен</th>
-                  <th className="text-left px-4 py-3">Вид спорта</th>
-                  <th className="text-left px-4 py-3">Страна</th>
-                  <th className="text-left px-4 py-3">Рейтинг</th>
-                  <th className="text-left px-4 py-3">Статус</th>
-                  <th className="text-right px-5 py-3">Действия</th>
+                <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <th className="text-left px-5 py-3">{t('col_athlete')}</th>
+                  <th className="text-left px-4 py-3">{t('col_sport')}</th>
+                  <th className="text-left px-4 py-3">{t('col_country')}</th>
+                  <th className="text-left px-4 py-3">{t('col_rank')}</th>
+                  <th className="text-left px-4 py-3">{t('col_status')}</th>
+                  <th className="text-right px-5 py-3">{t('col_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -141,59 +126,47 @@ export default function AdminAthletesPage() {
                           <p className="font-semibold text-white text-sm">
                             {athlete.firstName} {athlete.lastName}
                           </p>
-                          <p
-                            className="text-xs mt-0.5"
-                            style={{ color: 'var(--color-text-secondary)' }}
-                          >
-                            {athlete.gender ? GENDER_LABEL[athlete.gender] : ''}
-                            {athlete.primaryHand ? ` · ${HAND_LABEL[athlete.primaryHand]}` : ''}
-                            {athlete.weight ? ` · ${athlete.weight} кг` : ''}
+                          <p className="text-xs mt-0.5 text-[var(--color-text-secondary)]">
+                            {athlete.gender === 'male' ? t('gender_male') : athlete.gender === 'female' ? t('gender_female') : ''}
+                            {athlete.primaryHand === 'left'
+                              ? ` · ${t('hand_left')}`
+                              : athlete.primaryHand === 'right'
+                                ? ` · ${t('hand_right')}`
+                                : athlete.primaryHand === 'both'
+                                  ? ` · ${t('hand_both')}`
+                                  : ''}
+                            {athlete.weight ? ` · ${athlete.weight} ${t('weight_unit')}` : ''}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td
-                      className="px-4 py-3 text-sm"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
+                    <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                       {athlete.sport?.nameRu ?? '—'}
                     </td>
-                    <td
-                      className="px-4 py-3 text-sm"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
+                    <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                       {athlete.country ?? '—'}
                     </td>
                     <td className="px-4 py-3">
                       {athlete.worldRank ? (
-                        <span
-                          className="text-sm font-bold"
-                          style={{ color: 'var(--color-accent)' }}
-                        >
+                        <span className="text-sm font-bold text-[var(--color-accent)]">
                           #{athlete.worldRank}
                         </span>
                       ) : (
-                        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                          —
-                        </span>
+                        <span className="text-xs text-[var(--color-text-secondary)]">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       {athlete.isVerified ? (
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: '#22c55e20', color: '#22c55e' }}
-                        >
-                          Верифицирован
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#22c55e20] text-[#22c55e]">
+                          {t('verified')}
                         </span>
                       ) : (
                         <button
                           onClick={() => verifyMutation.mutate(athlete.id)}
                           disabled={verifyMutation.isPending}
-                          className="text-xs px-2 py-0.5 rounded-full font-medium transition-colors"
-                          style={{ backgroundColor: '#f59e0b20', color: '#f59e0b' }}
+                          className="text-xs px-2 py-0.5 rounded-full font-medium transition-colors bg-[#f59e0b20] text-[#f59e0b]"
                         >
-                          Верифицировать
+                          {t('verify_btn')}
                         </button>
                       )}
                     </td>
@@ -203,7 +176,7 @@ export default function AdminAthletesPage() {
                           href={`/admin/athletes/${athlete.id}`}
                           className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white hover:bg-white/10 transition-colors"
                         >
-                          Редактировать
+                          {t('edit_btn')}
                         </Link>
                       </div>
                     </td>
@@ -222,7 +195,7 @@ export default function AdminAthletesPage() {
               >
                 ←
               </button>
-              <span className="px-4 py-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="px-4 py-2 text-sm text-[var(--color-text-secondary)]">
                 {page} / {totalPages}
               </span>
               <button

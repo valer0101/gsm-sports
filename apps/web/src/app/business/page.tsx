@@ -40,10 +40,7 @@ function BusinessCard({
       <article className="border-t border-white/10 pt-6">
         <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
           <div className="flex-1 min-w-0">
-            <span
-              className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest mb-4"
-              style={{ color: 'var(--color-accent)' }}
-            >
+            <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest mb-4 text-[var(--color-accent)]">
               {categoryLabel}
             </span>
             <Link href={`/news/${item.slug}`} className="group block">
@@ -51,17 +48,11 @@ function BusinessCard({
                 {item.title}
               </h2>
               {item.excerpt && (
-                <p
-                  className="text-base leading-relaxed mb-6"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
+                <p className="text-base leading-relaxed mb-6 text-[var(--color-text-secondary)]">
                   {item.excerpt}
                 </p>
               )}
-              <span
-                className="inline-block border px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors"
-                style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'var(--color-text-secondary)' }}
-              >
+              <span className="inline-block border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors text-[var(--color-text-secondary)]">
                 {readMore}
               </span>
             </Link>
@@ -92,19 +83,13 @@ function BusinessCard({
               {item.title}
             </h3>
             {item.excerpt && (
-              <p
-                className="text-sm leading-relaxed line-clamp-2"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
+              <p className="text-sm leading-relaxed line-clamp-2 text-[var(--color-text-secondary)]">
                 {item.excerpt}
               </p>
             )}
           </Link>
           {item.publishedAt && (
-            <p
-              className="text-xs mt-3"
-              style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
-            >
+            <p className="text-xs mt-3 text-[var(--color-text-secondary)] opacity-60">
               {new Date(item.publishedAt).toLocaleDateString(locale, {
                 day: 'numeric',
                 month: 'long',
@@ -147,17 +132,13 @@ export default async function BusinessPage({
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <div className="border-b border-white/10 pb-5 mb-0">
         <h1 className="text-2xl font-black text-white uppercase tracking-wide">{t('cat_business')}</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('business_subtitle')}
-        </p>
+        <p className="text-sm mt-1 text-[var(--color-text-secondary)]">{t('business_subtitle')}</p>
       </div>
 
       {!data.items.length ? (
         <div className="text-center py-20">
           <p className="font-semibold text-white mb-2">{t('empty')}</p>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('business_empty_desc')}
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t('business_empty_desc')}</p>
         </div>
       ) : (
         <div className="space-y-8 mt-1">
@@ -196,7 +177,7 @@ export default async function BusinessPage({
               ← {t('prev')}
             </span>
           )}
-          <span className="px-5 py-2.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="px-5 py-2.5 text-sm text-[var(--color-text-secondary)]">
             {page} / {totalPages}
           </span>
           {page < totalPages ? (

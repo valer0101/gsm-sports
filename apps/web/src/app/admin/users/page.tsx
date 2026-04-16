@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAdminUsers, useUpdateUserRoles, type AdminUser } from '@/hooks/useAdmin';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-const ALL_ROLES = ['user', 'organizer', 'editor', 'admin'];
+const ALL_ROLES = ['user', 'organizer', 'admin'];
 
 const ROLE_COLOR: Record<string, string> = {
   admin: '#ef4444',
   organizer: '#a855f7',
-  editor: '#3b82f6',
   user: '#6b7280',
 };
 
@@ -25,7 +25,7 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-function UserRow({ user }: { user: AdminUser }) {
+function UserRow({ user, t }: { user: AdminUser; t: ReturnType<typeof useTranslations> }) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<string[]>(user.roles);
   const updateRoles = useUpdateUserRoles();
@@ -44,9 +44,7 @@ function UserRow({ user }: { user: AdminUser }) {
         <p className="font-semibold text-white">
           {user.firstName} {user.lastName}
         </p>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {user.email}
-        </p>
+        <p className="text-xs mt-0.5 text-[var(--color-text-secondary)]">{user.email}</p>
       </td>
       <td className="px-4 py-4">
         {editing ? (
@@ -76,8 +74,8 @@ function UserRow({ user }: { user: AdminUser }) {
           </div>
         )}
       </td>
-      <td className="px-4 py-4 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        {new Date(user.createdAt).toLocaleDateString('ru-RU')}
+      <td className="px-4 py-4 text-xs text-[var(--color-text-secondary)]">
+        {new Date(user.createdAt).toLocaleDateString()}
       </td>
       <td className="px-5 py-4 text-right">
         {editing ? (
@@ -85,20 +83,18 @@ function UserRow({ user }: { user: AdminUser }) {
             <button
               onClick={save}
               disabled={updateRoles.isPending}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-80"
-              style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-80 bg-[var(--color-accent)] text-white"
             >
-              {updateRoles.isPending ? '...' : 'Сохранить'}
+              {updateRoles.isPending ? '...' : t('btn_save')}
             </button>
             <button
               onClick={() => {
                 setEditing(false);
                 setSelected(user.roles);
               }}
-              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors text-[var(--color-text-secondary)]"
             >
-              Отмена
+              {t('btn_cancel')}
             </button>
           </div>
         ) : (
@@ -106,7 +102,7 @@ function UserRow({ user }: { user: AdminUser }) {
             onClick={() => setEditing(true)}
             className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white hover:bg-white/10 transition-colors"
           >
-            Роли
+            {t('btn_roles')}
           </button>
         )}
       </td>
@@ -115,6 +111,7 @@ function UserRow({ user }: { user: AdminUser }) {
 }
 
 export default function AdminUsersPage() {
+  const t = useTranslations('admin_users');
   const [page, setPage] = useState(1);
   const { data, isLoading, isError } = useAdminUsers(page);
 
@@ -123,10 +120,8 @@ export default function AdminUsersPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-black text-white">Пользователи</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          Управление ролями пользователей
-        </p>
+        <h1 className="text-2xl font-black text-white">{t('title')}</h1>
+        <p className="text-sm mt-1 text-[var(--color-text-secondary)]">{t('subtitle')}</p>
       </div>
 
       {isLoading ? (
@@ -136,30 +131,22 @@ export default function AdminUsersPage() {
           ))}
         </div>
       ) : isError ? (
-        <p className="text-center py-12" style={{ color: 'var(--color-text-secondary)' }}>
-          Ошибка загрузки
-        </p>
+        <p className="text-center py-12 text-[var(--color-text-secondary)]">{t('error')}</p>
       ) : (
         <>
-          <div
-            className="rounded-2xl border border-white/10 overflow-hidden"
-            style={{ backgroundColor: 'var(--color-secondary)' }}
-          >
+          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[var(--color-secondary)]">
             <table className="w-full">
               <thead>
-                <tr
-                  className="border-b border-white/10 text-xs uppercase tracking-wider"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  <th className="text-left px-5 py-3">Пользователь</th>
-                  <th className="text-left px-4 py-3">Роли</th>
-                  <th className="text-left px-4 py-3">Дата</th>
-                  <th className="text-right px-5 py-3">Действия</th>
+                <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <th className="text-left px-5 py-3">{t('col_user')}</th>
+                  <th className="text-left px-4 py-3">{t('col_roles')}</th>
+                  <th className="text-left px-4 py-3">{t('col_date')}</th>
+                  <th className="text-right px-5 py-3">{t('col_actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data?.users.map((user) => (
-                  <UserRow key={user.id} user={user} />
+                  <UserRow key={user.id} user={user} t={t} />
                 ))}
               </tbody>
             </table>
@@ -174,7 +161,7 @@ export default function AdminUsersPage() {
               >
                 ←
               </button>
-              <span className="px-4 py-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="px-4 py-2 text-sm text-[var(--color-text-secondary)]">
                 {page} / {totalPages}
               </span>
               <button
