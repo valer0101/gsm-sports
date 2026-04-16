@@ -44,7 +44,9 @@ export class AdminService {
     const target = await this.usersService.findById(targetId);
     if (!target) throw new NotFoundException('User not found');
     if (target.id === requesterId) throw new ForbiddenException('Cannot change your own roles');
-    return this.usersService.updateRoles(targetId, roles);
+    const user = await this.usersService.updateRoles(targetId, roles);
+    const { passwordHash: _ph, ...safe } = user as any;
+    return safe;
   }
 
   /* ───────── Tournaments ───────── */

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import DOMPurify from 'isomorphic-dompurify';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
 
@@ -29,7 +29,10 @@ async function getArticle(slug: string): Promise<NewsArticle | null> {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: 'Статья не найдена' };
+  if (!article) {
+    const t = await getTranslations('news');
+    return { title: t('not_found') };
+  }
   return {
     title: article.title,
     description: article.excerpt ?? undefined,
@@ -48,6 +51,7 @@ export default async function NewsArticlePage({
 }) {
   const { slug } = await params;
   const t = await getTranslations('news');
+  const locale = await getLocale();
   const article = await getArticle(slug);
 
   if (!article) notFound();
@@ -88,7 +92,7 @@ export default async function NewsArticlePage({
         </span>
         {article.publishedAt && (
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {new Date(article.publishedAt).toLocaleDateString('ru-RU', {
+            {new Date(article.publishedAt).toLocaleDateString(locale, {
               day: 'numeric',
               month: 'long',
               year: 'numeric',

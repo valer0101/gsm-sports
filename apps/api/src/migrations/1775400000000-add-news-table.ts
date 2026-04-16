@@ -18,7 +18,8 @@ export class AddNewsTable1775400000000 implements MigrationInterface {
         "publishedAt" TIMESTAMP WITH TIME ZONE,
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_news_id" PRIMARY KEY ("id")
+        CONSTRAINT "PK_news_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_news_authorId" FOREIGN KEY ("authorId") REFERENCES "users"("id")
       )`,
     );
     await queryRunner.query(`CREATE UNIQUE INDEX "IDX_news_slug" ON "news" ("slug")`);
@@ -32,6 +33,7 @@ export class AddNewsTable1775400000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "IDX_news_status"`);
     await queryRunner.query(`DROP INDEX "IDX_news_title"`);
     await queryRunner.query(`DROP INDEX "IDX_news_slug"`);
+    await queryRunner.query(`ALTER TABLE "news" DROP CONSTRAINT "FK_news_authorId"`);
     await queryRunner.query(`DROP TABLE "news"`);
   }
 }

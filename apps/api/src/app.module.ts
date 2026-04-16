@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -53,6 +55,10 @@ import { NewsModule } from './news/news.module';
     OperatorModule,
     UploadModule,
     NewsModule,
+  ],
+  providers: [
+    // Global JWT guard — routes are protected by default; mark exceptions with @Public()
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

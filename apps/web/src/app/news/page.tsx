@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
 
@@ -25,10 +25,12 @@ function NewsCard({
   item,
   featured = false,
   readMore,
+  locale,
 }: {
   item: NewsItem;
   featured?: boolean;
   readMore: string;
+  locale: string;
 }) {
   if (featured) {
     return (
@@ -94,7 +96,7 @@ function NewsCard({
               className="text-xs mt-3"
               style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
             >
-              {new Date(item.publishedAt).toLocaleDateString('ru-RU', {
+              {new Date(item.publishedAt).toLocaleDateString(locale, {
                 day: 'numeric',
                 month: 'long',
               })}
@@ -124,6 +126,7 @@ export default async function NewsPage({
   searchParams: Promise<{ category?: string; page?: string }>;
 }) {
   const t = await getTranslations('news');
+  const locale = await getLocale();
   const { category = '', page: pageStr = '1' } = await searchParams;
   const page = Math.max(1, Number(pageStr) || 1);
 
@@ -167,9 +170,9 @@ export default async function NewsPage({
         </p>
       ) : (
         <div className="space-y-8">
-          {featured && <NewsCard item={featured} featured readMore={t('read_more')} />}
+          {featured && <NewsCard item={featured} featured readMore={t('read_more')} locale={locale} />}
           {rest.map((item) => (
-            <NewsCard key={item.id} item={item} readMore={t('read_more')} />
+            <NewsCard key={item.id} item={item} readMore={t('read_more')} locale={locale} />
           ))}
         </div>
       )}

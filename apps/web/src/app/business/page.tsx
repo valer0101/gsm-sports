@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
 
@@ -26,10 +26,14 @@ function BusinessCard({
   item,
   featured = false,
   readMore,
+  categoryLabel,
+  locale,
 }: {
   item: NewsItem;
   featured?: boolean;
   readMore: string;
+  categoryLabel: string;
+  locale: string;
 }) {
   if (featured) {
     return (
@@ -40,7 +44,7 @@ function BusinessCard({
               className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest mb-4"
               style={{ color: 'var(--color-accent)' }}
             >
-              Бизнес
+              {categoryLabel}
             </span>
             <Link href={`/news/${item.slug}`} className="group block">
               <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-4 group-hover:opacity-80 transition-opacity">
@@ -101,7 +105,7 @@ function BusinessCard({
               className="text-xs mt-3"
               style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
             >
-              {new Date(item.publishedAt).toLocaleDateString('ru-RU', {
+              {new Date(item.publishedAt).toLocaleDateString(locale, {
                 day: 'numeric',
                 month: 'long',
               })}
@@ -131,6 +135,7 @@ export default async function BusinessPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const t = await getTranslations('news');
+  const locale = await getLocale();
   const { page: pageStr = '1' } = await searchParams;
   const page = Math.max(1, Number(pageStr) || 1);
 
@@ -156,9 +161,23 @@ export default async function BusinessPage({
         </div>
       ) : (
         <div className="space-y-8 mt-1">
-          {featured && <BusinessCard item={featured} featured readMore={t('read_more')} />}
+          {featured && (
+            <BusinessCard
+              item={featured}
+              featured
+              readMore={t('read_more')}
+              categoryLabel={t('cat_business')}
+              locale={locale}
+            />
+          )}
           {rest.map((item) => (
-            <BusinessCard key={item.id} item={item} readMore={t('read_more')} />
+            <BusinessCard
+              key={item.id}
+              item={item}
+              readMore={t('read_more')}
+              categoryLabel={t('cat_business')}
+              locale={locale}
+            />
           ))}
         </div>
       )}
