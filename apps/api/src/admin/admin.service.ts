@@ -34,36 +34,58 @@ export class AdminService {
     private readonly dataSource: DataSource,
   ) {}
 
-  /** List all tournaments for this organizer */
-  async listTournaments(organizerId: string) {
+  /* ───────── Users (admin only) ───────── */
+
+  async listUsers(page: number, limit: number) {
+    return this.usersService.findAll(page, limit);
+  }
+
+  async updateUserRoles(targetId: string, roles: string[], requesterId: string) {
+    const target = await this.usersService.findById(targetId);
+    if (!target) throw new NotFoundException('User not found');
+    if (target.id === requesterId) throw new ForbiddenException('Cannot change your own roles');
+    const user = await this.usersService.updateRoles(targetId, roles);
+    const { passwordHash: _ph, ...safe } = user as any;
+    return safe;
+  }
+
+  /* ───────── Tournaments ───────── */
+
+  /** List tournaments — admin sees all, organizer sees own */
+  async listTournaments(userId: string, userRoles: string[]) {
+    const isAdmin = userRoles.includes('admin');
     return this.tournamentsRepository.find({
-      where: { organizerId },
+      where: isAdmin ? {} : { organizerId: userId },
       relations: ['sport'],
       order: { createdAt: 'DESC' },
     });
   }
 
-  /** Get single tournament (must belong to organizer) */
-  async getTournament(id: string, organizerId: string): Promise<Tournament> {
+  /** Get single tournament — admin can access any, organizer only own */
+  async getTournament(id: string, userId: string, userRoles: string[]): Promise<Tournament> {
     const t = await this.tournamentsRepository.findOne({
       where: { id },
       relations: ['sport', 'weightCategories'],
     });
     if (!t) throw new NotFoundException('Tournament not found');
-    if (t.organizerId !== organizerId) throw new ForbiddenException('Access denied');
+    const isAdmin = userRoles.includes('admin');
+    if (!isAdmin && t.organizerId !== userId) throw new ForbiddenException('Access denied');
     return t;
   }
 
   /** Create new tournament */
-  async createTournament(dto: CreateTournamentDto, organizerId: string): Promise<Tournament> {
+  async createTournament(
+    dto: CreateTournamentDto,
+    userId: string,
+    userRoles: string[],
+  ): Promise<Tournament> {
     const slug = this.slugify(dto.name) + '-' + Date.now();
-
     const { weightCategories: wcInput, ...tournamentFields } = dto;
 
     const tournament = this.tournamentsRepository.create({
       ...tournamentFields,
       slug,
-      organizerId,
+      organizerId: userId,
       status: 'upcoming',
       registrationOpen: false,
       bracketGenerated: false,
@@ -71,7 +93,6 @@ export class AdminService {
 
     const saved = await this.tournamentsRepository.save(tournament);
 
-    // Create weight categories if provided
     if (wcInput && wcInput.length > 0) {
       const wcs = wcInput.map((wc, idx) =>
         this.weightCategoriesRepository.create({
@@ -85,28 +106,29 @@ export class AdminService {
       await this.weightCategoriesRepository.save(wcs);
     }
 
-    this.logger.log(`Tournament created: ${saved.id} by organizer ${organizerId}`);
-    return this.getTournament(saved.id, organizerId);
+    this.logger.log(`Tournament created: ${saved.id} by user ${userId}`);
+    return this.getTournament(saved.id, userId, userRoles);
   }
 
   /** Update tournament fields */
   async updateTournament(
     id: string,
     dto: UpdateTournamentDto,
-    organizerId: string,
+    userId: string,
+    userRoles: string[],
   ): Promise<Tournament> {
-    const t = await this.getTournament(id, organizerId);
+    const t = await this.getTournament(id, userId, userRoles);
     if (t.bracketGenerated) {
       throw new BadRequestException('Cannot edit tournament after bracket has been generated');
     }
     const { weightCategories: _wc, ...updateFields } = dto as any;
     await this.tournamentsRepository.update(id, updateFields);
-    return this.getTournament(id, organizerId);
+    return this.getTournament(id, userId, userRoles);
   }
 
   /** Delete tournament (only if not yet started) */
-  async deleteTournament(id: string, organizerId: string): Promise<void> {
-    const t = await this.getTournament(id, organizerId);
+  async deleteTournament(id: string, userId: string, userRoles: string[]): Promise<void> {
+    const t = await this.getTournament(id, userId, userRoles);
     if (['active', 'completed', 'cancelled'].includes(t.status)) {
       throw new BadRequestException('Cannot delete a tournament that has already started or ended');
     }
@@ -115,45 +137,41 @@ export class AdminService {
   }
 
   /** Toggle registration open/closed */
-  async toggleRegistration(id: string, organizerId: string): Promise<Tournament> {
-    const t = await this.getTournament(id, organizerId);
+  async toggleRegistration(id: string, userId: string, userRoles: string[]): Promise<Tournament> {
+    const t = await this.getTournament(id, userId, userRoles);
     if (t.bracketGenerated) {
       throw new BadRequestException('Registration cannot be reopened after bracket generation');
     }
     const newOpen = !t.registrationOpen;
     const newStatus = newOpen ? 'registration_open' : 'registration_closed';
-    await this.tournamentsRepository.update(id, {
-      registrationOpen: newOpen,
-      status: newStatus,
-    });
+    await this.tournamentsRepository.update(id, { registrationOpen: newOpen, status: newStatus });
     this.logger.log(`Tournament ${id}: registration ${newOpen ? 'opened' : 'closed'}`);
-    return this.getTournament(id, organizerId);
+    return this.getTournament(id, userId, userRoles);
   }
 
-  /** Close registration AND generate brackets grouped by (ageGroup, hand, weightBucket) */
+  /** Close registration AND generate brackets */
   async closeAndGenerateBrackets(
     id: string,
-    organizerId: string,
+    userId: string,
+    userRoles: string[],
   ): Promise<{ bracketsCreated: number }> {
-    const t = await this.getTournament(id, organizerId);
-
+    const t = await this.getTournament(id, userId, userRoles);
     if (t.bracketGenerated) {
       throw new BadRequestException('Bracket already generated for this tournament');
     }
-
     const bracketsCreated = await this.bracketsService.generateWithWeightBuckets(id);
     this.logger.log(`Tournament ${id}: ${bracketsCreated} bracket(s) generated`);
     return { bracketsCreated };
   }
 
-  /** List operators assigned to a tournament */
-  async listOperators(tournamentId: string, organizerId: string) {
-    await this.getTournament(tournamentId, organizerId); // verify ownership
+  /* ───────── Operators ───────── */
+
+  async listOperators(tournamentId: string, userId: string, userRoles: string[]) {
+    await this.getTournament(tournamentId, userId, userRoles);
     const ops = await this.operatorsRepository.find({
       where: { tournamentId },
       order: { assignedAt: 'ASC' },
     });
-    // Enrich with user info
     return Promise.all(
       ops.map(async (op) => {
         const user = await this.usersService.findById(op.operatorId);
@@ -167,18 +185,14 @@ export class AdminService {
     );
   }
 
-  /** Assign an operator by email */
-  async assignOperator(tournamentId: string, email: string, organizerId: string) {
-    await this.getTournament(tournamentId, organizerId);
-
+  async assignOperator(tournamentId: string, email: string, userId: string, userRoles: string[]) {
+    await this.getTournament(tournamentId, userId, userRoles);
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new NotFoundException(`User with email ${email} not found`);
-
     const exists = await this.operatorsRepository.findOne({
       where: { tournamentId, operatorId: user.id },
     });
     if (exists) throw new BadRequestException('User is already an operator for this tournament');
-
     const op = this.operatorsRepository.create({ tournamentId, operatorId: user.id });
     await this.operatorsRepository.save(op);
     this.logger.log(`Operator ${user.id} assigned to tournament ${tournamentId}`);
@@ -190,14 +204,17 @@ export class AdminService {
     };
   }
 
-  /** Remove an operator */
-  async removeOperator(tournamentId: string, operatorId: string, organizerId: string) {
-    await this.getTournament(tournamentId, organizerId);
+  async removeOperator(
+    tournamentId: string,
+    operatorId: string,
+    userId: string,
+    userRoles: string[],
+  ) {
+    await this.getTournament(tournamentId, userId, userRoles);
     await this.operatorsRepository.delete({ tournamentId, operatorId });
     this.logger.log(`Operator ${operatorId} removed from tournament ${tournamentId}`);
   }
 
-  /** Get participant count for a tournament */
   async getParticipantCount(tournamentId: string): Promise<number> {
     return this.entriesRepository.count({ where: { tournamentId, status: 'confirmed' } });
   }
