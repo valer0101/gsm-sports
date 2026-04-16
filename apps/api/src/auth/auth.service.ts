@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -12,6 +13,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -105,9 +107,16 @@ export class AuthService {
 
   private generateTokens(userId: string, email: string, roles: string[]) {
     const payload = { sub: userId, email, roles };
+    const refreshSecret = this.configService.get<string>(
+      'JWT_REFRESH_SECRET',
+      'dev-refresh-secret-change-in-prod',
+    );
     return {
       accessToken: this.jwtService.sign(payload),
-      refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      refreshToken: this.jwtService.sign(
+        { ...payload, type: 'refresh' },
+        { secret: refreshSecret, expiresIn: '7d' },
+      ),
     };
   }
 }

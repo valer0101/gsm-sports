@@ -15,26 +15,34 @@ export class UsersService {
 
   /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email }, select: { passwordHash: false } });
+    return this.usersRepository.findOne({ where: { email } });
   }
 
   async findByPhone(phone: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { phone }, select: { passwordHash: false } });
+    return this.usersRepository.findOne({ where: { phone } });
   }
 
   /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findById(id: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { id }, select: { passwordHash: false } });
+    return this.usersRepository.findOne({ where: { id } });
   }
 
-  /** Used only by auth service — returns full entity including passwordHash for bcrypt.compare */
+  /** Used only by auth service — explicitly selects passwordHash for bcrypt.compare */
   async findByEmailWithPassword(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email })
+      .getOne();
   }
 
-  /** Used only by auth service — returns full entity including passwordHash for bcrypt.compare */
+  /** Used only by auth service — explicitly selects passwordHash for bcrypt.compare */
   async findByPhoneWithPassword(phone: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { phone } });
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.phone = :phone', { phone })
+      .getOne();
   }
 
   async findAll(

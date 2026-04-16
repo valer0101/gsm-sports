@@ -18,7 +18,7 @@ export class User {
   email: string;
 
   @Exclude()
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   passwordHash: string | null;
 
   @Column({ type: 'varchar', length: 100 })

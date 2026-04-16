@@ -37,14 +37,11 @@ interface Props {
 
 const FIELD_CLASS =
   'w-full px-4 py-3 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors text-sm';
-const SELECT_CLASS = `${FIELD_CLASS} `;
+const SELECT_CLASS = `${FIELD_CLASS} bg-[var(--color-secondary)]`;
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label
-      className="block text-xs font-semibold uppercase tracking-wider mb-2"
-      style={{ color: 'var(--color-text-secondary)' }}
-    >
+    <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-[var(--color-text-secondary)]">
       {children}
     </label>
   );
@@ -52,6 +49,7 @@ function Label({ children }: { children: React.ReactNode }) {
 
 export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Props) {
   const t = useTranslations('admin_athletes');
+  const tCommon = useTranslations('common');
   const { data: sports } = useSports();
 
   const {
@@ -128,10 +126,7 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
 
       {/* Basic */}
       <div>
-        <h2
-          className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
-          style={{ color: 'var(--color-accent)' }}
-        >
+        <h2 className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10 text-[var(--color-accent)]">
           {t('section_basic')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -139,23 +134,19 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
             <Label>{t('field_first_name')}</Label>
             <input {...register('firstName')} className={FIELD_CLASS} />
             {errors.firstName && (
-              <p className="text-red-400 text-xs mt-1">{errors.firstName.message}</p>
+              <p className="text-red-400 text-xs mt-1">{tCommon('error_required')}</p>
             )}
           </div>
           <div>
             <Label>{t('field_last_name')}</Label>
             <input {...register('lastName')} className={FIELD_CLASS} />
             {errors.lastName && (
-              <p className="text-red-400 text-xs mt-1">{errors.lastName.message}</p>
+              <p className="text-red-400 text-xs mt-1">{tCommon('error_required')}</p>
             )}
           </div>
           <div>
             <Label>{t('field_sport')}</Label>
-            <select
-              {...register('sportId')}
-              className={SELECT_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
-            >
+            <select {...register('sportId')} className={SELECT_CLASS}>
               <option value="">{t('field_sport_placeholder')}</option>
               {sports?.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -164,16 +155,12 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
               ))}
             </select>
             {errors.sportId && (
-              <p className="text-red-400 text-xs mt-1">{errors.sportId.message}</p>
+              <p className="text-red-400 text-xs mt-1">{tCommon('error_required')}</p>
             )}
           </div>
           <div>
             <Label>{t('field_level')}</Label>
-            <select
-              {...register('experienceLevel')}
-              className={SELECT_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
-            >
+            <select {...register('experienceLevel')} className={SELECT_CLASS}>
               <option value="">{t('level_not_set')}</option>
               <option value="beginner">{t('level_beginner')}</option>
               <option value="intermediate">{t('level_intermediate')}</option>
@@ -186,20 +173,13 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
 
       {/* Personal */}
       <div>
-        <h2
-          className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
-          style={{ color: 'var(--color-accent)' }}
-        >
+        <h2 className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10 text-[var(--color-accent)]">
           {t('section_personal')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <Label>{t('field_gender')}</Label>
-            <select
-              {...register('gender')}
-              className={SELECT_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
-            >
+            <select {...register('gender')} className={SELECT_CLASS}>
               <option value="">{t('gender_not_set')}</option>
               <option value="male">{t('gender_male')}</option>
               <option value="female">{t('gender_female')}</option>
@@ -207,11 +187,7 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
           </div>
           <div>
             <Label>{t('field_hand')}</Label>
-            <select
-              {...register('primaryHand')}
-              className={SELECT_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
-            >
+            <select {...register('primaryHand')} className={SELECT_CLASS}>
               <option value="">{t('hand_not_set')}</option>
               <option value="right">{t('hand_right')}</option>
               <option value="left">{t('hand_left')}</option>
@@ -226,7 +202,7 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
               min={20}
               max={300}
               step={0.1}
-              placeholder="70.5"
+              placeholder={t('field_weight_placeholder')}
               className={FIELD_CLASS}
             />
           </div>
@@ -237,27 +213,32 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
               {...register('height')}
               min={100}
               max={250}
-              placeholder="175"
+              placeholder={t('field_height_placeholder')}
               className={FIELD_CLASS}
             />
           </div>
           <div>
             <Label>{t('field_country')}</Label>
-            <input {...register('country')} placeholder="Armenia" className={FIELD_CLASS} />
+            <input
+              {...register('country')}
+              placeholder={t('field_country_placeholder')}
+              className={FIELD_CLASS}
+            />
           </div>
           <div>
             <Label>{t('field_city')}</Label>
-            <input {...register('city')} placeholder="Yerevan" className={FIELD_CLASS} />
+            <input
+              {...register('city')}
+              placeholder={t('field_city_placeholder')}
+              className={FIELD_CLASS}
+            />
           </div>
         </div>
       </div>
 
       {/* Bio */}
       <div>
-        <h2
-          className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
-          style={{ color: 'var(--color-accent)' }}
-        >
+        <h2 className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10 text-[var(--color-accent)]">
           {t('section_bio')}
         </h2>
         <div>
@@ -282,15 +263,13 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
         <button
           type="submit"
           disabled={isPending}
-          className="px-6 py-3 rounded-xl font-bold text-white transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          className="px-6 py-3 rounded-xl font-bold text-white transition-opacity disabled:opacity-50 bg-[var(--color-accent)]"
         >
           {isPending ? t('submitting') : t('submit_save')}
         </button>
         <Link
           href="/admin/athletes"
-          className="px-6 py-3 rounded-xl font-medium border border-white/10 hover:bg-white/10 transition-colors"
-          style={{ color: 'var(--color-text-secondary)' }}
+          className="px-6 py-3 rounded-xl font-medium border border-white/10 hover:bg-white/10 transition-colors text-[var(--color-text-secondary)]"
         >
           {t('cancel')}
         </Link>

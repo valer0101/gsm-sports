@@ -25,11 +25,13 @@ type FormValues = z.infer<typeof schema>;
 
 const FIELD_CLASS =
   'w-full px-4 py-3 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors';
-const LABEL_CLASS = 'block text-xs font-semibold uppercase tracking-wider mb-2';
+const LABEL_CLASS =
+  'block text-xs font-semibold uppercase tracking-wider mb-2 text-[var(--color-text-secondary)]';
 
 export default function EditNewsPage() {
   const t = useTranslations('admin_news');
   const tCat = useTranslations('news');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useNewsItem(id);
@@ -100,25 +102,19 @@ export default function EditNewsPage() {
 
       <form onSubmit={handleSubmit(onValid)} className="space-y-6">
         <div>
-          <label className={LABEL_CLASS} style={{ color: 'var(--color-text-secondary)' }}>
-            {t('field_title')}
-          </label>
-          <input
-            {...register('title')}
-            className={`${FIELD_CLASS} text-lg font-semibold`}
-          />
-          {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
+          <label className={LABEL_CLASS}>{t('field_title')}</label>
+          <input {...register('title')} className={`${FIELD_CLASS} text-lg font-semibold`} />
+          {errors.title && (
+            <p className="text-red-400 text-xs mt-1">{tCommon('error_required')}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={LABEL_CLASS} style={{ color: 'var(--color-text-secondary)' }}>
-              {t('field_category')}
-            </label>
+            <label className={LABEL_CLASS}>{t('field_category')}</label>
             <select
               {...register('category')}
-              className={FIELD_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
+              className={`${FIELD_CLASS} bg-[var(--color-secondary)]`}
             >
               <option value="news">{tCat('cat_news')}</option>
               <option value="business">{tCat('cat_business')}</option>
@@ -126,13 +122,10 @@ export default function EditNewsPage() {
             </select>
           </div>
           <div>
-            <label className={LABEL_CLASS} style={{ color: 'var(--color-text-secondary)' }}>
-              {t('field_status')}
-            </label>
+            <label className={LABEL_CLASS}>{t('field_status')}</label>
             <select
               {...register('status')}
-              className={FIELD_CLASS}
-              style={{ backgroundColor: 'var(--color-secondary)' }}
+              className={`${FIELD_CLASS} bg-[var(--color-secondary)]`}
             >
               <option value="draft">{t('status_draft')}</option>
               <option value="published">{t('status_published')}</option>
@@ -141,9 +134,7 @@ export default function EditNewsPage() {
         </div>
 
         <div>
-          <label className={LABEL_CLASS} style={{ color: 'var(--color-text-secondary)' }}>
-            {t('field_excerpt')}
-          </label>
+          <label className={LABEL_CLASS}>{t('field_excerpt')}</label>
           <textarea
             {...register('excerpt')}
             rows={2}
@@ -158,9 +149,7 @@ export default function EditNewsPage() {
         />
 
         <div>
-          <label className={LABEL_CLASS} style={{ color: 'var(--color-text-secondary)' }}>
-            {t('field_content')}
-          </label>
+          <label className={LABEL_CLASS}>{t('field_content')}</label>
           <Controller
             name="content"
             control={control}
@@ -169,7 +158,7 @@ export default function EditNewsPage() {
             )}
           />
           {errors.content && (
-            <p className="text-red-400 text-xs mt-1">{errors.content.message}</p>
+            <p className="text-red-400 text-xs mt-1">{tCommon('error_required')}</p>
           )}
         </div>
 
@@ -183,8 +172,7 @@ export default function EditNewsPage() {
           <button
             type="submit"
             disabled={updateMutation.isPending}
-            className="px-6 py-3 rounded-xl font-bold text-white transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-accent)' }}
+            className="px-6 py-3 rounded-xl font-bold text-white transition-opacity disabled:opacity-50 bg-[var(--color-accent)]"
           >
             {updateMutation.isPending
               ? t('submitting')
@@ -194,8 +182,7 @@ export default function EditNewsPage() {
           </button>
           <Link
             href="/admin/news"
-            className="px-6 py-3 rounded-xl font-medium border border-white/10 hover:bg-white/10 transition-colors"
-            style={{ color: 'var(--color-text-secondary)' }}
+            className="px-6 py-3 rounded-xl font-medium border border-white/10 hover:bg-white/10 transition-colors text-[var(--color-text-secondary)]"
           >
             {t('cancel')}
           </Link>
