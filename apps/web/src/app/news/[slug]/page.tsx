@@ -1,38 +1,71 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
-import { useNewsBySlug } from '@/hooks/useNews';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { notFound } from 'next/navigation';
+import DOMPurify from 'isomorphic-dompurify';
+import { getTranslations } from 'next-intl/server';
 
-export default function NewsArticlePage() {
-  const { slug } = useParams<{ slug: string }>();
-  const { data: article, isLoading, isError } = useNewsBySlug(slug);
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
 
-  if (isLoading)
-    return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-4">
-        <Skeleton className="h-8 w-32 rounded-lg" />
-        <Skeleton className="h-12 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
-        <Skeleton className="h-96 w-full rounded-xl" />
-      </div>
-    );
+interface NewsArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  category: string;
+  status: string;
+  publishedAt: string | null;
+}
 
-  if (isError || !article)
-    return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-20 text-center">
-        <p className="text-xl text-white mb-4">Статья не найдена</p>
-        <Link
-          href="/news"
-          className="text-sm underline"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          ← Назад к новостям
-        </Link>
-      </div>
-    );
+async function getArticle(slug: string): Promise<NewsArticle | null> {
+  const res = await fetch(`${API_URL}/news/${encodeURIComponent(slug)}`, {
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const article = await getArticle(slug);
+  if (!article) return { title: 'Статья не найдена' };
+  return {
+    title: article.title,
+    description: article.excerpt ?? undefined,
+    openGraph: {
+      title: article.title,
+      description: article.excerpt ?? undefined,
+      images: article.coverImage ? [article.coverImage] : [],
+    },
+  };
+}
+
+export default async function NewsArticlePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const t = await getTranslations('news');
+  const article = await getArticle(slug);
+
+  if (!article) notFound();
+
+  const categoryLabel =
+    article.category === 'news'
+      ? t('cat_news')
+      : article.category === 'business'
+        ? t('cat_business')
+        : t('cat_sport');
+
+  const safeContent = DOMPurify.sanitize(article.content, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 's', 'u', 'h1', 'h2', 'h3', 'h4',
+      'ul', 'ol', 'li', 'blockquote', 'a', 'img',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'target', 'rel'],
+  });
 
   return (
     <article className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
@@ -42,7 +75,7 @@ export default function NewsArticlePage() {
         className="inline-flex items-center gap-2 text-sm mb-8 hover:text-white transition-colors"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        ← Все новости
+        ← {t('back_all')}
       </Link>
 
       {/* Meta */}
@@ -51,11 +84,7 @@ export default function NewsArticlePage() {
           className="text-xs px-2.5 py-1 rounded-full font-medium"
           style={{ backgroundColor: 'var(--color-accent)20', color: 'var(--color-accent)' }}
         >
-          {article.category === 'news'
-            ? 'Новости'
-            : article.category === 'business'
-              ? 'Бизнес'
-              : 'Спорт'}
+          {categoryLabel}
         </span>
         {article.publishedAt && (
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -90,8 +119,8 @@ export default function NewsArticlePage() {
         </div>
       )}
 
-      {/* Content */}
-      <div className="news-content" dangerouslySetInnerHTML={{ __html: article.content }} />
+      {/* Content — sanitized HTML */}
+      <div className="news-content" dangerouslySetInnerHTML={{ __html: safeContent }} />
 
       <style>{`
         .news-content h1 { font-size: 2rem; font-weight: 800; color: white; margin: 1.5rem 0 0.75rem; }

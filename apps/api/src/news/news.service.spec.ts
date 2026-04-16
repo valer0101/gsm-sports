@@ -142,6 +142,34 @@ describe('NewsService', () => {
     });
   });
 
+  // ── findBySlugPublic ─────────────────────────────────────────────────────
+
+  describe('findBySlugPublic', () => {
+    it('returns a published article by slug', async () => {
+      const news = mockNews({ status: 'published' });
+      mockRepository.findOne.mockResolvedValueOnce(news);
+
+      const result = await service.findBySlugPublic('test-article-123');
+
+      expect(result).toEqual(news);
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'test-article-123', status: 'published' },
+      });
+    });
+
+    it('throws NotFoundException when article is draft', async () => {
+      mockRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.findBySlugPublic('draft-slug')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws NotFoundException when slug does not exist', async () => {
+      mockRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.findBySlugPublic('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
   // ── create ───────────────────────────────────────────────────────────────
 
   describe('create', () => {

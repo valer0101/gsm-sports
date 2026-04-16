@@ -25,13 +25,19 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
-  async findAll(page = 1, limit = 20): Promise<{ users: User[]; total: number }> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<{ users: Omit<User, 'passwordHash'>[]; total: number }> {
     const [users, total] = await this.usersRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: Math.min(limit, 100),
     });
-    return { users, total };
+    return {
+      users: users.map(({ passwordHash: _ph, ...safe }) => safe as Omit<User, 'passwordHash'>),
+      total,
+    };
   }
 
   async updateRoles(id: string, roles: string[]): Promise<User> {
@@ -59,11 +65,10 @@ export class UsersService {
 
     const existing = await this.findByEmail(email);
     if (existing) {
-      const updates: Partial<User> = {};
-      if (!existing.roles.includes('admin')) updates.roles = ['admin'];
-      updates.passwordHash = await bcrypt.hash(password, 12);
-      await this.usersRepository.update(existing.id, updates);
-      this.logger.log(`Admin user updated: ${email}`);
+      if (!existing.roles.includes('admin')) {
+        await this.usersRepository.update(existing.id, { roles: ['admin'] });
+        this.logger.log(`Admin role granted to existing user: ${email}`);
+      }
       return;
     }
 

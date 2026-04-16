@@ -98,13 +98,18 @@ describe('UsersService', () => {
   // ── findAll ───────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
-    it('returns paginated users', async () => {
+    it('returns paginated users without passwordHash', async () => {
       const users = [mockUser(), mockUser({ id: 'user-uuid-2', email: 'b@gsm.com' })];
       mockRepository.findAndCount.mockResolvedValueOnce([users, 2]);
 
       const result = await service.findAll();
 
-      expect(result).toEqual({ users, total: 2 });
+      expect(result.total).toBe(2);
+      expect(result.users).toHaveLength(2);
+      // passwordHash must be stripped from the response
+      result.users.forEach((u) => {
+        expect(u).not.toHaveProperty('passwordHash');
+      });
       expect(mockRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ order: { createdAt: 'DESC' } }),
       );
@@ -209,17 +214,16 @@ describe('UsersService', () => {
       );
     });
 
-    it('does not change roles if user is already admin', async () => {
+    it('does not call update if user is already admin (no password overwrite)', async () => {
       process.env.ADMIN_EMAIL = 'admin@gsm.com';
       process.env.ADMIN_PASSWORD = 'Admin1234!';
       const existingAdmin = mockUser({ email: 'admin@gsm.com', roles: ['admin'] });
       mockRepository.findOne.mockResolvedValueOnce(existingAdmin);
-      mockRepository.update.mockResolvedValueOnce({ affected: 1 });
 
       await service.seedAdmin();
 
-      const updateCall = mockRepository.update.mock.calls[0][1];
-      expect(updateCall.roles).toBeUndefined();
+      // Password is NOT overwritten on restart — update is not called at all
+      expect(mockRepository.update).not.toHaveBeenCalled();
     });
   });
 });

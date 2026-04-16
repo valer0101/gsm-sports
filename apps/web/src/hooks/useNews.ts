@@ -37,7 +37,7 @@ export function useAdminNews(page = 1) {
 export function useNewsItem(id: string) {
   return useQuery<NewsItem>({
     queryKey: ['admin', 'news', 'item', id],
-    queryFn: () => api.get(`/news/${id}`).then((r: any) => r.data),
+    queryFn: () => api.get(`/news/admin/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }

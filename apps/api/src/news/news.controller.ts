@@ -17,6 +17,7 @@ import { UpdateNewsDto } from './dto/update-news.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('news')
 @Controller('v1/news')
@@ -25,6 +26,7 @@ export class NewsController {
 
   /* ── Public ── */
 
+  @Public()
   @Get()
   findAll(
     @Query('category') category?: string,
@@ -44,9 +46,18 @@ export class NewsController {
     return this.newsService.findAllAdmin(Number(page), Number(limit));
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'editor')
+  @Get('admin/:id')
+  findOneAdmin(@Param('id') id: string) {
+    return this.newsService.findById(id);
+  }
+
+  @Public()
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
-    return this.newsService.findBySlug(slug);
+    return this.newsService.findBySlugPublic(slug);
   }
 
   @ApiBearerAuth()

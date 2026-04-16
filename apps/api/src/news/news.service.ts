@@ -38,8 +38,19 @@ export class NewsService {
     return { items, total };
   }
 
+  /** Public — only returns published articles */
+  async findBySlugPublic(slug: string): Promise<News> {
+    const news = await this.newsRepository.findOne({
+      where: { slug, status: 'published' },
+    });
+    if (!news) throw new NotFoundException('Article not found');
+    return news;
+  }
+
+  /** Admin — returns any article by UUID, regardless of status */
   async findBySlug(slugOrId: string): Promise<News> {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
     const where = isUuid ? [{ slug: slugOrId }, { id: slugOrId }] : [{ slug: slugOrId }];
     const news = await this.newsRepository.findOne({ where });
     if (!news) throw new NotFoundException('Article not found');

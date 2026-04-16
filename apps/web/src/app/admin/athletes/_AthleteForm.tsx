@@ -1,17 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'next-intl';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { useSports, type AthletePayload } from '@/hooks/useAthletes';
 import type { Athlete } from '@/types/api';
+
+const athleteSchema = z.object({
+  sportId: z.string().min(1, 'Required'),
+  firstName: z.string().min(1, 'Required'),
+  lastName: z.string().min(1, 'Required'),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  gender: z.string().optional(),
+  primaryHand: z.string().optional(),
+  weight: z.string().optional(),
+  height: z.string().optional(),
+  experienceLevel: z.string().optional(),
+  photoUrl: z.string().optional(),
+  bioRu: z.string().optional(),
+});
+
+type AthleteFormValues = z.infer<typeof athleteSchema>;
 
 interface Props {
   initial?: Athlete;
   onSubmit: (data: AthletePayload) => void;
   isPending: boolean;
   isError: boolean;
-  error?: any;
+  error?: unknown;
 }
 
 const FIELD_CLASS =
@@ -30,61 +51,80 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Props) {
-  const router = useRouter();
+  const t = useTranslations('admin_athletes');
   const { data: sports } = useSports();
 
-  const [sportId, setSportId] = useState(initial?.sport?.id ?? '');
-  const [firstName, setFirstName] = useState(initial?.firstName ?? '');
-  const [lastName, setLastName] = useState(initial?.lastName ?? '');
-  const [country, setCountry] = useState(initial?.country ?? '');
-  const [city, setCity] = useState(initial?.city ?? '');
-  const [gender, setGender] = useState(initial?.gender ?? '');
-  const [primaryHand, setPrimaryHand] = useState(initial?.primaryHand ?? '');
-  const [weight, setWeight] = useState(initial?.weight ? String(initial.weight) : '');
-  const [height, setHeight] = useState(initial?.height ? String(initial.height) : '');
-  const [experienceLevel, setExperienceLevel] = useState(initial?.experienceLevel ?? '');
-  const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl ?? '');
-  const [bioRu, setBioRu] = useState((initial as any)?.bioRu ?? '');
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<AthleteFormValues>({
+    resolver: zodResolver(athleteSchema),
+    defaultValues: {
+      sportId: initial?.sport?.id ?? '',
+      firstName: initial?.firstName ?? '',
+      lastName: initial?.lastName ?? '',
+      country: initial?.country ?? '',
+      city: initial?.city ?? '',
+      gender: initial?.gender ?? '',
+      primaryHand: initial?.primaryHand ?? '',
+      weight: initial?.weight ? String(initial.weight) : '',
+      height: initial?.height ? String(initial.height) : '',
+      experienceLevel: initial?.experienceLevel ?? '',
+      photoUrl: initial?.photoUrl ?? '',
+      bioRu: (initial as any)?.bioRu ?? '',
+    },
+  });
 
   useEffect(() => {
     if (initial) {
-      setSportId(initial.sport?.id ?? '');
-      setFirstName(initial.firstName);
-      setLastName(initial.lastName);
-      setCountry(initial.country ?? '');
-      setCity(initial.city ?? '');
-      setGender(initial.gender ?? '');
-      setPrimaryHand(initial.primaryHand ?? '');
-      setWeight(initial.weight ? String(initial.weight) : '');
-      setHeight(initial.height ? String(initial.height) : '');
-      setExperienceLevel(initial.experienceLevel ?? '');
-      setPhotoUrl(initial.photoUrl ?? '');
-      setBioRu((initial as any)?.bioRu ?? '');
+      reset({
+        sportId: initial.sport?.id ?? '',
+        firstName: initial.firstName,
+        lastName: initial.lastName,
+        country: initial.country ?? '',
+        city: initial.city ?? '',
+        gender: initial.gender ?? '',
+        primaryHand: initial.primaryHand ?? '',
+        weight: initial.weight ? String(initial.weight) : '',
+        height: initial.height ? String(initial.height) : '',
+        experienceLevel: initial.experienceLevel ?? '',
+        photoUrl: initial.photoUrl ?? '',
+        bioRu: (initial as any)?.bioRu ?? '',
+      });
     }
-  }, [initial]);
+  }, [initial, reset]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const photoUrl = watch('photoUrl');
+
+  const onValid = (values: AthleteFormValues) => {
     onSubmit({
-      sportId,
-      firstName,
-      lastName,
-      country: country || undefined,
-      city: city || undefined,
-      gender: gender || undefined,
-      primaryHand: primaryHand || undefined,
-      weight: weight ? Number(weight) : undefined,
-      height: height ? Number(height) : undefined,
-      experienceLevel: experienceLevel || undefined,
-      photoUrl: photoUrl || undefined,
-      bioRu: bioRu || undefined,
+      sportId: values.sportId,
+      firstName: values.firstName,
+      lastName: values.lastName,
+      country: values.country || undefined,
+      city: values.city || undefined,
+      gender: values.gender || undefined,
+      primaryHand: values.primaryHand || undefined,
+      weight: values.weight ? Number(values.weight) : undefined,
+      height: values.height ? Number(values.height) : undefined,
+      experienceLevel: values.experienceLevel || undefined,
+      photoUrl: values.photoUrl || undefined,
+      bioRu: values.bioRu || undefined,
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit(onValid)} className="space-y-8">
       {/* Photo */}
-      <ImageUpload value={photoUrl} onChange={setPhotoUrl} label="Фото спортсмена" />
+      <ImageUpload
+        value={photoUrl ?? ''}
+        onChange={(url) => setValue('photoUrl', url)}
+        label={t('photo_label')}
+      />
 
       {/* Basic */}
       <div>
@@ -92,57 +132,53 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
           className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
           style={{ color: 'var(--color-accent)' }}
         >
-          Основная информация
+          {t('section_basic')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Имя *</Label>
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-              className={FIELD_CLASS}
-            />
+            <Label>{t('field_first_name')}</Label>
+            <input {...register('firstName')} className={FIELD_CLASS} />
+            {errors.firstName && (
+              <p className="text-red-400 text-xs mt-1">{errors.firstName.message}</p>
+            )}
           </div>
           <div>
-            <Label>Фамилия *</Label>
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              required
-              className={FIELD_CLASS}
-            />
+            <Label>{t('field_last_name')}</Label>
+            <input {...register('lastName')} className={FIELD_CLASS} />
+            {errors.lastName && (
+              <p className="text-red-400 text-xs mt-1">{errors.lastName.message}</p>
+            )}
           </div>
           <div>
-            <Label>Вид спорта *</Label>
+            <Label>{t('field_sport')}</Label>
             <select
-              value={sportId}
-              onChange={(e) => setSportId(e.target.value)}
-              required
+              {...register('sportId')}
               className={SELECT_CLASS}
               style={{ backgroundColor: 'var(--color-secondary)' }}
             >
-              <option value="">Выберите вид спорта</option>
+              <option value="">{t('field_sport_placeholder')}</option>
               {sports?.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nameRu}
                 </option>
               ))}
             </select>
+            {errors.sportId && (
+              <p className="text-red-400 text-xs mt-1">{errors.sportId.message}</p>
+            )}
           </div>
           <div>
-            <Label>Уровень</Label>
+            <Label>{t('field_level')}</Label>
             <select
-              value={experienceLevel}
-              onChange={(e) => setExperienceLevel(e.target.value)}
+              {...register('experienceLevel')}
               className={SELECT_CLASS}
               style={{ backgroundColor: 'var(--color-secondary)' }}
             >
-              <option value="">Не указан</option>
-              <option value="beginner">Начинающий</option>
-              <option value="intermediate">Средний</option>
-              <option value="advanced">Продвинутый</option>
-              <option value="professional">Профессионал</option>
+              <option value="">{t('level_not_set')}</option>
+              <option value="beginner">{t('level_beginner')}</option>
+              <option value="intermediate">{t('level_intermediate')}</option>
+              <option value="advanced">{t('level_advanced')}</option>
+              <option value="professional">{t('level_professional')}</option>
             </select>
           </div>
         </div>
@@ -154,42 +190,39 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
           className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
           style={{ color: 'var(--color-accent)' }}
         >
-          Персональные данные
+          {t('section_personal')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <Label>Пол</Label>
+            <Label>{t('field_gender')}</Label>
             <select
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
+              {...register('gender')}
               className={SELECT_CLASS}
               style={{ backgroundColor: 'var(--color-secondary)' }}
             >
-              <option value="">Не указан</option>
-              <option value="male">Мужской</option>
-              <option value="female">Женский</option>
+              <option value="">{t('gender_not_set')}</option>
+              <option value="male">{t('gender_male')}</option>
+              <option value="female">{t('gender_female')}</option>
             </select>
           </div>
           <div>
-            <Label>Рабочая рука</Label>
+            <Label>{t('field_hand')}</Label>
             <select
-              value={primaryHand}
-              onChange={(e) => setPrimaryHand(e.target.value)}
+              {...register('primaryHand')}
               className={SELECT_CLASS}
               style={{ backgroundColor: 'var(--color-secondary)' }}
             >
-              <option value="">Не указана</option>
-              <option value="right">Правая</option>
-              <option value="left">Левая</option>
-              <option value="both">Обе</option>
+              <option value="">{t('hand_not_set')}</option>
+              <option value="right">{t('hand_right')}</option>
+              <option value="left">{t('hand_left')}</option>
+              <option value="both">{t('hand_both')}</option>
             </select>
           </div>
           <div>
-            <Label>Вес (кг)</Label>
+            <Label>{t('field_weight')}</Label>
             <input
               type="number"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
+              {...register('weight')}
               min={20}
               max={300}
               step={0.1}
@@ -198,11 +231,10 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
             />
           </div>
           <div>
-            <Label>Рост (см)</Label>
+            <Label>{t('field_height')}</Label>
             <input
               type="number"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
+              {...register('height')}
               min={100}
               max={250}
               placeholder="175"
@@ -210,22 +242,12 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
             />
           </div>
           <div>
-            <Label>Страна</Label>
-            <input
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder="Armenia"
-              className={FIELD_CLASS}
-            />
+            <Label>{t('field_country')}</Label>
+            <input {...register('country')} placeholder="Armenia" className={FIELD_CLASS} />
           </div>
           <div>
-            <Label>Город</Label>
-            <input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Yerevan"
-              className={FIELD_CLASS}
-            />
+            <Label>{t('field_city')}</Label>
+            <input {...register('city')} placeholder="Yerevan" className={FIELD_CLASS} />
           </div>
         </div>
       </div>
@@ -236,15 +258,14 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
           className="text-xs font-black uppercase tracking-widest mb-4 pb-2 border-b border-white/10"
           style={{ color: 'var(--color-accent)' }}
         >
-          Биография
+          {t('section_bio')}
         </h2>
         <div>
-          <Label>Биография (рус)</Label>
+          <Label>{t('field_bio')}</Label>
           <textarea
-            value={bioRu}
-            onChange={(e) => setBioRu(e.target.value)}
+            {...register('bioRu')}
             rows={4}
-            placeholder="Описание спортсмена..."
+            placeholder={t('field_bio_placeholder')}
             className={`${FIELD_CLASS} resize-none`}
           />
         </div>
@@ -252,27 +273,27 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
 
       {isError && (
         <p className="text-sm text-red-400 bg-red-500/10 px-4 py-2.5 rounded-xl">
-          Ошибка: {error?.response?.data?.message ?? error?.message ?? 'Не удалось сохранить'}
+          {t('error_save')}:{' '}
+          {(error as any)?.response?.data?.message ?? (error as any)?.message ?? ''}
         </p>
       )}
 
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={isPending || !firstName || !lastName || !sportId}
+          disabled={isPending}
           className="px-6 py-3 rounded-xl font-bold text-white transition-opacity disabled:opacity-50"
           style={{ backgroundColor: 'var(--color-accent)' }}
         >
-          {isPending ? 'Сохраняем...' : 'Сохранить'}
+          {isPending ? t('submitting') : t('submit_save')}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push('/admin/athletes')}
+        <Link
+          href="/admin/athletes"
           className="px-6 py-3 rounded-xl font-medium border border-white/10 hover:bg-white/10 transition-colors"
           style={{ color: 'var(--color-text-secondary)' }}
         >
-          Отмена
-        </button>
+          {t('cancel')}
+        </Link>
       </div>
     </form>
   );

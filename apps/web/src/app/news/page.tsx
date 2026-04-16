@@ -1,41 +1,40 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { usePublicNews, type NewsItem } from '@/hooks/useNews';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { getTranslations } from 'next-intl/server';
 
-const CATEGORIES = [
-  { key: '', label: 'Все' },
-  { key: 'news', label: 'Новости' },
-  { key: 'business', label: 'Бизнес' },
-  { key: 'sport', label: 'Спорт' },
-];
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
 
-const CATEGORY_HREF: Record<string, string> = {
-  news: '/news',
-  business: '/business',
-  sport: '/sport',
-};
+interface NewsItem {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  category: string;
+  publishedAt: string | null;
+}
 
-function NewsCard({ item, featured = false }: { item: NewsItem; featured?: boolean }) {
-  const categoryLabel = CATEGORIES.find((c) => c.key === item.category)?.label ?? item.category;
-  const categoryHref = CATEGORY_HREF[item.category] ?? '/news';
+async function getNews(category?: string, page = 1) {
+  const url = `${API_URL}/news?page=${page}&limit=12${category ? `&category=${category}` : ''}`;
+  const res = await fetch(url, { next: { revalidate: 60 } });
+  if (!res.ok) return { items: [] as NewsItem[], total: 0 };
+  return res.json() as Promise<{ items: NewsItem[]; total: number }>;
+}
 
+function NewsCard({
+  item,
+  featured = false,
+  readMore,
+}: {
+  item: NewsItem;
+  featured?: boolean;
+  readMore: string;
+}) {
   if (featured) {
     return (
       <article className="border-t border-white/10 pt-6">
         <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
-          {/* Text */}
           <div className="flex-1 min-w-0">
-            <Link
-              href={categoryHref}
-              className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest mb-4 hover:opacity-70 transition-opacity"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              {categoryLabel} ›
-            </Link>
             <Link href={`/news/${item.slug}`} className="group block">
               <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-4 group-hover:opacity-80 transition-opacity">
                 {item.title}
@@ -50,17 +49,12 @@ function NewsCard({ item, featured = false }: { item: NewsItem; featured?: boole
               )}
               <span
                 className="inline-block border px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors"
-                style={{
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  color: 'var(--color-text-secondary)',
-                }}
+                style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'var(--color-text-secondary)' }}
               >
-                Читать далее
+                {readMore}
               </span>
             </Link>
           </div>
-
-          {/* Image */}
           {item.coverImage && (
             <Link href={`/news/${item.slug}`} className="w-full md:w-[55%] shrink-0 block">
               <div className="relative aspect-[16/9] overflow-hidden">
@@ -82,13 +76,6 @@ function NewsCard({ item, featured = false }: { item: NewsItem; featured?: boole
     <article className="border-t border-white/10 pt-5">
       <div className="flex gap-5 items-start">
         <div className="flex-1 min-w-0">
-          <Link
-            href={categoryHref}
-            className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest mb-2 hover:opacity-70 transition-opacity"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            {categoryLabel} ›
-          </Link>
           <Link href={`/news/${item.slug}`} className="group block">
             <h3 className="text-lg font-black text-white leading-snug mb-2 group-hover:opacity-80 transition-opacity line-clamp-3">
               {item.title}
@@ -114,7 +101,6 @@ function NewsCard({ item, featured = false }: { item: NewsItem; featured?: boole
             </p>
           )}
         </div>
-
         {item.coverImage && (
           <Link href={`/news/${item.slug}`} className="shrink-0 w-32 sm:w-44 block">
             <div className="relative aspect-[4/3] overflow-hidden">
@@ -132,45 +118,36 @@ function NewsCard({ item, featured = false }: { item: NewsItem; featured?: boole
   );
 }
 
-function SkeletonCard({ featured = false }: { featured?: boolean }) {
-  return (
-    <div className="border-t border-white/10 pt-6">
-      <div className={`flex ${featured ? 'flex-col md:flex-row' : 'flex-row'} gap-5`}>
-        <div className="flex-1 space-y-3">
-          <Skeleton className="h-3 w-16 rounded" />
-          <Skeleton className={`h-8 w-full rounded ${featured ? 'md:w-3/4' : ''}`} />
-          <Skeleton className="h-4 w-full rounded" />
-          <Skeleton className="h-4 w-2/3 rounded" />
-        </div>
-        <Skeleton
-          className={`rounded ${featured ? 'w-full md:w-[55%] aspect-video' : 'w-32 sm:w-44 aspect-[4/3]'} shrink-0`}
-        />
-      </div>
-    </div>
-  );
-}
+export default async function NewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string; page?: string }>;
+}) {
+  const t = await getTranslations('news');
+  const { category = '', page: pageStr = '1' } = await searchParams;
+  const page = Math.max(1, Number(pageStr) || 1);
 
-export default function NewsPage() {
-  const [category, setCategory] = useState('');
-  const [page, setPage] = useState(1);
-  const { data, isLoading } = usePublicNews(category || undefined, page);
+  const data = await getNews(category || undefined, page);
+  const totalPages = Math.ceil((data.total || 0) / 12) || 1;
+  const [featured, ...rest] = data.items;
 
-  const totalPages = data ? Math.ceil(data.total / 12) : 1;
-  const [featured, ...rest] = data?.items ?? [];
+  const CATEGORIES = [
+    { key: '', label: t('cat_all') },
+    { key: 'news', label: t('cat_news') },
+    { key: 'business', label: t('cat_business') },
+    { key: 'sport', label: t('cat_sport') },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-5">
-        <h1 className="text-2xl font-black text-white uppercase tracking-wide">Новости</h1>
+        <h1 className="text-2xl font-black text-white uppercase tracking-wide">{t('page_title')}</h1>
         <div className="flex gap-1">
           {CATEGORIES.map((cat) => (
-            <button
+            <Link
               key={cat.key}
-              onClick={() => {
-                setCategory(cat.key);
-                setPage(1);
-              }}
+              href={cat.key ? `/news?category=${cat.key}` : '/news'}
               className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all"
               style={{
                 color: category === cat.key ? 'var(--color-accent)' : 'var(--color-text-secondary)',
@@ -179,50 +156,53 @@ export default function NewsPage() {
               }}
             >
               {cat.label}
-            </button>
+            </Link>
           ))}
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-8">
-          <SkeletonCard featured />
-          {[1, 2, 3].map((i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : !data?.items.length ? (
+      {!data.items.length ? (
         <p className="text-center py-20" style={{ color: 'var(--color-text-secondary)' }}>
-          Статей пока нет
+          {t('empty')}
         </p>
       ) : (
         <div className="space-y-8">
-          {featured && <NewsCard item={featured} featured />}
+          {featured && <NewsCard item={featured} featured readMore={t('read_more')} />}
           {rest.map((item) => (
-            <NewsCard key={item.id} item={item} />
+            <NewsCard key={item.id} item={item} readMore={t('read_more')} />
           ))}
         </div>
       )}
 
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-12 border-t border-white/10 pt-8">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
-          >
-            ← Назад
-          </button>
+          {page > 1 ? (
+            <Link
+              href={`/news?${category ? `category=${category}&` : ''}page=${page - 1}`}
+              className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+            >
+              ← {t('prev')}
+            </Link>
+          ) : (
+            <span className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white opacity-30">
+              ← {t('prev')}
+            </span>
+          )}
           <span className="px-5 py-2.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             {page} / {totalPages}
           </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
-          >
-            Вперёд →
-          </button>
+          {page < totalPages ? (
+            <Link
+              href={`/news?${category ? `category=${category}&` : ''}page=${page + 1}`}
+              className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+            >
+              {t('next')} →
+            </Link>
+          ) : (
+            <span className="px-5 py-2.5 border border-white/20 text-sm font-semibold text-white opacity-30">
+              {t('next')} →
+            </span>
+          )}
         </div>
       )}
     </div>
