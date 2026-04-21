@@ -2,7 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   useAdminTournament,
   useToggleRegistration,
@@ -23,6 +23,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const t = useTranslations('admin_tournament');
   const tAdmin = useTranslations('admin');
+  const locale = useLocale();
   const { data: tournament, isLoading } = useAdminTournament(id);
   const toggleReg = useToggleRegistration(id);
   const generateBrackets = useGenerateBrackets(id);
@@ -87,7 +88,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             <h1 className="text-xl font-black text-white">{tournament.name}</h1>
             <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
               {[tournament.city, tournament.country].filter(Boolean).join(', ')} ·{' '}
-              {new Date(tournament.startDate).toLocaleDateString('ru-RU')}
+              {new Date(tournament.startDate).toLocaleDateString(locale)}
             </p>
           </div>
           <StatusBadge status={tournament.status} tAdmin={tAdmin} />
@@ -355,6 +356,7 @@ function BracketManager({
   bracket: Bracket;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const locale = useLocale();
   const lockMutation = useAdminLockBracket(bracketId, tournamentId);
   const resetMatch = useAdminResetMatch(bracketId, tournamentId);
   const correctResult = useAdminCorrectResult(bracketId, tournamentId);
@@ -442,7 +444,7 @@ function BracketManager({
         </span>
         {bracket.lastModifiedAt && (
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            · {new Date(bracket.lastModifiedAt).toLocaleString('ru-RU')}
+            · {new Date(bracket.lastModifiedAt).toLocaleString(locale)}
           </span>
         )}
 
@@ -633,13 +635,17 @@ function BracketManager({
                       />
                       <div className="flex gap-2">
                         <button
-                          disabled={!correctWinnerId || correctResult.isPending}
+                          disabled={
+                            !correctWinnerId ||
+                            correctReason.trim().length < 3 ||
+                            correctResult.isPending
+                          }
                           onClick={() =>
                             correctResult.mutate(
                               {
                                 matchId: match.id,
                                 winnerId: correctWinnerId,
-                                reason: correctReason || undefined,
+                                reason: correctReason.trim(),
                               },
                               { onSuccess: () => setCorrectState(null) },
                             )
@@ -688,6 +694,7 @@ function AuditLogTable({
   getPlayerName: (id: string) => string;
 }) {
   const t = useTranslations('admin_tournament');
+  const locale = useLocale();
   const actionLabel: Record<string, string> = {
     result_recorded: t('action_result_recorded'),
     result_corrected: t('action_result_corrected'),
@@ -725,7 +732,7 @@ function AuditLogTable({
               )}
             </div>
             <p className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-              {new Date(log.createdAt).toLocaleString('ru-RU')}
+              {new Date(log.createdAt).toLocaleString(locale)}
             </p>
           </div>
         ))}

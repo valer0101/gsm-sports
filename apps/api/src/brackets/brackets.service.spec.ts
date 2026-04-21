@@ -35,12 +35,24 @@ vi.mock('@gsm/bracket-engine', () => ({
   })),
 }));
 
+// Builder that mimics TypeORM's createQueryBuilder().update().set().where().execute()
+function makeUpdateQB(affected: number = 1) {
+  const qb: any = {
+    update: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    execute: vi.fn().mockResolvedValue({ affected }),
+  };
+  return qb;
+}
+
 const mockRepo = () => ({
   findOne: vi.fn(),
   find: vi.fn(),
   create: vi.fn((x) => x),
   save: vi.fn((x) => Promise.resolve(x)),
   update: vi.fn(),
+  createQueryBuilder: vi.fn(() => makeUpdateQB(1)),
 });
 
 const mockOperatorsRepo = () => ({ count: vi.fn().mockResolvedValue(0) });
@@ -88,18 +100,34 @@ describe('BracketsService', () => {
   let eventsGateway: { emitBracketUpdate: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
+    // Pre-create repo mocks so we can share them between the module and the transaction EM
+    const bracketRepo = mockRepo();
+    const auditRepoInstance = mockAuditRepo();
+
+    // Fake EntityManager that returns the same repos when getRepository(entity) is called
+    const fakeEm = {
+      getRepository: vi.fn((entity: any) => {
+        if (entity === Bracket) return bracketRepo;
+        if (entity === BracketAuditLog) return auditRepoInstance;
+        return { save: vi.fn(), create: vi.fn(), update: vi.fn() };
+      }),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         BracketsService,
-        { provide: getRepositoryToken(Bracket), useFactory: mockRepo },
-        { provide: getRepositoryToken(BracketAuditLog), useFactory: mockAuditRepo },
+        { provide: getRepositoryToken(Bracket), useValue: bracketRepo },
+        { provide: getRepositoryToken(BracketAuditLog), useValue: auditRepoInstance },
         { provide: getRepositoryToken(TournamentOperator), useFactory: mockOperatorsRepo },
         { provide: TournamentsService, useFactory: mockTournamentsService },
         { provide: EntriesService, useFactory: mockEntriesService },
         { provide: EventsGateway, useValue: { emitBracketUpdate: vi.fn() } },
         {
           provide: getDataSourceToken(),
-          useValue: { getRepository: vi.fn(), transaction: vi.fn() },
+          useValue: {
+            getRepository: vi.fn(),
+            transaction: vi.fn(async (cb: any) => cb(fakeEm)),
+          },
         },
       ],
     }).compile();
@@ -172,13 +200,8 @@ describe('BracketsService', () => {
         player2: { id: 'p2' },
       } as any);
 
-      await service.recordResult(
-        'bracket-1',
-        { matchId: 'm1', winnerId: 'p1' },
-        'org-1',
-        [],
-      );
-      expect(repo.update).toHaveBeenCalled();
+      await service.recordResult('bracket-1', { matchId: 'm1', winnerId: 'p1' }, 'org-1', []);
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
       expect(eventsGateway.emitBracketUpdate).toHaveBeenCalled();
     });
 
@@ -195,13 +218,8 @@ describe('BracketsService', () => {
       repo.findOne.mockResolvedValueOnce(makeBracket());
       operatorsRepo.count.mockResolvedValue(1);
 
-      await service.recordResult(
-        'bracket-1',
-        { matchId: 'm1', winnerId: 'p1' },
-        'operator-1',
-        [],
-      );
-      expect(repo.update).toHaveBeenCalled();
+      await service.recordResult('bracket-1', { matchId: 'm1', winnerId: 'p1' }, 'operator-1', []);
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
     });
 
     it('should throw if bracket is locked and user is not admin', async () => {
@@ -215,13 +233,10 @@ describe('BracketsService', () => {
       repo.findOne.mockResolvedValueOnce(makeBracket({ isLocked: true }));
       repo.findOne.mockResolvedValueOnce(makeBracket({ isLocked: true }));
 
-      await service.recordResult(
-        'bracket-1',
-        { matchId: 'm1', winnerId: 'p1' },
-        'admin-1',
-        ['admin'],
-      );
-      expect(repo.update).toHaveBeenCalled();
+      await service.recordResult('bracket-1', { matchId: 'm1', winnerId: 'p1' }, 'admin-1', [
+        'admin',
+      ]);
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
     });
 
     it('should fail validation when canRecordResult reports invalid', async () => {
@@ -266,12 +281,7 @@ describe('BracketsService', () => {
 
     it('should write audit log entry when recording a new result', async () => {
       repo.findOne.mockResolvedValue(makeBracket());
-      await service.recordResult(
-        'bracket-1',
-        { matchId: 'm1', winnerId: 'p1' },
-        'org-1',
-        [],
-      );
+      await service.recordResult('bracket-1', { matchId: 'm1', winnerId: 'p1' }, 'org-1', []);
       expect(auditRepo.save).toHaveBeenCalled();
     });
   });
@@ -288,16 +298,16 @@ describe('BracketsService', () => {
         [],
       );
 
-      expect(repo.update).toHaveBeenCalled();
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
       expect(auditRepo.save).toHaveBeenCalled();
       expect(eventsGateway.emitBracketUpdate).toHaveBeenCalled();
     });
 
     it('should throw if bracket has no data', async () => {
       repo.findOne.mockResolvedValue(makeBracket({ bracketData: null }));
-      await expect(
-        service.resetSingleMatch('b1', { matchId: 'm1' }, 'org-1', []),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.resetSingleMatch('b1', { matchId: 'm1' }, 'org-1', [])).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw ForbiddenException for non-organizer / non-admin', async () => {
@@ -351,9 +361,7 @@ describe('BracketsService', () => {
   describe('reset', () => {
     it('should reset bracket to pending and write audit log', async () => {
       repo.findOne.mockResolvedValueOnce(makeBracket());
-      repo.findOne.mockResolvedValueOnce(
-        makeBracket({ status: 'pending', bracketData: null }),
-      );
+      repo.findOne.mockResolvedValueOnce(makeBracket({ status: 'pending', bracketData: null }));
 
       await service.reset('bracket-1', 'org-1', []);
 
@@ -371,16 +379,37 @@ describe('BracketsService', () => {
   });
 
   describe('getAuditLog', () => {
-    it('should return the last 100 audit entries for a bracket', async () => {
+    it('should return the last 100 audit entries when user has access', async () => {
       const logs = [{ id: 'log-1', action: 'result_recorded' }];
+      repo.findOne.mockResolvedValue(makeBracket());
       auditRepo.find.mockResolvedValue(logs);
-      const result = await service.getAuditLog('bracket-1');
+
+      const result = await service.getAuditLog('bracket-1', 'org-1', []);
       expect(auditRepo.find).toHaveBeenCalledWith({
         where: { bracketId: 'bracket-1' },
         order: { createdAt: 'DESC' },
         take: 100,
       });
       expect(result).toEqual(logs);
+    });
+
+    it('should allow assigned operator to read the log', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      operatorsRepo.count.mockResolvedValue(1);
+      auditRepo.find.mockResolvedValue([]);
+
+      await service.getAuditLog('bracket-1', 'operator-1', []);
+      expect(auditRepo.find).toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException for non-organizer / non-admin / non-operator', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      operatorsRepo.count.mockResolvedValue(0);
+
+      await expect(service.getAuditLog('bracket-1', 'stranger', [])).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(auditRepo.find).not.toHaveBeenCalled();
     });
   });
 

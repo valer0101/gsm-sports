@@ -223,7 +223,7 @@ export class AdminService {
     return this.bracketsService.findByTournament(tournamentId);
   }
 
-  /** Correct a match result (force-overwrite) — requires reason */
+  /** Correct a match result (force-overwrite) — reason is required for audit trail */
   async correctMatchResult(
     bracketId: string,
     matchId: string,
@@ -232,9 +232,15 @@ export class AdminService {
     userRoles: string[],
     reason?: string,
   ) {
+    const trimmed = reason?.trim();
+    if (!trimmed) {
+      throw new BadRequestException(
+        'Reason is required when correcting an already-recorded result',
+      );
+    }
     return this.bracketsService.recordResult(
       bracketId,
-      { matchId, winnerId, notes: reason, forceCorrect: true },
+      { matchId, winnerId, notes: trimmed, forceCorrect: true },
       userId,
       userRoles,
     );
@@ -265,7 +271,7 @@ export class AdminService {
   async getBracketAuditLog(bracketId: string, userId: string, userRoles: string[]) {
     const bracket = await this.bracketsService.findById(bracketId);
     await this.getTournament(bracket.tournamentId, userId, userRoles);
-    return this.bracketsService.getAuditLog(bracketId);
+    return this.bracketsService.getAuditLog(bracketId, userId, userRoles);
   }
 
   async getParticipantCount(tournamentId: string): Promise<number> {

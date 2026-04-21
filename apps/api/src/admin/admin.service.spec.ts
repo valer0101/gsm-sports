@@ -187,11 +187,9 @@ describe('AdminService', () => {
         bracketGenerated: false,
       });
       mockBracketsService.generateWithWeightBuckets.mockResolvedValue(3);
-      const result = await service.closeAndGenerateBrackets(
-        'tournament-1',
-        'organizer-1',
-        ['organizer'],
-      );
+      const result = await service.closeAndGenerateBrackets('tournament-1', 'organizer-1', [
+        'organizer',
+      ]);
       expect(result).toEqual({ bracketsCreated: 3 });
       expect(mockBracketsService.generateWithWeightBuckets).toHaveBeenCalledWith('tournament-1');
     });
@@ -272,18 +270,26 @@ describe('AdminService', () => {
         ['admin'],
       );
     });
+
+    it('throws BadRequestException when reason is missing', async () => {
+      await expect(
+        service.correctMatchResult('bracket-1', 'wb_1_0', 'p2', 'admin-1', ['admin']),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockBracketsService.recordResult).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when reason is only whitespace', async () => {
+      await expect(
+        service.correctMatchResult('bracket-1', 'wb_1_0', 'p2', 'admin-1', ['admin'], '   '),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockBracketsService.recordResult).not.toHaveBeenCalled();
+    });
   });
 
   describe('resetMatch', () => {
     it('delegates to BracketsService.resetSingleMatch with reason', async () => {
       mockBracketsService.resetSingleMatch.mockResolvedValue({ id: 'bracket-1' });
-      await service.resetMatch(
-        'bracket-1',
-        'wb_1_0',
-        'organizer-1',
-        ['organizer'],
-        'disputed',
-      );
+      await service.resetMatch('bracket-1', 'wb_1_0', 'organizer-1', ['organizer'], 'disputed');
       expect(mockBracketsService.resetSingleMatch).toHaveBeenCalledWith(
         'bracket-1',
         { matchId: 'wb_1_0', reason: 'disputed' },
@@ -297,23 +303,17 @@ describe('AdminService', () => {
     it('calls setLocked(true) for lockBracket', async () => {
       mockBracketsService.setLocked.mockResolvedValue({ id: 'bracket-1', isLocked: true });
       await service.lockBracket('bracket-1', 'organizer-1', ['organizer']);
-      expect(mockBracketsService.setLocked).toHaveBeenCalledWith(
-        'bracket-1',
-        true,
-        'organizer-1',
-        ['organizer'],
-      );
+      expect(mockBracketsService.setLocked).toHaveBeenCalledWith('bracket-1', true, 'organizer-1', [
+        'organizer',
+      ]);
     });
 
     it('calls setLocked(false) for unlockBracket', async () => {
       mockBracketsService.setLocked.mockResolvedValue({ id: 'bracket-1', isLocked: false });
       await service.unlockBracket('bracket-1', 'admin-1', ['admin']);
-      expect(mockBracketsService.setLocked).toHaveBeenCalledWith(
-        'bracket-1',
-        false,
-        'admin-1',
-        ['admin'],
-      );
+      expect(mockBracketsService.setLocked).toHaveBeenCalledWith('bracket-1', false, 'admin-1', [
+        'admin',
+      ]);
     });
   });
 
@@ -323,13 +323,11 @@ describe('AdminService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockBracketsService.getAuditLog.mockResolvedValue([{ id: 'log-1' }]);
 
-      const result = await service.getBracketAuditLog(
-        'bracket-1',
-        'organizer-1',
-        ['organizer'],
-      );
+      const result = await service.getBracketAuditLog('bracket-1', 'organizer-1', ['organizer']);
       expect(result).toEqual([{ id: 'log-1' }]);
-      expect(mockBracketsService.getAuditLog).toHaveBeenCalledWith('bracket-1');
+      expect(mockBracketsService.getAuditLog).toHaveBeenCalledWith('bracket-1', 'organizer-1', [
+        'organizer',
+      ]);
     });
 
     it('throws ForbiddenException when user cannot access the parent tournament', async () => {

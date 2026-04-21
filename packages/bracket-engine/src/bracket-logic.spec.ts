@@ -388,6 +388,54 @@ describe('resetMatch', () => {
     expect(data.status).toBe('active');
   });
 
+  // Regression: #2 — resetting an upstream WB match that invalidates the grand
+  // final must clear champion/status even when the reset player was NOT champion.
+  it('clears champion/status when upstream reset leaves grand final incomplete', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const wbR1m0 = data.winnersBracket[0][0];
+    const wbR1m1 = data.winnersBracket[0][1];
+    selectWinner(data, wbR1m0.id, wbR1m0.player1.id);
+    selectWinner(data, wbR1m1.id, wbR1m1.player1.id);
+    const wbFinal = data.winnersBracket[1][0];
+    selectWinner(data, wbFinal.id, wbFinal.player1.id);
+
+    // Advance LB + grand final to completion
+    for (const round of data.losersBracket) {
+      for (const m of round) {
+        if (m.winner === null && m.player1.id !== 'tbd' && m.player2.id !== 'tbd') {
+          selectWinner(data, m.id, m.player1.id);
+        }
+      }
+    }
+    selectWinner(data, data.grandFinal.id, data.grandFinal.player1.id);
+    expect(data.status).toBe('completed');
+    expect(data.champion).not.toBeNull();
+
+    // Reset a WB round-1 match that is NOT the champion's final match.
+    resetMatch(data, wbR1m0.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+    expect(data.grandFinal.winner).toBeNull();
+  });
+
+  // Regression: #3 — super final players must be wiped when cascade hits finals.
+  it('clears super final players when grand final is invalidated', () => {
+    const data = generateDoubleElimination(makePlayers(2));
+    const m = data.winnersBracket[0][0];
+    selectWinner(data, m.id, m.player1.id);
+    const gf = data.grandFinal;
+    gf.player2 = { id: 'p2', firstName: 'Player', lastName: '2', number: 2 };
+    selectWinner(data, gf.id, 'p2');
+    expect(data.superFinal.needed).toBe(true);
+    expect(data.superFinal.player1.id).not.toBe('tbd');
+
+    resetMatch(data, m.id);
+    expect(data.superFinal.needed).toBe(false);
+    expect(data.superFinal.player1.id).toBe('tbd');
+    expect(data.superFinal.player2.id).toBe('tbd');
+    expect(data.superFinal.winner).toBeNull();
+  });
+
   it('is a no-op when match does not exist', () => {
     const data = generateDoubleElimination(makePlayers(4));
     const before = JSON.stringify(data);

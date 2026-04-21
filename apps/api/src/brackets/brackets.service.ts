@@ -8,7 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import {
   generateDoubleElimination,
   selectWinner,
@@ -171,22 +171,22 @@ export class BracketsService {
     oldValue: Record<string, unknown> | null,
     newValue: Record<string, unknown> | null,
     reason?: string,
+    em?: EntityManager,
   ): Promise<void> {
-    try {
-      await this.auditRepository.save(
-        this.auditRepository.create({
-          bracketId,
-          action,
-          changedBy,
-          matchId,
-          oldValue,
-          newValue,
-          reason: reason ?? null,
-        }),
-      );
-    } catch (err) {
-      this.logger.warn(`Failed to write audit log for bracket ${bracketId}: ${String(err)}`);
-    }
+    const repo = em ? em.getRepository(BracketAuditLog) : this.auditRepository;
+    // No try/catch: if audit write fails inside a transaction, we want the
+    // whole state change to roll back — audit integrity is non-negotiable.
+    await repo.save(
+      repo.create({
+        bracketId,
+        action,
+        changedBy,
+        matchId,
+        oldValue,
+        newValue,
+        reason: reason ?? null,
+      }),
+    );
   }
 
   // ─── Generate ──────────────────────────────────────────────
@@ -402,7 +402,15 @@ export class BracketsService {
     });
   }
 
-  async getAuditLog(bracketId: string): Promise<BracketAuditLog[]> {
+  async getAuditLog(
+    bracketId: string,
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<BracketAuditLog[]> {
+    const bracket = await this.findById(bracketId);
+    // Only the organizer, admin, or assigned operator can read the log
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: true });
+
     return this.auditRepository.find({
       where: { bracketId },
       order: { createdAt: 'DESC' },
@@ -507,28 +515,50 @@ export class BracketsService {
     // Apply result
     const updated = selectWinner(data, dto.matchId, dto.winnerId, userId);
     const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
+    const expectedVersion = bracket.modificationCount ?? 0;
 
-    await this.bracketsRepository.update(bracketId, {
-      bracketData: updated as unknown as Record<string, unknown>,
-      status: newStatus as BracketStatus,
-      lastModifiedBy: userId,
-      lastModifiedAt: new Date(),
-      modificationCount: (bracket.modificationCount ?? 0) + 1,
-      completedAt: newStatus === 'completed' ? new Date() : (bracket.completedAt ?? null),
-    } as any);
+    // Atomic transaction: state change + audit write with optimistic lock
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
 
-    // Write audit
-    const action = isCorrection ? 'result_corrected' : 'result_recorded';
-    const newMatch = findMatch(updated, dto.matchId);
-    await this.writeAudit(
-      bracketId,
-      action,
-      userId,
-      dto.matchId,
-      oldMatchSnapshot as Record<string, unknown> | null,
-      newMatch as unknown as Record<string, unknown> | null,
-      dto.notes,
-    );
+      // Optimistic lock — only update if modification_count has not changed since we read
+      const res = await bRepo
+        .createQueryBuilder()
+        .update(Bracket)
+        .set({
+          bracketData: updated as unknown as Record<string, unknown>,
+          status: newStatus as BracketStatus,
+          lastModifiedBy: userId,
+          lastModifiedAt: new Date(),
+          modificationCount: expectedVersion + 1,
+          completedAt: newStatus === 'completed' ? new Date() : (bracket.completedAt ?? null),
+        } as any)
+        .where('id = :id AND modification_count = :expected', {
+          id: bracketId,
+          expected: expectedVersion,
+        })
+        .execute();
+
+      if (res.affected === 0) {
+        throw new BadRequestException(
+          'Bracket was modified concurrently. Please refresh and retry.',
+        );
+      }
+
+      // Audit inside the same transaction — if this throws, state change rolls back
+      const action = isCorrection ? 'result_corrected' : 'result_recorded';
+      const newMatch = findMatch(updated, dto.matchId);
+      await this.writeAudit(
+        bracketId,
+        action,
+        userId,
+        dto.matchId,
+        oldMatchSnapshot as Record<string, unknown> | null,
+        newMatch as unknown as Record<string, unknown> | null,
+        dto.notes,
+        em,
+      );
+    });
 
     if (newStatus === 'completed') {
       this.logger.log(`Bracket ${bracketId} completed. Champion: ${updated.champion}`);
@@ -566,25 +596,45 @@ export class BracketsService {
 
     const updated = resetMatchInBracket(data, dto.matchId);
     const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
+    const expectedVersion = bracket.modificationCount ?? 0;
 
-    await this.bracketsRepository.update(bracketId, {
-      bracketData: updated as unknown as Record<string, unknown>,
-      status: newStatus as BracketStatus,
-      lastModifiedBy: userId,
-      lastModifiedAt: new Date(),
-      modificationCount: (bracket.modificationCount ?? 0) + 1,
-      completedAt: newStatus === 'completed' ? (bracket.completedAt ?? null) : null,
-    } as any);
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
 
-    await this.writeAudit(
-      bracketId,
-      'match_reset',
-      userId,
-      dto.matchId,
-      oldMatchSnapshot as Record<string, unknown>,
-      null,
-      dto.reason,
-    );
+      const res = await bRepo
+        .createQueryBuilder()
+        .update(Bracket)
+        .set({
+          bracketData: updated as unknown as Record<string, unknown>,
+          status: newStatus as BracketStatus,
+          lastModifiedBy: userId,
+          lastModifiedAt: new Date(),
+          modificationCount: expectedVersion + 1,
+          completedAt: newStatus === 'completed' ? (bracket.completedAt ?? null) : null,
+        } as any)
+        .where('id = :id AND modification_count = :expected', {
+          id: bracketId,
+          expected: expectedVersion,
+        })
+        .execute();
+
+      if (res.affected === 0) {
+        throw new BadRequestException(
+          'Bracket was modified concurrently. Please refresh and retry.',
+        );
+      }
+
+      await this.writeAudit(
+        bracketId,
+        'match_reset',
+        userId,
+        dto.matchId,
+        oldMatchSnapshot as Record<string, unknown>,
+        null,
+        dto.reason,
+        em,
+      );
+    });
 
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
@@ -598,24 +648,29 @@ export class BracketsService {
 
     await this.assertCanManageBracket(bracket, organizerId, userRoles, { allowOperator: false });
 
-    await this.writeAudit(
-      bracketId,
-      'bracket_reset',
-      organizerId,
-      null,
-      bracket.bracketData as Record<string, unknown> | null,
-      null,
-      'Full bracket reset',
-    );
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
 
-    await this.bracketsRepository.update(bracketId, {
-      bracketData: null,
-      status: 'pending',
-      lastModifiedBy: organizerId,
-      lastModifiedAt: new Date(),
-      modificationCount: (bracket.modificationCount ?? 0) + 1,
-      completedAt: null,
-      isLocked: false,
+      await this.writeAudit(
+        bracketId,
+        'bracket_reset',
+        organizerId,
+        null,
+        bracket.bracketData as Record<string, unknown> | null,
+        null,
+        'Full bracket reset',
+        em,
+      );
+
+      await bRepo.update(bracketId, {
+        bracketData: null,
+        status: 'pending',
+        lastModifiedBy: organizerId,
+        lastModifiedAt: new Date(),
+        modificationCount: (bracket.modificationCount ?? 0) + 1,
+        completedAt: null,
+        isLocked: false,
+      });
     });
 
     return this.findById(bracketId);
@@ -631,22 +686,28 @@ export class BracketsService {
   ): Promise<Bracket> {
     const bracket = await this.findById(bracketId);
 
-    await this.assertCanManageBracket(bracket, userId, userRoles, { requireAdmin: false });
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: false });
 
-    await this.bracketsRepository.update(bracketId, {
-      isLocked: locked,
-      lastModifiedBy: userId,
-      lastModifiedAt: new Date(),
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
+
+      await bRepo.update(bracketId, {
+        isLocked: locked,
+        lastModifiedBy: userId,
+        lastModifiedAt: new Date(),
+      });
+
+      await this.writeAudit(
+        bracketId,
+        locked ? 'bracket_locked' : 'bracket_unlocked',
+        userId,
+        null,
+        null,
+        null,
+        undefined,
+        em,
+      );
     });
-
-    await this.writeAudit(
-      bracketId,
-      locked ? 'bracket_locked' : 'bracket_unlocked',
-      userId,
-      null,
-      null,
-      null,
-    );
 
     this.logger.log(`Bracket ${bracketId} ${locked ? 'locked' : 'unlocked'} by ${userId}`);
 

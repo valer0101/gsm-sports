@@ -520,20 +520,30 @@ function _clearDownstream(
     }
   }
 
-  // Reset grand final champion / status if affected
-  if ((winnerId && data.champion === winnerId) || (loserId && data.champion === loserId)) {
+  // If grand final players are now incomplete (TBD), finals are no longer valid —
+  // clear champion / status / super-final regardless of who the cascaded player was.
+  const gfIncomplete = isTbd(data.grandFinal.player1.id) || isTbd(data.grandFinal.player2.id);
+
+  if (gfIncomplete || data.champion === winnerId || data.champion === loserId) {
     data.champion = null;
     data.status = 'active';
-  }
+    data.grandFinal.winner = null;
+    data.grandFinal.loser = null;
+    data.grandFinal.enteredBy = null;
+    data.grandFinal.enteredAt = null;
+    data.grandFinal.correctedBy = null;
+    data.grandFinal.correctedAt = null;
 
-  // Reset super final if affected
-  if (
-    winnerId &&
-    (data.superFinal.player1.id === winnerId || data.superFinal.player2.id === winnerId)
-  ) {
+    // Reset super final completely — players, flags, audit
     data.superFinal.needed = false;
     data.superFinal.winner = null;
     data.superFinal.loser = null;
+    data.superFinal.player1 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+    data.superFinal.player2 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+    data.superFinal.enteredBy = null;
+    data.superFinal.enteredAt = null;
+    data.superFinal.correctedBy = null;
+    data.superFinal.correctedAt = null;
   }
 }
 

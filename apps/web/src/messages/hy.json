@@ -387,7 +387,7 @@
     "reset_reason_placeholder": "Патчар (пархадир)",
     "reset_confirm_btn": "Хастателу верачнуме",
     "correct_title": "Ухгел хахтоги <strong>{label}</strong> матчум",
-    "correct_reason_placeholder": "Ухгман патчаре (пархадир)",
+    "correct_reason_placeholder": "Ухгман патчаре (партадир, нвазагуйне 3 ниш)",
     "save": "Пахпанел",
     "action_result_recorded": "Ардьюнке гранцвац",
     "action_result_corrected": "Ардьюнке ухгвац",

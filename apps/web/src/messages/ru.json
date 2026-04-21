@@ -252,7 +252,7 @@
     "reset_reason_placeholder": "Причина (необязательно)",
     "reset_confirm_btn": "Подтвердить сброс",
     "correct_title": "Исправить победителя в матче <strong>{label}</strong>",
-    "correct_reason_placeholder": "Причина исправления (необязательно)",
+    "correct_reason_placeholder": "Причина исправления (обязательно, мин. 3 симв.)",
     "save": "Сохранить",
     "action_result_recorded": "Результат записан",
     "action_result_corrected": "Результат исправлен",

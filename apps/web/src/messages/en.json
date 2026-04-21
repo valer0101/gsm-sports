@@ -252,7 +252,7 @@
     "reset_reason_placeholder": "Reason (optional)",
     "reset_confirm_btn": "Confirm reset",
     "correct_title": "Correct winner in match <strong>{label}</strong>",
-    "correct_reason_placeholder": "Reason for correction (optional)",
+    "correct_reason_placeholder": "Reason (required, min 3 chars)",
     "save": "Save",
     "action_result_recorded": "Result recorded",
     "action_result_corrected": "Result corrected",

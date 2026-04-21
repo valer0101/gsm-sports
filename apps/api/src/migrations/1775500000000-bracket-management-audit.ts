@@ -21,6 +21,16 @@ export class BracketManagementAudit1775500000000 implements MigrationInterface {
         ADD COLUMN IF NOT EXISTS "is_locked" boolean NOT NULL DEFAULT false`,
     );
 
+    // FK + index on last_modified_by for safe referential integrity and fast lookups
+    await queryRunner.query(
+      `ALTER TABLE "brackets"
+        ADD CONSTRAINT "FK_brackets_last_modified_by"
+        FOREIGN KEY ("last_modified_by") REFERENCES "users"("id") ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brackets_last_modified_by" ON "brackets" ("last_modified_by")`,
+    );
+
     // ─── Create bracket_audit_logs table ──────────────────────────────
     await queryRunner.query(
       `CREATE TABLE "bracket_audit_logs" (
@@ -58,6 +68,11 @@ export class BracketManagementAudit1775500000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_bracket_audit_logs_bracket_created"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_bracket_audit_logs_bracket_id"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "bracket_audit_logs"`);
+
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_brackets_last_modified_by"`);
+    await queryRunner.query(
+      `ALTER TABLE "brackets" DROP CONSTRAINT IF EXISTS "FK_brackets_last_modified_by"`,
+    );
 
     await queryRunner.query(
       `ALTER TABLE "brackets"

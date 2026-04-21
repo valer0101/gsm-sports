@@ -83,9 +83,11 @@ export class BracketsController {
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Get audit log of all changes to this bracket' })
+  @ApiOperation({
+    summary: 'Get audit log of all changes (organizer/operator/admin only)',
+  })
   @Get(':id/audit')
-  getAudit(@Param('id') id: string) {
-    return this.bracketsService.getAuditLog(id);
+  getAudit(@Param('id') id: string, @Request() req: any) {
+    return this.bracketsService.getAuditLog(id, req.user.sub, req.user.roles ?? []);
   }
 }
