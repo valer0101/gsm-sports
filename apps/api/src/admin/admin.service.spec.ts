@@ -284,6 +284,13 @@ describe('AdminService', () => {
       ).rejects.toThrow(BadRequestException);
       expect(mockBracketsService.recordResult).not.toHaveBeenCalled();
     });
+
+    it('throws BadRequestException when reason is shorter than 3 chars', async () => {
+      await expect(
+        service.correctMatchResult('bracket-1', 'wb_1_0', 'p2', 'admin-1', ['admin'], 'ok'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockBracketsService.recordResult).not.toHaveBeenCalled();
+    });
   });
 
   describe('resetMatch', () => {

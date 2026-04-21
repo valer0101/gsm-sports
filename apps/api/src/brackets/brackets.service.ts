@@ -648,6 +648,8 @@ export class BracketsService {
 
     await this.assertCanManageBracket(bracket, organizerId, userRoles, { allowOperator: false });
 
+    const expectedVersion = bracket.modificationCount ?? 0;
+
     await this.dataSource.transaction(async (em) => {
       const bRepo = em.getRepository(Bracket);
 
@@ -662,15 +664,29 @@ export class BracketsService {
         em,
       );
 
-      await bRepo.update(bracketId, {
-        bracketData: null,
-        status: 'pending',
-        lastModifiedBy: organizerId,
-        lastModifiedAt: new Date(),
-        modificationCount: (bracket.modificationCount ?? 0) + 1,
-        completedAt: null,
-        isLocked: false,
-      });
+      const res = await bRepo
+        .createQueryBuilder()
+        .update(Bracket)
+        .set({
+          bracketData: null,
+          status: 'pending',
+          lastModifiedBy: organizerId,
+          lastModifiedAt: new Date(),
+          modificationCount: expectedVersion + 1,
+          completedAt: null,
+          isLocked: false,
+        } as any)
+        .where('id = :id AND modification_count = :expected', {
+          id: bracketId,
+          expected: expectedVersion,
+        })
+        .execute();
+
+      if (res.affected === 0) {
+        throw new BadRequestException(
+          'Bracket was modified concurrently. Please refresh and retry.',
+        );
+      }
     });
 
     return this.findById(bracketId);

@@ -232,10 +232,12 @@ export class AdminService {
     userRoles: string[],
     reason?: string,
   ) {
-    const trimmed = reason?.trim();
-    if (!trimmed) {
+    const trimmed = reason?.trim() ?? '';
+    // Align with CorrectResultDto @MinLength(3): defend against non-HTTP callers
+    // (tests, internal services) that bypass the DTO validation pipeline.
+    if (trimmed.length < 3) {
       throw new BadRequestException(
-        'Reason is required when correcting an already-recorded result',
+        'Reason is required (min 3 characters) when correcting an already-recorded result',
       );
     }
     return this.bracketsService.recordResult(

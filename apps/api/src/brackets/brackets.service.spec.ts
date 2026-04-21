@@ -365,11 +365,15 @@ describe('BracketsService', () => {
 
       await service.reset('bracket-1', 'org-1', []);
 
-      expect(repo.update).toHaveBeenCalledWith(
-        'bracket-1',
-        expect.objectContaining({ bracketData: null, status: 'pending', isLocked: false }),
-      );
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
       expect(auditRepo.save).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException on concurrent modification', async () => {
+      repo.findOne.mockResolvedValueOnce(makeBracket());
+      repo.createQueryBuilder.mockReturnValueOnce(makeUpdateQB(0));
+
+      await expect(service.reset('bracket-1', 'org-1', [])).rejects.toThrow(BadRequestException);
     });
 
     it('should throw if not organizer/admin', async () => {

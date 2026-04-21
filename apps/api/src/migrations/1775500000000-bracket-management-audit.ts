@@ -21,19 +21,24 @@ export class BracketManagementAudit1775500000000 implements MigrationInterface {
         ADD COLUMN IF NOT EXISTS "is_locked" boolean NOT NULL DEFAULT false`,
     );
 
-    // FK + index on last_modified_by for safe referential integrity and fast lookups
+    // FK + index on last_modified_by for safe referential integrity and fast lookups.
+    // Wrapped in DO blocks so the migration can be safely re-run after partial apply.
     await queryRunner.query(
-      `ALTER TABLE "brackets"
-        ADD CONSTRAINT "FK_brackets_last_modified_by"
-        FOREIGN KEY ("last_modified_by") REFERENCES "users"("id") ON DELETE SET NULL`,
+      `DO $$ BEGIN
+        ALTER TABLE "brackets"
+          ADD CONSTRAINT "FK_brackets_last_modified_by"
+          FOREIGN KEY ("last_modified_by") REFERENCES "users"("id") ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$;`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_brackets_last_modified_by" ON "brackets" ("last_modified_by")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_brackets_last_modified_by"
+        ON "brackets" ("last_modified_by")`,
     );
 
     // ─── Create bracket_audit_logs table ──────────────────────────────
     await queryRunner.query(
-      `CREATE TABLE "bracket_audit_logs" (
+      `CREATE TABLE IF NOT EXISTS "bracket_audit_logs" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "bracket_id" uuid NOT NULL,
         "match_id" character varying(100) NULL,
@@ -52,14 +57,16 @@ export class BracketManagementAudit1775500000000 implements MigrationInterface {
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_bracket_audit_logs_bracket_id" ON "bracket_audit_logs" ("bracket_id")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_bracket_audit_logs_bracket_id"
+        ON "bracket_audit_logs" ("bracket_id")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_bracket_audit_logs_bracket_created"
+      `CREATE INDEX IF NOT EXISTS "IDX_bracket_audit_logs_bracket_created"
         ON "bracket_audit_logs" ("bracket_id", "created_at")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_bracket_audit_logs_changed_by" ON "bracket_audit_logs" ("changed_by")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_bracket_audit_logs_changed_by"
+        ON "bracket_audit_logs" ("changed_by")`,
     );
   }
 
