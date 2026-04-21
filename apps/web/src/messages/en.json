@@ -25,6 +25,7 @@
     "register": "Register",
     "admin": "Panel",
     "editor": "Editor",
+    "profile": "Profile",
     "logout": "Sign out"
   },
   "sport": {
@@ -472,6 +473,19 @@
     "submitting": "Saving...",
     "cancel": "Cancel",
     "error_save": "Failed to save"
+  },
+  "profile": {
+    "title": "My Profile",
+    "avatar": "Photo",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "country": "Country",
+    "city": "City",
+    "email": "Email",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "save_error": "Failed to save"
   },
   "common": {
     "loading": "Loading...",

@@ -216,6 +216,7 @@ export class BracketsService {
       lastName: entry.user?.lastName ?? '',
       number: entry.seedNumber ?? 0,
       seed: entry.seedNumber ?? undefined,
+      photoUrl: entry.user?.avatarUrl ?? null,
     }));
 
     const bracketData = generateDoubleElimination(players);
@@ -305,6 +306,7 @@ export class BracketsService {
           firstName: entry.user?.firstName ?? 'Player',
           lastName: entry.user?.lastName ?? String(idx + 1),
           number: idx + 1,
+          photoUrl: entry.user?.avatarUrl ?? null,
         }));
 
         await bRepo.save(
@@ -363,6 +365,7 @@ export class BracketsService {
         lastName: entry.user.lastName,
         number: seedMap.get(entry.id) ?? entry.seedNumber ?? 0,
         seed: seedMap.get(entry.id) ?? entry.seedNumber ?? undefined,
+        photoUrl: entry.user.avatarUrl ?? null,
       }))
       .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
 

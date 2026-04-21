@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useCurrentUser, clearStoredUser } from '@/hooks/useCurrentUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { Avatar } from '@/components/Avatar';
 import { LocaleSwitcher } from './LocaleSwitcher';
 
 const NAV_LINKS = [
@@ -87,7 +88,19 @@ export function Navbar() {
             <LocaleSwitcher />
             {!mounted ? null : user ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-white">{user.firstName}</span>
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  title={t('profile')}
+                >
+                  <Avatar
+                    src={user.avatarUrl}
+                    firstName={user.firstName}
+                    lastName={user.lastName}
+                    size={28}
+                  />
+                  <span className="text-sm font-medium text-white">{user.firstName}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
@@ -172,9 +185,21 @@ export function Navbar() {
             <div className="pt-3 flex flex-col gap-2 px-3">
               {!mounted ? null : user ? (
                 <>
-                  <span className="text-sm text-white py-2">
-                    {user.firstName} {user.lastName}
-                  </span>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 py-2"
+                  >
+                    <Avatar
+                      src={user.avatarUrl}
+                      firstName={user.firstName}
+                      lastName={user.lastName}
+                      size={32}
+                    />
+                    <span className="text-sm text-white">
+                      {user.firstName} {user.lastName}
+                    </span>
+                  </Link>
                 </>
               ) : (
                 <>

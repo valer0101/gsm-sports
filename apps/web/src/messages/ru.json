@@ -25,6 +25,7 @@
     "register": "Регистрация",
     "admin": "Панель",
     "editor": "Редактор",
+    "profile": "Профиль",
     "logout": "Выйти"
   },
   "sport": {
@@ -477,6 +478,19 @@
     "submitting": "Сохраняем...",
     "cancel": "Отмена",
     "error_save": "Не удалось сохранить"
+  },
+  "profile": {
+    "title": "Мой профиль",
+    "avatar": "Фото",
+    "first_name": "Имя",
+    "last_name": "Фамилия",
+    "country": "Страна",
+    "city": "Город",
+    "email": "Email",
+    "save": "Сохранить",
+    "saving": "Сохранение...",
+    "saved": "Сохранено",
+    "save_error": "Ошибка сохранения"
   },
   "common": {
     "loading": "Загрузка...",
