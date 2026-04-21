@@ -4,7 +4,12 @@
     "tournaments": "Турниры",
     "rankings": "Рейтинги",
     "athletes": "Атлеты",
-    "hero_cta": "Все турниры"
+    "hero_cta": "Все турниры",
+    "badge": "Спортивная платформа",
+    "hero_subtitle": "Турниры, рейтинги, спортсмены и новости — всё в одном месте",
+    "latest_news": "Последние новости",
+    "all_news": "Все новости",
+    "no_news": "Новостей пока нет"
   },
   "nav": {
     "home": "Главная",
@@ -19,11 +24,15 @@
     "login": "Войти",
     "register": "Регистрация",
     "admin": "Панель",
-    "editor": "Редактор"
+    "editor": "Редактор",
+    "logout": "Выйти"
   },
   "sport": {
     "title": "СПОРТ",
     "armwrestling": "Армрестлинг",
+    "mma": "MMA",
+    "boxing": "Бокс",
+    "jiu_jitsu": "Джиу-джитсу",
     "tournaments_desc": "Найдите и зарегистрируйтесь на ближайшие соревнования по армрестлингу",
     "athletes_desc": "Профили спортсменов по армрестлингу",
     "rankings_desc": "Официальные рейтинги GSM Sports по армрестлингу"
@@ -86,7 +95,11 @@
     "registering": "Регистрация...",
     "register_error": "Ошибка при регистрации",
     "registered": "Вы зарегистрированы",
-    "back": "Назад"
+    "back": "Назад",
+    "bracket_type_bracket": "СЕТКА",
+    "fee_free_label": "Бесплатная регистрация",
+    "fee_amount_label": "Взнос: {amount} AMD",
+    "fee_paid_label": "Платный взнос"
   },
   "athletes": {
     "title": "Атлеты",
@@ -157,6 +170,8 @@
     "register_subtitle": "Создайте аккаунт GSM Sports",
     "first_name": "Имя",
     "last_name": "Фамилия",
+    "first_name_placeholder": "Арам",
+    "last_name_placeholder": "Петросян",
     "email": "Email",
     "phone": "Телефон (необязательно)",
     "password": "Пароль",

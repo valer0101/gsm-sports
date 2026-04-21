@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useCurrentUser, clearStoredUser } from '@/hooks/useCurrentUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { LocaleSwitcher } from './LocaleSwitcher';
 
 const NAV_LINKS = [
   { key: 'home', href: '/' },
@@ -83,6 +84,7 @@ export function Navbar() {
 
           {/* Auth area */}
           <div className="hidden md:flex items-center gap-3">
+            <LocaleSwitcher />
             {!mounted ? null : user ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-white">{user.firstName}</span>
@@ -91,7 +93,7 @@ export function Navbar() {
                   className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
-                  Выйти
+                  {t('logout')}
                 </button>
               </div>
             ) : (
@@ -164,6 +166,9 @@ export function Navbar() {
                 {t('admin')}
               </Link>
             )}
+            <div className="pt-3 px-3">
+              <LocaleSwitcher />
+            </div>
             <div className="pt-3 flex flex-col gap-2 px-3">
               {!mounted ? null : user ? (
                 <>

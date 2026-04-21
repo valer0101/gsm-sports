@@ -64,14 +64,14 @@ export default function RegisterPage() {
             <Field label={t('first_name')} error={errors.firstName?.message}>
               <input
                 {...register('firstName')}
-                placeholder="Арам"
+                placeholder={t('first_name_placeholder')}
                 className="w-full px-4 py-3 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               />
             </Field>
             <Field label={t('last_name')} error={errors.lastName?.message}>
               <input
                 {...register('lastName')}
-                placeholder="Петросян"
+                placeholder={t('last_name_placeholder')}
                 className="w-full px-4 py-3 rounded-xl bg-transparent border border-white/15 text-white outline-none focus:border-[var(--color-accent)] transition-colors"
               />
             </Field>

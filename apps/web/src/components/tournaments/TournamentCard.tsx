@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import type { Tournament } from '@/types/api';
 
 const MONTHS_SHORT = [
@@ -38,6 +38,7 @@ interface TournamentCardProps {
 
 export function TournamentCard({ tournament }: TournamentCardProps) {
   const locale = useLocale();
+  const t = useTranslations('tournaments');
 
   const d = new Date(tournament.startDate);
   const day = String(d.getUTCDate()).padStart(2, '0');
@@ -117,7 +118,7 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
             )}
             {cfg.competitionType && (
               <span className="text-xs font-bold px-2 py-1 rounded bg-black/60 backdrop-blur-sm text-white uppercase tracking-wider">
-                {cfg.competitionType === 'armfight' ? 'ARMFIGHT' : 'СЕТКА'}
+                {cfg.competitionType === 'armfight' ? 'ARMFIGHT' : t('bracket_type_bracket')}
               </span>
             )}
           </div>
@@ -221,10 +222,12 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
               <span className="text-sm">{entryFee.type === 'free' ? '🎁' : '💰'}</span>
               <span className="uppercase tracking-wider">
                 {entryFee.type === 'free'
-                  ? 'Бесплатная регистрация'
+                  ? t('fee_free_label')
                   : entryFee.amount
-                    ? `Взнос: ${Number(entryFee.amount).toLocaleString()} AMD`
-                    : 'Платный взнос'}
+                    ? t('fee_amount_label', {
+                        amount: Number(entryFee.amount).toLocaleString(locale),
+                      })
+                    : t('fee_paid_label')}
               </span>
             </div>
           )}
