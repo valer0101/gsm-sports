@@ -14,10 +14,17 @@ export function pickLocaleFromAcceptLanguage(header: string | null | undefined):
   const parts = header
     .split(',')
     .map((part) => {
-      const [tag, qPart] = part.trim().split(';');
-      const q = qPart?.startsWith('q=') ? parseFloat(qPart.slice(2)) : 1;
-      return { tag: tag.toLowerCase(), q: isNaN(q) ? 1 : q };
+      const [tag, ...params] = part.trim().split(';');
+      const qParam = params.find((p) => p.trim().startsWith('q='));
+      let q = 1;
+      if (qParam) {
+        const parsed = parseFloat(qParam.trim().slice(2));
+        // Malformed q is treated as 0 per RFC 7231 §5.3.1.
+        q = isNaN(parsed) ? 0 : parsed;
+      }
+      return { tag: tag.toLowerCase(), q };
     })
+    .filter(({ q }) => q > 0)
     .sort((a, b) => b.q - a.q);
 
   for (const { tag } of parts) {
