@@ -15,6 +15,8 @@ import { BracketsService } from './brackets.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
 import { RecordResultDto } from './dto/record-result.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
+import { ReplacePlayerDto } from './dto/replace-player.dto';
+import { WithdrawPlayerDto } from './dto/withdraw-player.dto';
 
 @ApiTags('Brackets')
 @Controller('v1/brackets')
@@ -55,6 +57,34 @@ export class BracketsController {
   @Patch(':id/match-reset')
   resetMatch(@Param('id') id: string, @Body() dto: ResetMatchDto, @Request() req: any) {
     return this.bracketsService.resetSingleMatch(id, dto, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Replace a player in a match slot (organizer/admin only)' })
+  @Patch(':id/matches/:matchId/replace-player')
+  replacePlayer(
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() dto: ReplacePlayerDto,
+    @Request() req: any,
+  ) {
+    return this.bracketsService.replacePlayer(id, matchId, dto, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Withdraw a player from a pending match; opponent gets forfeit (organizer/operator/admin)',
+  })
+  @Patch(':id/matches/:matchId/withdraw-player')
+  withdrawPlayer(
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() dto: WithdrawPlayerDto,
+    @Request() req: any,
+  ) {
+    return this.bracketsService.withdrawPlayer(id, matchId, dto, req.user.sub, req.user.roles ?? []);
   }
 
   @ApiBearerAuth()

@@ -16,6 +16,7 @@ import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
 import { EntryStatus } from './entities/tournament-entry.entity';
 import { SetSeedNumbersDto } from './dto/set-seed-numbers.dto';
+import { ReassignEntryDto } from './dto/reassign-entry.dto';
 
 @ApiTags('Tournament Entries')
 @Controller('v1/entries')
@@ -72,6 +73,23 @@ export class EntriesController {
   @Patch(':id/withdraw')
   withdraw(@Param('id') id: string, @Request() req: any) {
     return this.entriesService.withdraw(id, req.user.sub);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id/reassign')
+  reassign(@Param('id') id: string, @Body() dto: ReassignEntryDto, @Request() req: any) {
+    return this.entriesService.reassign(
+      id,
+      {
+        weightCategoryId: dto.weightCategoryId ?? undefined,
+        ageGroup: dto.ageGroup,
+        hand: dto.hand,
+        weightKg: dto.weightKg,
+        reason: dto.reason,
+      },
+      { userId: req.user.sub, roles: req.user.roles ?? [] },
+    );
   }
 
   @ApiBearerAuth()

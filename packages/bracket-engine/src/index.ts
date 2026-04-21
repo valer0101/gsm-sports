@@ -7,6 +7,8 @@ export {
   resetMatch,
   canRecordResult,
   validateResult,
+  replacePlayerInSlot,
+  withdrawPlayerFromSlot,
 } from './bracket-logic';
 export type {
   Player,

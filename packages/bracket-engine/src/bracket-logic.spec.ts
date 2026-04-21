@@ -7,6 +7,8 @@ import {
   resetMatch,
   validateResult,
   canRecordResult,
+  replacePlayerInSlot,
+  withdrawPlayerFromSlot,
 } from './bracket-logic';
 import type { Player, BracketData } from './types';
 
@@ -453,5 +455,125 @@ describe('resetMatch', () => {
     // Players should still be present
     expect(updated.player1.id).toBe('p1');
     expect(updated.player2.id).toBe('p2');
+  });
+});
+
+describe('replacePlayerInSlot', () => {
+  const sub: Player = { id: 'sub1', firstName: 'Sub', lastName: 'One', number: 99 };
+
+  it('replaces a real player in an unplayed slot', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0]; // p1 vs p2
+
+    const res = replacePlayerInSlot(data, m.id, 1, sub);
+    expect(res.ok).toBe(true);
+
+    const updated = findMatch(data, m.id)!;
+    expect(updated.player1.id).toBe('sub1');
+    expect(updated.player2.id).toBe('p2');
+    expect(data.players.some((p) => p.id === 'sub1')).toBe(true);
+    expect(data.players.some((p) => p.id === 'p1')).toBe(false); // removed since unused elsewhere
+  });
+
+  it('refuses to replace in a match that already has a result', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    selectWinner(data, m.id, m.player1.id);
+
+    const res = replacePlayerInSlot(data, m.id, 2, sub);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/already has a recorded result/i);
+  });
+
+  it('refuses to replace a TBD slot', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const r2 = data.winnersBracket[1][0]; // both TBD initially
+    const res = replacePlayerInSlot(data, r2.id, 1, sub);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/real player/i);
+  });
+
+  it('refuses to replace a player who has already won a prior match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m1 = data.winnersBracket[0][0]; // p1 vs p2
+    selectWinner(data, m1.id, m1.player1.id); // p1 wins and advances to R2
+
+    const r2 = data.winnersBracket[1][0];
+    const pos: 1 | 2 = r2.player1.id === 'p1' ? 1 : 2;
+    const res = replacePlayerInSlot(data, r2.id, pos, sub);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/prior match/i);
+  });
+
+  it('returns error for unknown match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const res = replacePlayerInSlot(data, 'nope', 1, sub);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/not found/i);
+  });
+
+  it('rejects replacement with same player id', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    const same: Player = { id: m.player1.id, firstName: 'x', lastName: 'y', number: 0 };
+    const res = replacePlayerInSlot(data, m.id, 1, same);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/same/i);
+  });
+});
+
+describe('withdrawPlayerFromSlot', () => {
+  it('returns the opponent id as forfeit recipient for a pending match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0]; // p1 vs p2
+    const res = withdrawPlayerFromSlot(data, m.id, 1);
+    expect(res.ok).toBe(true);
+    expect(res.forfeitTo).toBe('p2');
+  });
+
+  it('callable flow: withdraw + selectWinner advances the opponent', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    const res = withdrawPlayerFromSlot(data, m.id, 1);
+    expect(res.forfeitTo).toBe('p2');
+    selectWinner(data, m.id, res.forfeitTo!);
+    // p2 should now appear in round 2
+    const r2 = data.winnersBracket[1][0];
+    expect([r2.player1.id, r2.player2.id]).toContain('p2');
+  });
+
+  it('refuses if match has a result already', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    selectWinner(data, m.id, m.player1.id);
+    const res = withdrawPlayerFromSlot(data, m.id, 2);
+    expect(res.ok).toBe(false);
+  });
+
+  it('refuses if the target slot is TBD', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const r2 = data.winnersBracket[1][0];
+    const res = withdrawPlayerFromSlot(data, r2.id, 1);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/real player/i);
+  });
+
+  it('refuses to withdraw from a BYE-containing match (already auto-resolved)', () => {
+    const data = generateDoubleElimination(makePlayers(3)); // one player gets a bye
+    const byeMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    );
+    if (!byeMatch) {
+      throw new Error('test setup: expected a BYE match for 3 players');
+    }
+    const realPos: 1 | 2 = byeMatch.player1.id === 'bye' ? 2 : 1;
+    const res = withdrawPlayerFromSlot(data, byeMatch.id, realPos);
+    expect(res.ok).toBe(false);
+  });
+
+  it('returns error for unknown match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const res = withdrawPlayerFromSlot(data, 'nope', 1);
+    expect(res.ok).toBe(false);
   });
 });

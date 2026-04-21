@@ -16,7 +16,9 @@ export type AuditAction =
   | 'match_reset'
   | 'bracket_reset'
   | 'bracket_locked'
-  | 'bracket_unlocked';
+  | 'bracket_unlocked'
+  | 'player_replaced'
+  | 'player_withdrawn';
 
 @Entity('bracket_audit_logs')
 @Index(['bracketId', 'createdAt'])

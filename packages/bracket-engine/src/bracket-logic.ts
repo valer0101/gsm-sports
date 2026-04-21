@@ -547,6 +547,105 @@ function _clearDownstream(
   }
 }
 
+// ─── Manual edits: replace / withdraw ───────────────────────
+
+/**
+ * Replace a real player with another player in a not-yet-played slot.
+ * Allowed only when:
+ *   - target match exists
+ *   - target slot currently holds a real player (not TBD/BYE)
+ *   - the match has no recorded winner yet
+ *   - the player being replaced has not already won a previous match in this bracket
+ *     (this prevents silently altering a propagated result)
+ */
+export function replacePlayerInSlot(
+  data: BracketData,
+  matchId: string,
+  position: 1 | 2,
+  newPlayer: Player,
+): { ok: boolean; error?: string } {
+  const match = findMatch(data, matchId);
+  if (!match) return { ok: false, error: 'Match not found' };
+  if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
+
+  const currentSlot = position === 1 ? match.player1 : match.player2;
+  if (!isReal(currentSlot.id)) {
+    return { ok: false, error: 'Slot does not hold a real player' };
+  }
+
+  const oldId = currentSlot.id;
+
+  // Reject if this player has already won a previous match — they propagated
+  // into this slot from an earlier win, so "replacing" them here is really
+  // a result reset + re-seed, not a simple swap.
+  const wonPrior = [
+    ...data.winnersBracket.flat(),
+    ...data.losersBracket.flat(),
+  ].some((m) => m.id !== matchId && m.winner === oldId);
+  if (wonPrior) {
+    return { ok: false, error: 'Player has already won a prior match; reset results first' };
+  }
+
+  if (newPlayer.id === oldId) return { ok: false, error: 'New player is the same as current' };
+  if (!isReal(newPlayer.id)) return { ok: false, error: 'New player must be a real player' };
+
+  const replacement: Player = { ...newPlayer };
+
+  if (position === 1) match.player1 = replacement;
+  else match.player2 = replacement;
+
+  // Keep data.players in sync: swap out if old player doesn't appear elsewhere,
+  // and ensure new player is registered there.
+  const oldStillReferenced = [
+    ...data.winnersBracket.flat(),
+    ...data.losersBracket.flat(),
+    data.grandFinal,
+    data.superFinal,
+  ].some((m) => m.player1.id === oldId || m.player2.id === oldId);
+
+  if (!oldStillReferenced) {
+    data.players = data.players.filter((p) => p.id !== oldId);
+  }
+  if (!data.players.some((p) => p.id === newPlayer.id)) {
+    data.players.push({ ...newPlayer });
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Withdraw a player from their current pending match — opponent gets forfeit.
+ * Returns the match that was forfeited and the opponent id so the caller can
+ * follow up by calling selectWinner(match, opponentId) to propagate.
+ *
+ * Allowed only when:
+ *   - target match exists
+ *   - target slot holds a real player
+ *   - the match has no recorded winner
+ *   - the opponent slot holds a real player (can't forfeit to BYE/TBD)
+ */
+export function withdrawPlayerFromSlot(
+  data: BracketData,
+  matchId: string,
+  position: 1 | 2,
+): { ok: boolean; forfeitTo?: string; error?: string } {
+  const match = findMatch(data, matchId);
+  if (!match) return { ok: false, error: 'Match not found' };
+  if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
+
+  const withdrawnSlot = position === 1 ? match.player1 : match.player2;
+  const opponentSlot = position === 1 ? match.player2 : match.player1;
+
+  if (!isReal(withdrawnSlot.id)) {
+    return { ok: false, error: 'Slot does not hold a real player' };
+  }
+  if (!isReal(opponentSlot.id)) {
+    return { ok: false, error: 'Opponent is not a real player — no forfeit possible' };
+  }
+
+  return { ok: true, forfeitTo: opponentSlot.id };
+}
+
 // ─── Select winner ──────────────────────────────────────────
 
 export function selectWinner(

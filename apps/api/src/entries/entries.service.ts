@@ -171,6 +171,58 @@ export class EntriesService {
     return qb.getMany();
   }
 
+  /**
+   * Reassign an entry to a different weight category / age group / hand / weight.
+   * Only allowed BEFORE the tournament bracket has been generated — once the
+   * bracket exists, use the bracket slot-replace endpoint instead (otherwise
+   * the sorted bracket would silently become inconsistent with the entry).
+   *
+   * Access: admin or tournament organizer.
+   */
+  async reassign(
+    id: string,
+    patch: {
+      weightCategoryId?: string | null;
+      ageGroup?: 'juniors' | 'adults' | 'veterans';
+      hand?: 'left' | 'right';
+      weightKg?: number;
+      reason: string;
+    },
+    actor: { userId: string; roles: string[] },
+  ): Promise<TournamentEntry> {
+    const entry = await this.findById(id);
+    const isAdmin = actor.roles.includes('admin');
+    const isOrganizer = entry.tournament.organizerId === actor.userId;
+
+    if (!isAdmin && !isOrganizer) {
+      throw new ForbiddenException('Only admin or tournament organizer can reassign entries');
+    }
+
+    if (entry.tournament.bracketGenerated) {
+      throw new BadRequestException(
+        'Bracket has already been generated — use bracket slot replacement instead',
+      );
+    }
+
+    const update: Record<string, unknown> = {};
+    if (patch.weightCategoryId !== undefined) update.weightCategoryId = patch.weightCategoryId;
+    if (patch.ageGroup !== undefined) update.ageGroup = patch.ageGroup;
+    if (patch.hand !== undefined) update.hand = patch.hand;
+    if (patch.weightKg !== undefined) update.weightKg = patch.weightKg;
+
+    if (Object.keys(update).length === 0) {
+      throw new BadRequestException('No fields to update');
+    }
+
+    const appendedNote = `[reassign by ${actor.userId} @ ${new Date().toISOString()}] ${patch.reason}`;
+    update.notes = entry.notes ? `${entry.notes}\n${appendedNote}` : appendedNote;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.entriesRepository.update(id, update as any);
+    this.logger.log(`Entry ${id} reassigned by ${actor.userId}: ${patch.reason}`);
+    return this.findById(id);
+  }
+
   async setSeedNumbers(
     tournamentId: string,
     seeds: { entryId: string; seed: number }[],
