@@ -9,9 +9,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { generateDoubleElimination, selectWinner } from '@gsm/bracket-engine';
+import {
+  generateDoubleElimination,
+  selectWinner,
+  resetMatch as resetMatchInBracket,
+  validateResult,
+  canRecordResult,
+  findMatch,
+} from '@gsm/bracket-engine';
 import type { Player, BracketData } from '@gsm/bracket-engine';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
+import { BracketAuditLog } from './entities/bracket-audit-log.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
@@ -19,6 +27,8 @@ import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
+import { RecordResultDto } from './dto/record-result.dto';
+import { ResetMatchDto } from './dto/reset-match.dto';
 import { EventsGateway } from '../events/events.gateway';
 
 // Standard arm wrestling weight buckets (kg)
@@ -111,6 +121,8 @@ export class BracketsService {
   constructor(
     @InjectRepository(Bracket)
     private readonly bracketsRepository: Repository<Bracket>,
+    @InjectRepository(BracketAuditLog)
+    private readonly auditRepository: Repository<BracketAuditLog>,
     @InjectRepository(TournamentOperator)
     private readonly operatorsRepository: Repository<TournamentOperator>,
     @Inject(forwardRef(() => TournamentsService))
@@ -119,6 +131,65 @@ export class BracketsService {
     private readonly eventsGateway: EventsGateway,
     private readonly dataSource: DataSource,
   ) {}
+
+  // ─── Authorization helper ──────────────────────────────────
+
+  private async assertCanManageBracket(
+    bracket: Bracket,
+    userId: string,
+    userRoles: string[],
+    opts: { allowOperator?: boolean; requireAdmin?: boolean } = {},
+  ): Promise<void> {
+    const isAdmin = userRoles.includes('admin');
+    const isOrganizer = bracket.tournament.organizerId === userId;
+
+    if (opts.requireAdmin && !isAdmin) {
+      throw new ForbiddenException('Only admin can perform this action');
+    }
+
+    if (isAdmin || isOrganizer) return;
+
+    if (opts.allowOperator) {
+      const opCount = await this.operatorsRepository.count({
+        where: { tournamentId: bracket.tournamentId, operatorId: userId },
+      });
+      if (opCount > 0) return;
+    }
+
+    throw new ForbiddenException(
+      'Only the organizer, admin, or assigned operator can perform this action',
+    );
+  }
+
+  // ─── Audit helper ─────────────────────────────────────────
+
+  private async writeAudit(
+    bracketId: string,
+    action: BracketAuditLog['action'],
+    changedBy: string | null,
+    matchId: string | null,
+    oldValue: Record<string, unknown> | null,
+    newValue: Record<string, unknown> | null,
+    reason?: string,
+  ): Promise<void> {
+    try {
+      await this.auditRepository.save(
+        this.auditRepository.create({
+          bracketId,
+          action,
+          changedBy,
+          matchId,
+          oldValue,
+          newValue,
+          reason: reason ?? null,
+        }),
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to write audit log for bracket ${bracketId}: ${String(err)}`);
+    }
+  }
+
+  // ─── Generate ──────────────────────────────────────────────
 
   /** Generate bracket for a specific (ageGroup, hand) group */
   async generateForGroup(
@@ -271,7 +342,6 @@ export class BracketsService {
       throw new ForbiddenException('Only the organizer can generate brackets');
     }
 
-    // Load confirmed entries for this tournament / weight category
     const { data: entries } = await this.entriesService.findByTournament(dto.tournamentId, {
       status: 'confirmed',
       weightCategoryId: dto.weightCategoryId,
@@ -284,7 +354,6 @@ export class BracketsService {
       );
     }
 
-    // Build Player array — apply custom seeds if provided
     const seedMap = new Map((dto.playerSeeds ?? []).map(({ entryId, seed }) => [entryId, seed]));
 
     const players: Player[] = entries
@@ -314,6 +383,8 @@ export class BracketsService {
     return saved;
   }
 
+  // ─── Read ─────────────────────────────────────────────────
+
   async findById(id: string): Promise<Bracket> {
     const bracket = await this.bracketsRepository.findOne({
       where: { id },
@@ -331,65 +402,253 @@ export class BracketsService {
     });
   }
 
+  async getAuditLog(bracketId: string): Promise<BracketAuditLog[]> {
+    return this.auditRepository.find({
+      where: { bracketId },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+  }
+
+  /** Returns matches where both players are known (not TBD/BYE) and result not yet recorded */
+  getPendingMatches(
+    bracketData: BracketData,
+  ): Array<{ matchId: string; player1: any; player2: any; section: string }> {
+    const pending: Array<{ matchId: string; player1: any; player2: any; section: string }> = [];
+
+    const checkMatch = (m: any, section: string) => {
+      if (
+        m.winner === null &&
+        m.player1?.id &&
+        m.player2?.id &&
+        m.player1.id !== 'tbd' &&
+        m.player2.id !== 'tbd' &&
+        m.player1.id !== 'bye' &&
+        m.player2.id !== 'bye'
+      ) {
+        pending.push({ matchId: m.id, player1: m.player1, player2: m.player2, section });
+      }
+    };
+
+    for (const round of bracketData.winnersBracket) {
+      for (const m of round) checkMatch(m, 'winners');
+    }
+    for (const round of bracketData.losersBracket) {
+      for (const m of round) checkMatch(m, 'losers');
+    }
+    checkMatch(bracketData.grandFinal, 'grand_final');
+    if (bracketData.superFinal?.needed) {
+      checkMatch(bracketData.superFinal, 'super_final');
+    }
+
+    return pending;
+  }
+
+  // ─── Record result ────────────────────────────────────────
+
   async recordResult(
     bracketId: string,
-    matchId: string,
-    winnerId: string,
+    dto: RecordResultDto,
     userId: string,
     userRoles: string[] = [],
   ): Promise<Bracket> {
     const bracket = await this.findById(bracketId);
 
-    const isOrganizer = bracket.tournament.organizerId === userId;
-    const isAdmin = userRoles.includes('admin');
-    const isOperator = await this.operatorsRepository.count({
-      where: { tournamentId: bracket.tournamentId, operatorId: userId },
-    });
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: true });
 
-    if (!isOrganizer && !isAdmin && !isOperator) {
-      throw new ForbiddenException(
-        'Only the organizer, admin, or assigned operator can record match results',
-      );
-    }
-
-    if (bracket.status === 'completed') {
-      throw new BadRequestException('Bracket is already completed');
+    if (bracket.isLocked) {
+      const isAdmin = userRoles.includes('admin');
+      if (!isAdmin) {
+        throw new ForbiddenException('Bracket is locked. Only admin can modify results.');
+      }
     }
 
     if (!bracket.bracketData) {
       throw new BadRequestException('Bracket has no data');
     }
 
-    const updated = selectWinner(bracket.bracketData as unknown as BracketData, matchId, winnerId);
+    const data = bracket.bracketData as unknown as BracketData;
 
-    const newStatus = updated.status === 'completed' ? 'completed' : 'active';
+    // Check if match can be played
+    const readyCheck = canRecordResult(data, dto.matchId);
+    if (!readyCheck.valid) {
+      throw new BadRequestException(readyCheck.errors.join('; '));
+    }
+
+    // Validate winner
+    const validationCheck = validateResult(data, dto.matchId, dto.winnerId);
+    if (!validationCheck.valid) {
+      throw new BadRequestException(validationCheck.errors.join('; '));
+    }
+
+    // Check if this is a correction of an existing result
+    const existingMatch = findMatch(data, dto.matchId);
+    const isCorrection = !!existingMatch?.winner;
+
+    if (isCorrection) {
+      const isAdmin = userRoles.includes('admin');
+      const isOrganizer = bracket.tournament.organizerId === userId;
+
+      if (!isAdmin && !isOrganizer) {
+        throw new ForbiddenException(
+          'Only admin or organizer can correct an already-recorded result',
+        );
+      }
+      if (!dto.forceCorrect) {
+        throw new BadRequestException(
+          'Result already recorded. Set forceCorrect=true to override.',
+        );
+      }
+    }
+
+    // Save old state for audit
+    const oldMatchSnapshot = existingMatch ? { ...existingMatch } : null;
+
+    // Apply result
+    const updated = selectWinner(data, dto.matchId, dto.winnerId, userId);
+    const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
 
     await this.bracketsRepository.update(bracketId, {
       bracketData: updated as unknown as Record<string, unknown>,
       status: newStatus as BracketStatus,
+      lastModifiedBy: userId,
+      lastModifiedAt: new Date(),
+      modificationCount: (bracket.modificationCount ?? 0) + 1,
+      completedAt: newStatus === 'completed' ? new Date() : (bracket.completedAt ?? null),
     } as any);
+
+    // Write audit
+    const action = isCorrection ? 'result_corrected' : 'result_recorded';
+    const newMatch = findMatch(updated, dto.matchId);
+    await this.writeAudit(
+      bracketId,
+      action,
+      userId,
+      dto.matchId,
+      oldMatchSnapshot as Record<string, unknown> | null,
+      newMatch as unknown as Record<string, unknown> | null,
+      dto.notes,
+    );
 
     if (newStatus === 'completed') {
       this.logger.log(`Bracket ${bracketId} completed. Champion: ${updated.champion}`);
     }
 
-    // Emit real-time update to all clients watching this tournament
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
     return this.findById(bracketId);
   }
 
-  async reset(bracketId: string, organizerId: string): Promise<Bracket> {
+  // ─── Reset single match ───────────────────────────────────
+
+  async resetSingleMatch(
+    bracketId: string,
+    dto: ResetMatchDto,
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<Bracket> {
     const bracket = await this.findById(bracketId);
 
-    if (bracket.tournament.organizerId !== organizerId) {
-      throw new ForbiddenException('Only the organizer can reset a bracket');
+    // Only admin or organizer can reset individual matches
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: false });
+
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data');
     }
+
+    const data = bracket.bracketData as unknown as BracketData;
+    const match = findMatch(data, dto.matchId);
+    if (!match) {
+      throw new NotFoundException(`Match ${dto.matchId} not found in bracket`);
+    }
+
+    const oldMatchSnapshot = { ...match };
+
+    const updated = resetMatchInBracket(data, dto.matchId);
+    const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
+
+    await this.bracketsRepository.update(bracketId, {
+      bracketData: updated as unknown as Record<string, unknown>,
+      status: newStatus as BracketStatus,
+      lastModifiedBy: userId,
+      lastModifiedAt: new Date(),
+      modificationCount: (bracket.modificationCount ?? 0) + 1,
+      completedAt: newStatus === 'completed' ? (bracket.completedAt ?? null) : null,
+    } as any);
+
+    await this.writeAudit(
+      bracketId,
+      'match_reset',
+      userId,
+      dto.matchId,
+      oldMatchSnapshot as Record<string, unknown>,
+      null,
+      dto.reason,
+    );
+
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
+
+    return this.findById(bracketId);
+  }
+
+  // ─── Reset entire bracket ─────────────────────────────────
+
+  async reset(bracketId: string, organizerId: string, userRoles: string[] = []): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+
+    await this.assertCanManageBracket(bracket, organizerId, userRoles, { allowOperator: false });
+
+    await this.writeAudit(
+      bracketId,
+      'bracket_reset',
+      organizerId,
+      null,
+      bracket.bracketData as Record<string, unknown> | null,
+      null,
+      'Full bracket reset',
+    );
 
     await this.bracketsRepository.update(bracketId, {
       bracketData: null,
       status: 'pending',
+      lastModifiedBy: organizerId,
+      lastModifiedAt: new Date(),
+      modificationCount: (bracket.modificationCount ?? 0) + 1,
+      completedAt: null,
+      isLocked: false,
     });
+
+    return this.findById(bracketId);
+  }
+
+  // ─── Lock / unlock ────────────────────────────────────────
+
+  async setLocked(
+    bracketId: string,
+    locked: boolean,
+    userId: string,
+    userRoles: string[],
+  ): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+
+    await this.assertCanManageBracket(bracket, userId, userRoles, { requireAdmin: false });
+
+    await this.bracketsRepository.update(bracketId, {
+      isLocked: locked,
+      lastModifiedBy: userId,
+      lastModifiedAt: new Date(),
+    });
+
+    await this.writeAudit(
+      bracketId,
+      locked ? 'bracket_locked' : 'bracket_unlocked',
+      userId,
+      null,
+      null,
+      null,
+    );
+
+    this.logger.log(`Bracket ${bracketId} ${locked ? 'locked' : 'unlocked'} by ${userId}`);
 
     return this.findById(bracketId);
   }

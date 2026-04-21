@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Tournament, Bracket } from '@/types/api';
+import type { Tournament, Bracket, PendingMatchesByBracket } from '@/types/api';
 
 export function useOperatorTournaments() {
   return useQuery<Tournament[]>({
@@ -20,15 +20,34 @@ export function useOperatorBrackets(tournamentId: string) {
   });
 }
 
+export function useOperatorPendingMatches(tournamentId: string) {
+  return useQuery<PendingMatchesByBracket[]>({
+    queryKey: ['operator', 'pending-matches', tournamentId],
+    queryFn: () =>
+      api.get(`/operator/tournaments/${tournamentId}/pending-matches`).then((r: any) => r.data),
+    enabled: !!tournamentId,
+    refetchInterval: 15_000,
+  });
+}
+
 export function useRecordResult(bracketId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ matchId, winnerId }: { matchId: string; winnerId: string }) =>
+    mutationFn: ({
+      matchId,
+      winnerId,
+      notes,
+    }: {
+      matchId: string;
+      winnerId: string;
+      notes?: string;
+    }) =>
       api
-        .post(`/operator/brackets/${bracketId}/result`, { matchId, winnerId })
+        .post(`/operator/brackets/${bracketId}/result`, { matchId, winnerId, notes })
         .then((r: any) => r.data),
     onSuccess: (data: Bracket) => {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets'] });
+      qc.invalidateQueries({ queryKey: ['operator', 'pending-matches'] });
       qc.invalidateQueries({ queryKey: ['brackets', data.tournamentId] });
     },
   });

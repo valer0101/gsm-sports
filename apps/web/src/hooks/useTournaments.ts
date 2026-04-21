@@ -5,6 +5,8 @@ import type {
   Tournament,
   TournamentEntry,
   Bracket,
+  BracketAuditLog,
+  PendingMatchesByBracket,
   AgeGroup,
 } from '@/types/api';
 
@@ -90,5 +92,84 @@ export function useCancelRegistration(tournamentId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['registrations', tournamentId] });
     },
+  });
+}
+
+// ─── Bracket management hooks ─────────────────────────────
+
+/** Record or correct a match result */
+export function useRecordResult(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      matchId: string;
+      winnerId: string;
+      notes?: string;
+      forceCorrect?: boolean;
+    }) => api.patch(`/brackets/${bracketId}/result`, payload).then((r: { data: any }) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+/** Reset a single match and all downstream results */
+export function useResetMatch(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { matchId: string; reason?: string }) =>
+      api.patch(`/brackets/${bracketId}/match-reset`, payload).then((r: { data: any }) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+/** Reset entire bracket */
+export function useResetBracket(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.patch(`/brackets/${bracketId}/reset`).then((r: { data: any }) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+/** Lock / unlock a bracket */
+export function useLockBracket(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lock: boolean) =>
+      api
+        .patch(`/brackets/${bracketId}/${lock ? 'lock' : 'unlock'}`)
+        .then((r: { data: any }) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+/** Audit log for a bracket */
+export function useBracketAuditLog(bracketId: string) {
+  return useQuery<BracketAuditLog[]>({
+    queryKey: ['bracket-audit', bracketId],
+    queryFn: () => api.get(`/brackets/${bracketId}/audit`).then((r: { data: any }) => r.data),
+    enabled: !!bracketId,
+  });
+}
+
+// ─── Operator hooks ───────────────────────────────────────
+
+/** Pending matches for operator — grouped by bracket */
+export function usePendingMatches(tournamentId: string) {
+  return useQuery<PendingMatchesByBracket[]>({
+    queryKey: ['operator', 'pending-matches', tournamentId],
+    queryFn: () =>
+      api
+        .get(`/operator/tournaments/${tournamentId}/pending-matches`)
+        .then((r: { data: any }) => r.data),
+    enabled: !!tournamentId,
+    refetchInterval: 15_000, // refresh every 15s in case of updates
   });
 }

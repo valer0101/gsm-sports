@@ -47,6 +47,14 @@ export function BracketView({ tournamentId }: Props) {
   const bracket = brackets[selectedBracketIdx];
   const bd = bracket.bracketData;
 
+  if (!bd) {
+    return (
+      <p className="text-center py-10" style={{ color: 'var(--color-text-secondary)' }}>
+        {t('bracket_not_ready')}
+      </p>
+    );
+  }
+
   return (
     <div>
       {/* Category tabs (if multiple brackets) */}

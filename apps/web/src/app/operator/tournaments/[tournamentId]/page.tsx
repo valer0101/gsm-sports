@@ -53,7 +53,7 @@ export default function OperatorTournamentPage({
         className="inline-flex items-center gap-2 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        {t('my_tournaments')}
+        ← {t('my_tournaments')}
       </Link>
 
       <h1 className="text-xl font-black text-white mb-4">{t('title')}</h1>
@@ -77,13 +77,26 @@ export default function OperatorTournamentPage({
                   idx === selectedBracketIdx ? 'var(--color-accent-dim)' : 'transparent',
               }}
             >
-              {b.weightCategory?.name ?? t('category', { n: idx + 1 })}
+              {b.weightCategory?.name ?? b.name ?? t('category', { n: idx + 1 })}
+              {b.isLocked && <span className="ml-1 text-yellow-400">🔒</span>}
             </button>
           ))}
         </div>
       )}
 
-      <MatchList bracket={bracket} />
+      {bracket.isLocked && (
+        <div className="mb-4 rounded-xl px-4 py-3 text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/20">
+          🔒 {t('bracket_locked')}
+        </div>
+      )}
+
+      {bracket.bracketData ? (
+        <MatchList bracket={bracket} />
+      ) : (
+        <p className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('no_bracket')}
+        </p>
+      )}
     </div>
   );
 }
@@ -98,17 +111,13 @@ function MatchList({ bracket }: { bracket: Bracket }) {
   } | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
 
-  const bd = bracket.bracketData;
-
-  const pendingMatches: (BracketMatch & { sectionLabel: string })[] = [];
+  const bd = bracket.bracketData!;
 
   const isTBD = (id: string) => id === 'tbd' || id === 'bye';
-  const isPlayable = (m: BracketMatch) =>
-    !m.winner &&
-    !isTBD(m.player1.id) &&
-    !isTBD(m.player2.id) &&
-    m.player1.id !== 'bye' &&
-    m.player2.id !== 'bye';
+  const isPlayable = (m: BracketMatch) => !m.winner && !isTBD(m.player1.id) && !isTBD(m.player2.id);
+
+  type MatchWithLabel = BracketMatch & { sectionLabel: string };
+  const pendingMatches: MatchWithLabel[] = [];
 
   bd.winnersBracket.forEach((round, ri) => {
     round.forEach((m) => {
@@ -126,12 +135,12 @@ function MatchList({ bracket }: { bracket: Bracket }) {
     pendingMatches.push({ ...(bd.grandFinal as BracketMatch), sectionLabel: t('grand_final') });
   }
 
-  if (bd.superFinal.needed !== false && isPlayable(bd.superFinal as BracketMatch)) {
+  if (bd.superFinal.needed && isPlayable(bd.superFinal as BracketMatch)) {
     pendingMatches.push({ ...(bd.superFinal as BracketMatch), sectionLabel: t('super_final') });
   }
 
   function playerName(p: BracketMatch['player1']) {
-    return `${p.firstName} ${p.lastName}`;
+    return `${p.firstName} ${p.lastName}`.trim();
   }
 
   function doRecord() {
@@ -182,112 +191,137 @@ function MatchList({ bracket }: { bracket: Bracket }) {
         </div>
       )}
 
-      {pendingMatches.map((match) => (
-        <div
-          key={match.id}
-          className="rounded-2xl border border-white/10 overflow-hidden"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
-        >
+      {pendingMatches.map((match) => {
+        const isConfirming = confirm?.matchId === match.id;
+        const isRecording = record.isPending && isConfirming;
+
+        return (
           <div
-            className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b border-white/5"
-            style={{ color: 'var(--color-text-secondary)' }}
+            key={match.id}
+            className="rounded-2xl border overflow-hidden transition-colors"
+            style={{
+              backgroundColor: 'var(--color-secondary)',
+              borderColor: isConfirming ? 'var(--color-accent)' : 'rgba(255,255,255,0.08)',
+            }}
           >
-            {match.sectionLabel}
-          </div>
-
-          <div className="p-4 grid grid-cols-2 gap-3">
-            {/* Player 1 */}
-            <button
-              disabled={record.isPending && confirm?.matchId === match.id}
-              onClick={() =>
-                setConfirm({
-                  matchId: match.id,
-                  winnerId: match.player1.id,
-                  winnerName: playerName(match.player1),
-                })
-              }
-              className="py-4 px-3 rounded-xl border text-center transition-colors hover:border-[var(--color-accent)] group"
-              style={{
-                borderColor:
-                  confirm?.matchId === match.id && confirm.winnerId === match.player1.id
-                    ? 'var(--color-accent)'
-                    : 'rgba(255,255,255,0.1)',
-              }}
+            {/* Round label */}
+            <div
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b border-white/5"
+              style={{ color: 'var(--color-text-secondary)' }}
             >
-              <p className="font-bold text-white text-lg leading-tight">
-                {match.player1.firstName}
-              </p>
-              <p className="font-bold text-white text-lg leading-tight">{match.player1.lastName}</p>
-              <p className="text-xs mt-2 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                {t('winner_btn')}
-              </p>
-            </button>
-
-            {/* Player 2 */}
-            <button
-              disabled={record.isPending && confirm?.matchId === match.id}
-              onClick={() =>
-                setConfirm({
-                  matchId: match.id,
-                  winnerId: match.player2.id,
-                  winnerName: playerName(match.player2),
-                })
-              }
-              className="py-4 px-3 rounded-xl border text-center transition-colors hover:border-[var(--color-accent)] group"
-              style={{
-                borderColor:
-                  confirm?.matchId === match.id && confirm.winnerId === match.player2.id
-                    ? 'var(--color-accent)'
-                    : 'rgba(255,255,255,0.1)',
-              }}
-            >
-              <p className="font-bold text-white text-lg leading-tight">
-                {match.player2.firstName}
-              </p>
-              <p className="font-bold text-white text-lg leading-tight">{match.player2.lastName}</p>
-              <p className="text-xs mt-2 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                {t('winner_btn')}
-              </p>
-            </button>
-          </div>
-
-          {/* Confirm row */}
-          {confirm?.matchId === match.id && (
-            <div className="px-4 pb-4">
-              <div className="rounded-xl p-3 bg-white/5 border border-white/10 flex items-center justify-between gap-3">
-                <p className="text-sm text-white">
-                  {t('winner_label')}{' '}
-                  <span className="font-bold" style={{ color: 'var(--color-accent)' }}>
-                    {confirm.winnerName}
-                  </span>
-                </p>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={doRecord}
-                    disabled={record.isPending}
-                    className="px-3 py-1.5 rounded-lg text-sm font-bold disabled:opacity-50"
-                    style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
-                  >
-                    {record.isPending ? '...' : t('confirm')}
-                  </button>
-                  <button
-                    onClick={() => setConfirm(null)}
-                    className="px-3 py-1.5 rounded-lg text-sm border border-white/10 hover:bg-white/10 transition-colors"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    {t('cancel')}
-                  </button>
-                </div>
-              </div>
-              {record.error && (
-                <p className="mt-2 text-xs text-red-400">
-                  {(record.error as any)?.response?.data?.message ?? t('error')}
-                </p>
-              )}
+              {match.sectionLabel}
             </div>
-          )}
-        </div>
-      ))}
+
+            <div className="p-4 grid grid-cols-2 gap-3">
+              {/* Player 1 */}
+              <PlayerButton
+                player={match.player1}
+                disabled={isRecording || bracket.isLocked}
+                selected={isConfirming && confirm?.winnerId === match.player1.id}
+                onClick={() =>
+                  setConfirm({
+                    matchId: match.id,
+                    winnerId: match.player1.id,
+                    winnerName: playerName(match.player1),
+                  })
+                }
+                winnerBtnLabel={t('winner_btn')}
+              />
+
+              {/* Player 2 */}
+              <PlayerButton
+                player={match.player2}
+                disabled={isRecording || bracket.isLocked}
+                selected={isConfirming && confirm?.winnerId === match.player2.id}
+                onClick={() =>
+                  setConfirm({
+                    matchId: match.id,
+                    winnerId: match.player2.id,
+                    winnerName: playerName(match.player2),
+                  })
+                }
+                winnerBtnLabel={t('winner_btn')}
+              />
+            </div>
+
+            {/* Confirm row */}
+            {isConfirming && (
+              <div className="px-4 pb-4">
+                <div className="rounded-xl p-3 bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                  <p className="text-sm text-white">
+                    {t('winner_label')}{' '}
+                    <span className="font-bold" style={{ color: 'var(--color-accent)' }}>
+                      {confirm.winnerName}
+                    </span>
+                  </p>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={doRecord}
+                      disabled={isRecording}
+                      className="px-3 py-1.5 rounded-lg text-sm font-bold disabled:opacity-50"
+                      style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+                    >
+                      {isRecording ? '...' : t('confirm')}
+                    </button>
+                    <button
+                      onClick={() => setConfirm(null)}
+                      className="px-3 py-1.5 rounded-lg text-sm border border-white/10 hover:bg-white/10 transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      {t('cancel')}
+                    </button>
+                  </div>
+                </div>
+                {record.error && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {(record.error as any)?.response?.data?.message ?? t('error')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function PlayerButton({
+  player,
+  disabled,
+  selected,
+  onClick,
+  winnerBtnLabel,
+}: {
+  player: BracketMatch['player1'];
+  disabled: boolean;
+  selected: boolean;
+  onClick: () => void;
+  winnerBtnLabel: string;
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="py-4 px-3 rounded-xl border text-center transition-all hover:border-[var(--color-accent)] group disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{
+        borderColor: selected ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+        backgroundColor: selected ? 'var(--color-accent-dim)' : 'transparent',
+      }}
+    >
+      <p className="font-bold text-white text-lg leading-tight">{player.firstName}</p>
+      <p className="font-bold text-white text-lg leading-tight">{player.lastName}</p>
+      {player.seed && (
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+          #{player.seed}
+        </p>
+      )}
+      <p
+        className="text-xs mt-2 text-green-400 transition-opacity"
+        style={{ opacity: selected ? 1 : 0 }}
+      >
+        {winnerBtnLabel}
+      </p>
+    </button>
   );
 }

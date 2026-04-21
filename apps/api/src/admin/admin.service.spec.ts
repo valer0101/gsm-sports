@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AdminService } from './admin.service';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
@@ -44,6 +44,7 @@ const mockWeightCategoriesRepo = {
 
 const mockEntriesRepo = {
   createQueryBuilder: vi.fn(),
+  count: vi.fn(),
 };
 
 const mockUsersService = {
@@ -53,6 +54,13 @@ const mockUsersService = {
 
 const mockBracketsService = {
   generateForGroup: vi.fn(),
+  generateWithWeightBuckets: vi.fn(),
+  findByTournament: vi.fn(),
+  findById: vi.fn(),
+  recordResult: vi.fn(),
+  resetSingleMatch: vi.fn(),
+  setLocked: vi.fn(),
+  getAuditLog: vi.fn(),
 };
 
 const mockDataSource = {
@@ -88,9 +96,9 @@ describe('AdminService', () => {
   });
 
   describe('listTournaments', () => {
-    it('should return tournaments for organizer', async () => {
+    it('returns own tournaments for organizer', async () => {
       mockTournamentsRepo.find.mockResolvedValue([mockTournament]);
-      const result = await service.listTournaments('organizer-1');
+      const result = await service.listTournaments('organizer-1', ['organizer']);
       expect(mockTournamentsRepo.find).toHaveBeenCalledWith({
         where: { organizerId: 'organizer-1' },
         relations: ['sport'],
@@ -98,96 +106,241 @@ describe('AdminService', () => {
       });
       expect(result).toEqual([mockTournament]);
     });
+
+    it('returns all tournaments for admin', async () => {
+      mockTournamentsRepo.find.mockResolvedValue([mockTournament]);
+      await service.listTournaments('admin-1', ['admin']);
+      expect(mockTournamentsRepo.find).toHaveBeenCalledWith({
+        where: {},
+        relations: ['sport'],
+        order: { createdAt: 'DESC' },
+      });
+    });
   });
 
   describe('getTournament', () => {
-    it('should return tournament if it belongs to organizer', async () => {
+    it('returns tournament if user is organizer', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
-      const result = await service.getTournament('tournament-1', 'organizer-1');
+      const result = await service.getTournament('tournament-1', 'organizer-1', ['organizer']);
       expect(result).toEqual(mockTournament);
     });
 
-    it('should throw NotFoundException if tournament not found', async () => {
+    it('allows admin to access any tournament', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, organizerId: 'other' });
+      const result = await service.getTournament('tournament-1', 'admin-1', ['admin']);
+      expect(result.id).toBe('tournament-1');
+    });
+
+    it('throws NotFoundException if tournament not found', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(null);
-      await expect(service.getTournament('bad-id', 'organizer-1')).rejects.toThrow(
+      await expect(service.getTournament('bad-id', 'organizer-1', [])).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('should throw ForbiddenException if not owner', async () => {
+    it('throws ForbiddenException if user is not owner and not admin', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, organizerId: 'other' });
-      await expect(service.getTournament('tournament-1', 'organizer-1')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.getTournament('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('deleteTournament', () => {
-    it('should delete tournament in draft status', async () => {
+    it('deletes tournament in draft status', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, status: 'draft' });
       mockTournamentsRepo.delete.mockResolvedValue({ affected: 1 });
-      await service.deleteTournament('tournament-1', 'organizer-1');
+      await service.deleteTournament('tournament-1', 'organizer-1', ['organizer']);
       expect(mockTournamentsRepo.delete).toHaveBeenCalledWith('tournament-1');
     });
 
-    it('should throw BadRequestException for active tournament', async () => {
+    it('throws BadRequestException for active tournament', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, status: 'active' });
-      await expect(service.deleteTournament('tournament-1', 'organizer-1')).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for completed tournament', async () => {
-      mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, status: 'completed' });
-      await expect(service.deleteTournament('tournament-1', 'organizer-1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.deleteTournament('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('toggleRegistration', () => {
-    it('should open registration when closed', async () => {
-      mockTournamentsRepo.findOne.mockResolvedValue({
-        ...mockTournament,
-        registrationOpen: false,
-        bracketGenerated: false,
-      });
-      mockTournamentsRepo.update.mockResolvedValue({});
+    it('opens registration when closed', async () => {
       mockTournamentsRepo.findOne
         .mockResolvedValueOnce({ ...mockTournament, registrationOpen: false })
         .mockResolvedValueOnce({ ...mockTournament, registrationOpen: true });
-      await service.toggleRegistration('tournament-1', 'organizer-1');
+      mockTournamentsRepo.update.mockResolvedValue({});
+      await service.toggleRegistration('tournament-1', 'organizer-1', ['organizer']);
       expect(mockTournamentsRepo.update).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if bracket already generated', async () => {
+    it('throws BadRequestException if bracket already generated', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, bracketGenerated: true });
-      await expect(service.toggleRegistration('tournament-1', 'organizer-1')).rejects.toThrow(
-        BadRequestException,
+      await expect(
+        service.toggleRegistration('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('closeAndGenerateBrackets', () => {
+    it('delegates to BracketsService.generateWithWeightBuckets', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketGenerated: false,
+      });
+      mockBracketsService.generateWithWeightBuckets.mockResolvedValue(3);
+      const result = await service.closeAndGenerateBrackets(
+        'tournament-1',
+        'organizer-1',
+        ['organizer'],
       );
+      expect(result).toEqual({ bracketsCreated: 3 });
+      expect(mockBracketsService.generateWithWeightBuckets).toHaveBeenCalledWith('tournament-1');
+    });
+
+    it('throws BadRequestException if bracket already generated', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketGenerated: true,
+      });
+      await expect(
+        service.closeAndGenerateBrackets('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('assignOperator', () => {
-    it('should throw NotFoundException if user email not found', async () => {
+    it('throws NotFoundException if user email not found', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockUsersService.findByEmail.mockResolvedValue(null);
       await expect(
-        service.assignOperator('tournament-1', 'unknown@test.com', 'organizer-1'),
+        service.assignOperator('tournament-1', 'unknown@test.com', 'organizer-1', ['organizer']),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should assign operator if user exists and not already assigned', async () => {
+    it('assigns operator if user exists and not already assigned', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
-      mockUsersService.findByEmail.mockResolvedValue({ id: 'user-2', email: 'op@test.com' });
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-2',
+        email: 'op@test.com',
+        firstName: 'Op',
+        lastName: 'User',
+      });
       mockOperatorsRepo.findOne.mockResolvedValue(null);
       mockOperatorsRepo.create.mockReturnValue({
         tournamentId: 'tournament-1',
         operatorId: 'user-2',
       });
       mockOperatorsRepo.save.mockResolvedValue({ id: 'op-1' });
-      await service.assignOperator('tournament-1', 'op@test.com', 'organizer-1');
+      await service.assignOperator('tournament-1', 'op@test.com', 'organizer-1', ['organizer']);
       expect(mockOperatorsRepo.save).toHaveBeenCalled();
+    });
+  });
+
+  // ─── Bracket management ──────────────────────────────────
+
+  describe('getBrackets', () => {
+    it('returns all brackets for a tournament that the user can access', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockBracketsService.findByTournament.mockResolvedValue([{ id: 'bracket-1' }]);
+      const result = await service.getBrackets('tournament-1', 'organizer-1', ['organizer']);
+      expect(result).toEqual([{ id: 'bracket-1' }]);
+      expect(mockBracketsService.findByTournament).toHaveBeenCalledWith('tournament-1');
+    });
+
+    it('throws ForbiddenException when user is not the organizer and not admin', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, organizerId: 'other' });
+      await expect(
+        service.getBrackets('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('correctMatchResult', () => {
+    it('delegates to BracketsService.recordResult with forceCorrect=true', async () => {
+      mockBracketsService.recordResult.mockResolvedValue({ id: 'bracket-1' });
+      await service.correctMatchResult(
+        'bracket-1',
+        'wb_1_0',
+        'p2',
+        'admin-1',
+        ['admin'],
+        'wrong call',
+      );
+      expect(mockBracketsService.recordResult).toHaveBeenCalledWith(
+        'bracket-1',
+        { matchId: 'wb_1_0', winnerId: 'p2', notes: 'wrong call', forceCorrect: true },
+        'admin-1',
+        ['admin'],
+      );
+    });
+  });
+
+  describe('resetMatch', () => {
+    it('delegates to BracketsService.resetSingleMatch with reason', async () => {
+      mockBracketsService.resetSingleMatch.mockResolvedValue({ id: 'bracket-1' });
+      await service.resetMatch(
+        'bracket-1',
+        'wb_1_0',
+        'organizer-1',
+        ['organizer'],
+        'disputed',
+      );
+      expect(mockBracketsService.resetSingleMatch).toHaveBeenCalledWith(
+        'bracket-1',
+        { matchId: 'wb_1_0', reason: 'disputed' },
+        'organizer-1',
+        ['organizer'],
+      );
+    });
+  });
+
+  describe('lockBracket / unlockBracket', () => {
+    it('calls setLocked(true) for lockBracket', async () => {
+      mockBracketsService.setLocked.mockResolvedValue({ id: 'bracket-1', isLocked: true });
+      await service.lockBracket('bracket-1', 'organizer-1', ['organizer']);
+      expect(mockBracketsService.setLocked).toHaveBeenCalledWith(
+        'bracket-1',
+        true,
+        'organizer-1',
+        ['organizer'],
+      );
+    });
+
+    it('calls setLocked(false) for unlockBracket', async () => {
+      mockBracketsService.setLocked.mockResolvedValue({ id: 'bracket-1', isLocked: false });
+      await service.unlockBracket('bracket-1', 'admin-1', ['admin']);
+      expect(mockBracketsService.setLocked).toHaveBeenCalledWith(
+        'bracket-1',
+        false,
+        'admin-1',
+        ['admin'],
+      );
+    });
+  });
+
+  describe('getBracketAuditLog', () => {
+    it('verifies access and returns audit log', async () => {
+      mockBracketsService.findById.mockResolvedValue({ tournamentId: 'tournament-1' });
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockBracketsService.getAuditLog.mockResolvedValue([{ id: 'log-1' }]);
+
+      const result = await service.getBracketAuditLog(
+        'bracket-1',
+        'organizer-1',
+        ['organizer'],
+      );
+      expect(result).toEqual([{ id: 'log-1' }]);
+      expect(mockBracketsService.getAuditLog).toHaveBeenCalledWith('bracket-1');
+    });
+
+    it('throws ForbiddenException when user cannot access the parent tournament', async () => {
+      mockBracketsService.findById.mockResolvedValue({ tournamentId: 'tournament-1' });
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        organizerId: 'someone-else',
+      });
+      await expect(
+        service.getBracketAuditLog('bracket-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

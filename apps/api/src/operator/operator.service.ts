@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { BracketsService } from '../brackets/brackets.service';
+import type { BracketData } from '@gsm/bracket-engine';
 
 @Injectable()
 export class OperatorService {
@@ -44,10 +45,41 @@ export class OperatorService {
     return this.bracketsService.findByTournament(tournamentId);
   }
 
+  /** Get pending (playable) matches across all brackets of a tournament */
+  async getPendingMatches(tournamentId: string, operatorId: string) {
+    await this.verifyAccess(tournamentId, operatorId);
+    const brackets = await this.bracketsService.findByTournament(tournamentId);
+
+    return brackets
+      .filter((b) => b.bracketData && b.status === 'active')
+      .map((b) => {
+        const pending = this.bracketsService.getPendingMatches(
+          b.bracketData as unknown as BracketData,
+        );
+        return {
+          bracketId: b.id,
+          bracketName: b.name,
+          isLocked: b.isLocked,
+          pendingMatches: pending,
+        };
+      })
+      .filter((b) => b.pendingMatches.length > 0);
+  }
+
   /** Record match result */
-  async recordResult(bracketId: string, matchId: string, winnerId: string, operatorId: string) {
-    // BracketsService.recordResult already checks operator access via DB
-    return this.bracketsService.recordResult(bracketId, matchId, winnerId, operatorId, []);
+  async recordResult(
+    bracketId: string,
+    matchId: string,
+    winnerId: string,
+    operatorId: string,
+    notes?: string,
+  ) {
+    return this.bracketsService.recordResult(
+      bracketId,
+      { matchId, winnerId, notes },
+      operatorId,
+      [],
+    );
   }
 
   private async verifyAccess(tournamentId: string, operatorId: string) {

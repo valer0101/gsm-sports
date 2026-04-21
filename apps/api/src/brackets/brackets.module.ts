@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Bracket } from './entities/bracket.entity';
+import { BracketAuditLog } from './entities/bracket-audit-log.entity';
 import { BracketsService } from './brackets.service';
 import { BracketsController } from './brackets.controller';
 import { TournamentsModule } from '../tournaments/tournaments.module';
@@ -10,7 +11,7 @@ import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Bracket, TournamentOperator]),
+    TypeOrmModule.forFeature([Bracket, BracketAuditLog, TournamentOperator]),
     forwardRef(() => TournamentsModule),
     EntriesModule,
     EventsModule,

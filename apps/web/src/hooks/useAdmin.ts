@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Tournament } from '@/types/api';
+import type { Tournament, Bracket, BracketAuditLog } from '@/types/api';
 
 /* ─── Tournaments ─── */
 
@@ -136,5 +136,60 @@ export function useRemoveOperator(tournamentId: string) {
     mutationFn: (operatorId: string) =>
       api.delete(`/admin/tournaments/${tournamentId}/operators/${operatorId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'operators', tournamentId] }),
+  });
+}
+
+/* ─── Bracket management (admin) ─── */
+
+export function useAdminBrackets(tournamentId: string) {
+  return useQuery<Bracket[]>({
+    queryKey: ['admin', 'brackets', tournamentId],
+    queryFn: () => api.get(`/admin/tournaments/${tournamentId}/brackets`).then((r: any) => r.data),
+    enabled: !!tournamentId,
+  });
+}
+
+export function useAdminCorrectResult(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { matchId: string; winnerId: string; reason?: string }) =>
+      api.patch(`/admin/brackets/${bracketId}/correct-result`, payload).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+export function useAdminResetMatch(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { matchId: string; reason?: string }) =>
+      api.patch(`/admin/brackets/${bracketId}/reset-match`, payload).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+export function useAdminLockBracket(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lock: boolean) =>
+      api
+        .patch(`/admin/brackets/${bracketId}/${lock ? 'lock' : 'unlock'}`)
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+    },
+  });
+}
+
+export function useAdminBracketAuditLog(bracketId: string) {
+  return useQuery<BracketAuditLog[]>({
+    queryKey: ['admin', 'bracket-audit', bracketId],
+    queryFn: () => api.get(`/admin/brackets/${bracketId}/audit`).then((r: any) => r.data),
+    enabled: !!bracketId,
   });
 }
