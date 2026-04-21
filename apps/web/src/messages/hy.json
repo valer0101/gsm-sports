@@ -4,7 +4,12 @@
     "tournaments": "Մրցաշարեր",
     "rankings": "Վարկանիշ",
     "athletes": "Մարզիկներ",
-    "hero_cta": "Բոլոր մրցաշարերը"
+    "hero_cta": "Բոլոր մրցաշարերը",
+    "badge": "Սպորտային հարթակ",
+    "hero_subtitle": "Մրցաշարեր, վարկանիշներ, մարզիկներ և նորություններ՝ բոլորը մեկ տեղում",
+    "latest_news": "Վերջին նորությունները",
+    "all_news": "Բոլոր նորությունները",
+    "no_news": "Նորություններ դեռ չկան"
   },
   "nav": {
     "home": "Գլխավոր",
@@ -19,11 +24,15 @@
     "login": "Մուտք",
     "register": "Գրանցում",
     "admin": "Կառավարում",
-    "editor": "Խմբագիր"
+    "editor": "Խմբագիր",
+    "logout": "Դուրս գալ"
   },
   "sport": {
     "title": "ՍՊՈՐՏ",
     "armwrestling": "Բազկամարտ",
+    "mma": "MMA",
+    "boxing": "Բռնցքամարտ",
+    "jiu_jitsu": "Ջիու-ջիցու",
     "tournaments_desc": "Գտեք և գրանցվեք ձեռնամարտի մրցաշարերին",
     "athletes_desc": "Ձեռնամարտի մրցամարտիկ մարզիկների պրոֆիլներ",
     "rankings_desc": "GSM Sports-ի պաշտոնական ձեռնամարտի վարկանիշ"
@@ -86,7 +95,11 @@
     "registering": "Grantsvm...",
     "register_error": "Grantsume chi hajoghetsav",
     "registered": "Dashgrantsvel ek",
-    "back": "Hetd"
+    "back": "Hetd",
+    "bracket_type_bracket": "ՑԱՆՑ",
+    "fee_free_label": "Անվճար գրանցում",
+    "fee_amount_label": "Մասնակցավճար՝ {amount} AMD",
+    "fee_paid_label": "Վճարովի գրանցում"
   },
   "athletes": {
     "title": "Մարզիկներ",
@@ -157,6 +170,8 @@
     "register_subtitle": "Ստեղծեք GSM Sports հաշիվ",
     "first_name": "Անուն",
     "last_name": "Ազգանուն",
+    "first_name_placeholder": "Արամ",
+    "last_name_placeholder": "Պետրոսյան",
     "email": "Էլ. փոստ",
     "phone": "Հեռախոս (ոչ պարտադիր)",
     "password": "Գաղտնաբառ",

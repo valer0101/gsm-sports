@@ -4,7 +4,12 @@
     "tournaments": "Tournaments",
     "rankings": "Rankings",
     "athletes": "Athletes",
-    "hero_cta": "View All Tournaments"
+    "hero_cta": "View All Tournaments",
+    "badge": "Sports platform",
+    "hero_subtitle": "Tournaments, rankings, athletes and news — all in one place",
+    "latest_news": "Latest news",
+    "all_news": "All news",
+    "no_news": "No news yet"
   },
   "nav": {
     "home": "Home",
@@ -19,11 +24,15 @@
     "login": "Sign In",
     "register": "Register",
     "admin": "Panel",
-    "editor": "Editor"
+    "editor": "Editor",
+    "logout": "Sign out"
   },
   "sport": {
     "title": "SPORT",
     "armwrestling": "Armwrestling",
+    "mma": "MMA",
+    "boxing": "Boxing",
+    "jiu_jitsu": "Jiu-Jitsu",
     "tournaments_desc": "Find and register for upcoming armwrestling competitions",
     "athletes_desc": "Profiles of competitive armwrestling athletes",
     "rankings_desc": "Official GSM Sports armwrestling rankings"
@@ -86,7 +95,11 @@
     "registering": "Registering...",
     "register_error": "Registration failed",
     "registered": "You are registered",
-    "back": "Back"
+    "back": "Back",
+    "bracket_type_bracket": "BRACKET",
+    "fee_free_label": "Free registration",
+    "fee_amount_label": "Entry fee: {amount} AMD",
+    "fee_paid_label": "Paid entry"
   },
   "athletes": {
     "title": "Athletes",
@@ -157,6 +170,8 @@
     "register_subtitle": "Create a GSM Sports account",
     "first_name": "First name",
     "last_name": "Last name",
+    "first_name_placeholder": "John",
+    "last_name_placeholder": "Smith",
     "email": "Email",
     "phone": "Phone (optional)",
     "password": "Password",

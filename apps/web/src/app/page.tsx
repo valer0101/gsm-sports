@@ -2,20 +2,21 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { usePublicNews, type NewsItem } from '@/hooks/useNews';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const SPORTS = [
-  { slug: 'armwrestling', label: 'Армрестлинг', icon: '💪' },
-  { slug: 'mma', label: 'MMA', icon: '🥊' },
-  { slug: 'boxing', label: 'Бокс', icon: '🥋' },
-  { slug: 'jiu-jitsu', label: 'Джиу-джитсу', icon: '🤼' },
-];
+  { slug: 'armwrestling', labelKey: 'armwrestling', icon: '💪' },
+  { slug: 'mma', labelKey: 'mma', icon: '🥊' },
+  { slug: 'boxing', labelKey: 'boxing', icon: '🥋' },
+  { slug: 'jiu-jitsu', labelKey: 'jiu_jitsu', icon: '🤼' },
+] as const;
 
-const CATEGORY_LABEL: Record<string, string> = {
-  news: 'Новости',
-  business: 'Бизнес',
-  sport: 'Спорт',
+const CATEGORY_KEYS: Record<string, 'news' | 'business' | 'sport'> = {
+  news: 'news',
+  business: 'business',
+  sport: 'sport',
 };
 
 const CATEGORY_HREF: Record<string, string> = {
@@ -25,7 +26,9 @@ const CATEGORY_HREF: Record<string, string> = {
 };
 
 function HomeNewsCard({ item }: { item: NewsItem }) {
-  const catLabel = CATEGORY_LABEL[item.category] ?? item.category;
+  const tNav = useTranslations('nav');
+  const catKey = CATEGORY_KEYS[item.category];
+  const catLabel = catKey ? tNav(catKey) : item.category;
   const catHref = CATEGORY_HREF[item.category] ?? '/news';
 
   return (
@@ -72,6 +75,9 @@ function HomeNewsCard({ item }: { item: NewsItem }) {
 }
 
 export default function HomePage() {
+  const t = useTranslations('home');
+  const tNav = useTranslations('nav');
+  const tSport = useTranslations('sport');
   const { data: newsData, isLoading: newsLoading } = usePublicNews(undefined, 1);
   const latestNews = newsData?.items.slice(0, 4) ?? [];
 
@@ -87,7 +93,7 @@ export default function HomePage() {
             className="inline-block text-xs font-bold tracking-widest uppercase mb-6 px-4 py-2 rounded-full"
             style={{ backgroundColor: 'var(--color-primary)20', color: 'var(--color-primary)' }}
           >
-            Спортивная платформа
+            {t('badge')}
           </div>
           <h1 className="text-4xl sm:text-6xl font-black text-white leading-tight mb-6">
             GSM <span style={{ color: 'var(--color-primary)' }}>Sports</span>
@@ -96,7 +102,7 @@ export default function HomePage() {
             className="text-lg sm:text-xl max-w-2xl mx-auto mb-10"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Турниры, рейтинги, спортсмены и новости — всё в одном месте
+            {t('hero_subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -104,14 +110,14 @@ export default function HomePage() {
               className="px-8 py-4 rounded-2xl font-bold text-white text-lg transition-opacity hover:opacity-90"
               style={{ backgroundColor: 'var(--color-primary)' }}
             >
-              Турниры
+              {t('tournaments')}
             </Link>
             <Link
               href="/news"
               className="px-8 py-4 rounded-2xl font-bold text-lg border border-white/20 hover:bg-white/5 transition-colors"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              Новости
+              {tNav('news')}
             </Link>
           </div>
         </div>
@@ -130,7 +136,7 @@ export default function HomePage() {
           className="text-xs font-black uppercase tracking-widest mb-6 border-b border-white/10 pb-3"
           style={{ color: 'var(--color-accent)' }}
         >
-          Виды спорта
+          {tNav('sports')}
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {SPORTS.map((sport) => (
@@ -142,7 +148,7 @@ export default function HomePage() {
             >
               <div className="text-3xl mb-2">{sport.icon}</div>
               <div className="font-bold text-white text-sm group-hover:text-[var(--color-accent)] transition-colors">
-                {sport.label}
+                {tSport(sport.labelKey)}
               </div>
             </Link>
           ))}
@@ -156,14 +162,14 @@ export default function HomePage() {
             className="text-xs font-black uppercase tracking-widest"
             style={{ color: 'var(--color-accent)' }}
           >
-            Последние новости
+            {t('latest_news')}
           </h2>
           <Link
             href="/news"
             className="text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Все новости →
+            {t('all_news')} →
           </Link>
         </div>
 
@@ -185,7 +191,7 @@ export default function HomePage() {
             className="text-center py-12 border-t border-white/10"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Новостей пока нет
+            {t('no_news')}
           </p>
         ) : (
           <div className="space-y-5 mt-1">

@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  isLocale,
+  pickLocaleFromAcceptLanguage,
+} from '@/i18n/config';
 
 async function getVerifiedPayload(token: string): Promise<{ roles?: string[] } | null> {
   const secret = process.env.JWT_SECRET;
@@ -13,45 +20,70 @@ async function getVerifiedPayload(token: string): Promise<{ roles?: string[] } |
   }
 }
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+function attachLocaleCookie(request: NextRequest, response: NextResponse): void {
+  const existing = request.cookies.get(LOCALE_COOKIE)?.value;
+  if (isLocale(existing)) return;
 
+  const detected =
+    pickLocaleFromAcceptLanguage(request.headers.get('accept-language')) ?? DEFAULT_LOCALE;
+
+  response.cookies.set(LOCALE_COOKIE, detected, {
+    path: '/',
+    maxAge: LOCALE_COOKIE_MAX_AGE,
+    sameSite: 'lax',
+  });
+}
+
+function requiresAuth(pathname: string): boolean {
+  return pathname.startsWith('/admin') || pathname.startsWith('/operator');
+}
+
+async function enforceAuth(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl;
   const token = request.cookies.get('access_token')?.value;
 
-  if (!token) {
+  const toLogin = () => {
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
-  }
+  };
+
+  if (!token) return toLogin();
 
   const payload = await getVerifiedPayload(token);
-
-  if (!payload) {
-    // Invalid / tampered token — treat as unauthenticated
-    const loginUrl = new URL('/auth/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  if (!payload) return toLogin();
 
   const roles: string[] = payload?.roles ?? [];
 
-  // /admin — only admin and organizer
   if (pathname.startsWith('/admin')) {
     if (!roles.includes('admin') && !roles.includes('organizer')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  // /operator — operator + admin + organizer
   if (pathname.startsWith('/operator')) {
     if (!roles.includes('admin') && !roles.includes('organizer') && !roles.includes('operator')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  return NextResponse.next();
+  return null;
+}
+
+export async function middleware(request: NextRequest) {
+  if (requiresAuth(request.nextUrl.pathname)) {
+    const authResponse = await enforceAuth(request);
+    if (authResponse) {
+      attachLocaleCookie(request, authResponse);
+      return authResponse;
+    }
+  }
+
+  const response = NextResponse.next();
+  attachLocaleCookie(request, response);
+  return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/operator/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|.*\\..*).*)'],
 };
