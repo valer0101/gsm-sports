@@ -215,6 +215,67 @@ export class AdminService {
     this.logger.log(`Operator ${operatorId} removed from tournament ${tournamentId}`);
   }
 
+  /* ───────── Bracket management (admin / organizer) ───────── */
+
+  /** Get all brackets for a tournament with full data */
+  async getBrackets(tournamentId: string, userId: string, userRoles: string[]) {
+    await this.getTournament(tournamentId, userId, userRoles);
+    return this.bracketsService.findByTournament(tournamentId);
+  }
+
+  /** Correct a match result (force-overwrite) — reason is required for audit trail */
+  async correctMatchResult(
+    bracketId: string,
+    matchId: string,
+    winnerId: string,
+    userId: string,
+    userRoles: string[],
+    reason?: string,
+  ) {
+    const trimmed = reason?.trim() ?? '';
+    // Align with CorrectResultDto @MinLength(3): defend against non-HTTP callers
+    // (tests, internal services) that bypass the DTO validation pipeline.
+    if (trimmed.length < 3) {
+      throw new BadRequestException(
+        'Reason is required (min 3 characters) when correcting an already-recorded result',
+      );
+    }
+    return this.bracketsService.recordResult(
+      bracketId,
+      { matchId, winnerId, notes: trimmed, forceCorrect: true },
+      userId,
+      userRoles,
+    );
+  }
+
+  /** Reset a single match result and all downstream matches */
+  async resetMatch(
+    bracketId: string,
+    matchId: string,
+    userId: string,
+    userRoles: string[],
+    reason?: string,
+  ) {
+    return this.bracketsService.resetSingleMatch(bracketId, { matchId, reason }, userId, userRoles);
+  }
+
+  /** Lock bracket (only admin/organizer can change results after this) */
+  async lockBracket(bracketId: string, userId: string, userRoles: string[]) {
+    return this.bracketsService.setLocked(bracketId, true, userId, userRoles);
+  }
+
+  /** Unlock bracket */
+  async unlockBracket(bracketId: string, userId: string, userRoles: string[]) {
+    return this.bracketsService.setLocked(bracketId, false, userId, userRoles);
+  }
+
+  /** Get audit log of all changes */
+  async getBracketAuditLog(bracketId: string, userId: string, userRoles: string[]) {
+    const bracket = await this.bracketsService.findById(bracketId);
+    await this.getTournament(bracket.tournamentId, userId, userRoles);
+    return this.bracketsService.getAuditLog(bracketId, userId, userRoles);
+  }
+
   async getParticipantCount(tournamentId: string): Promise<number> {
     return this.entriesRepository.count({ where: { tournamentId, status: 'confirmed' } });
   }

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { generateDoubleElimination, selectWinner, findMatch, getPlayerObj } from './bracket-logic';
+import {
+  generateDoubleElimination,
+  selectWinner,
+  findMatch,
+  getPlayerObj,
+  resetMatch,
+  validateResult,
+  canRecordResult,
+} from './bracket-logic';
 import type { Player, BracketData } from './types';
 
 function makePlayers(count: number): Player[] {
@@ -53,15 +61,11 @@ describe('generateDoubleElimination', () => {
 
     // One match should have a bye auto-resolved
     const r1 = bracket.winnersBracket[0];
-    const hasByeMatch = r1.some(
-      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
-    );
+    const hasByeMatch = r1.some((m) => m.player1.id === 'bye' || m.player2.id === 'bye');
     expect(hasByeMatch).toBe(true);
 
     // Bye match should be auto-resolved
-    const byeMatch = r1.find(
-      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
-    )!;
+    const byeMatch = r1.find((m) => m.player1.id === 'bye' || m.player2.id === 'bye')!;
     expect(byeMatch.winner).not.toBeNull();
     expect(byeMatch.loser).toBe('bye');
   });
@@ -226,5 +230,228 @@ describe('getPlayerObj', () => {
     const player = getPlayerObj(data, 'p1');
     expect(player.id).toBe('p1');
     expect(player.firstName).toBe('Player');
+  });
+});
+
+// ─── validateResult ─────────────────────────────────────────
+
+describe('validateResult', () => {
+  it('returns invalid for non-existent match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const result = validateResult(data, 'does_not_exist', 'p1');
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('Match not found');
+  });
+
+  it('returns invalid when winnerId is not one of the players', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    const result = validateResult(data, match.id, 'stranger_id');
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toContain('Winner must be one of the two players');
+  });
+
+  it('returns invalid when match has TBD players', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    // WB Round 2 match — players are TBD until round 1 completes
+    const wbR2 = data.winnersBracket[1][0];
+    const result = validateResult(data, wbR2.id, 'p1');
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('TBD'))).toBe(true);
+  });
+
+  it('returns valid for a playable match with a real player', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    const result = validateResult(data, match.id, match.player1.id);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+});
+
+// ─── canRecordResult ────────────────────────────────────────
+
+describe('canRecordResult', () => {
+  it('returns invalid for non-existent match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const result = canRecordResult(data, 'wb_999_0');
+    expect(result.valid).toBe(false);
+  });
+
+  it('returns invalid when prerequisite matches are not yet done (TBD players)', () => {
+    const data = generateDoubleElimination(makePlayers(8));
+    const wbR2 = data.winnersBracket[1][0];
+    const result = canRecordResult(data, wbR2.id);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('Previous matches'))).toBe(true);
+  });
+
+  it('returns valid for a round-1 match with both players seeded', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    const result = canRecordResult(data, match.id);
+    expect(result.valid).toBe(true);
+  });
+
+  it('returns valid after feeder match is completed', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    // Complete WB R1 match 0
+    selectWinner(data, data.winnersBracket[0][0].id, data.winnersBracket[0][0].player1.id);
+    // Complete WB R1 match 1
+    selectWinner(data, data.winnersBracket[0][1].id, data.winnersBracket[0][1].player1.id);
+    // Now WB R2 match 0 should be playable
+    const result = canRecordResult(data, data.winnersBracket[1][0].id);
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ─── selectWinner with enteredBy ────────────────────────────
+
+describe('selectWinner — audit fields', () => {
+  it('records enteredBy / enteredAt on first recording', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    selectWinner(data, match.id, match.player1.id, 'user-123');
+    const updated = findMatch(data, match.id)!;
+    expect(updated.enteredBy).toBe('user-123');
+    expect(updated.enteredAt).toBeTruthy();
+    expect(updated.correctedBy).toBeFalsy();
+  });
+
+  it('marks correctedBy / correctedAt on second recording (correction)', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    selectWinner(data, match.id, match.player1.id, 'operator-1');
+    selectWinner(data, match.id, match.player2.id, 'admin-2');
+    const updated = findMatch(data, match.id)!;
+    expect(updated.correctedBy).toBe('admin-2');
+    expect(updated.correctedAt).toBeTruthy();
+    expect(updated.winner).toBe(match.player2.id);
+  });
+});
+
+// ─── resetMatch ─────────────────────────────────────────────
+
+describe('resetMatch', () => {
+  it('clears winner/loser on the target match', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    selectWinner(data, match.id, match.player1.id, 'u1');
+    expect(match.winner).toBe(match.player1.id);
+
+    resetMatch(data, match.id);
+    const updated = findMatch(data, match.id)!;
+    expect(updated.winner).toBeNull();
+    expect(updated.loser).toBeNull();
+    expect(updated.enteredBy).toBeNull();
+    expect(updated.enteredAt).toBeNull();
+  });
+
+  it('cascades reset to downstream matches that received the winner', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const r1m0 = data.winnersBracket[0][0];
+    const r1m1 = data.winnersBracket[0][1];
+
+    selectWinner(data, r1m0.id, r1m0.player1.id);
+    selectWinner(data, r1m1.id, r1m1.player1.id);
+
+    // WB R2 should now have both players set
+    const r2m0 = data.winnersBracket[1][0];
+    expect(r2m0.player1.id).toBe(r1m0.player1.id);
+    expect(r2m0.player2.id).toBe(r1m1.player1.id);
+
+    selectWinner(data, r2m0.id, r2m0.player1.id);
+    expect(r2m0.winner).toBe(r1m0.player1.id);
+
+    // Reset the R1 match — R2 should clear
+    resetMatch(data, r1m0.id);
+
+    const r1m0After = findMatch(data, r1m0.id)!;
+    expect(r1m0After.winner).toBeNull();
+
+    const r2m0After = findMatch(data, r2m0.id)!;
+    expect(r2m0After.winner).toBeNull();
+    // Player1 slot of R2 should no longer reference the reset player
+    expect(r2m0After.player1.id).toBe('tbd');
+  });
+
+  it('clears champion and resets status when finals are affected', () => {
+    const data = generateDoubleElimination(makePlayers(2));
+    const m = data.winnersBracket[0][0];
+    selectWinner(data, m.id, m.player1.id);
+    selectWinner(data, data.grandFinal.id, m.player1.id);
+    expect(data.status).toBe('completed');
+    expect(data.champion).toBe(m.player1.id);
+
+    resetMatch(data, data.grandFinal.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+  });
+
+  // Regression: #2 — resetting an upstream WB match that invalidates the grand
+  // final must clear champion/status even when the reset player was NOT champion.
+  it('clears champion/status when upstream reset leaves grand final incomplete', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const wbR1m0 = data.winnersBracket[0][0];
+    const wbR1m1 = data.winnersBracket[0][1];
+    selectWinner(data, wbR1m0.id, wbR1m0.player1.id);
+    selectWinner(data, wbR1m1.id, wbR1m1.player1.id);
+    const wbFinal = data.winnersBracket[1][0];
+    selectWinner(data, wbFinal.id, wbFinal.player1.id);
+
+    // Advance LB + grand final to completion
+    for (const round of data.losersBracket) {
+      for (const m of round) {
+        if (m.winner === null && m.player1.id !== 'tbd' && m.player2.id !== 'tbd') {
+          selectWinner(data, m.id, m.player1.id);
+        }
+      }
+    }
+    selectWinner(data, data.grandFinal.id, data.grandFinal.player1.id);
+    expect(data.status).toBe('completed');
+    expect(data.champion).not.toBeNull();
+
+    // Reset a WB round-1 match that is NOT the champion's final match.
+    resetMatch(data, wbR1m0.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+    expect(data.grandFinal.winner).toBeNull();
+  });
+
+  // Regression: #3 — super final players must be wiped when cascade hits finals.
+  it('clears super final players when grand final is invalidated', () => {
+    const data = generateDoubleElimination(makePlayers(2));
+    const m = data.winnersBracket[0][0];
+    selectWinner(data, m.id, m.player1.id);
+    const gf = data.grandFinal;
+    gf.player2 = { id: 'p2', firstName: 'Player', lastName: '2', number: 2 };
+    selectWinner(data, gf.id, 'p2');
+    expect(data.superFinal.needed).toBe(true);
+    expect(data.superFinal.player1.id).not.toBe('tbd');
+
+    resetMatch(data, m.id);
+    expect(data.superFinal.needed).toBe(false);
+    expect(data.superFinal.player1.id).toBe('tbd');
+    expect(data.superFinal.player2.id).toBe('tbd');
+    expect(data.superFinal.winner).toBeNull();
+  });
+
+  it('is a no-op when match does not exist', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const before = JSON.stringify(data);
+    resetMatch(data, 'wb_999_999');
+    expect(JSON.stringify(data)).toBe(before);
+  });
+
+  it('resetting an unplayed match does nothing destructive', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const match = data.winnersBracket[0][0];
+    // not played yet
+    resetMatch(data, match.id);
+    const updated = findMatch(data, match.id)!;
+    expect(updated.winner).toBeNull();
+    // Players should still be present
+    expect(updated.player1.id).toBe('p1');
+    expect(updated.player2.id).toBe('p2');
   });
 });

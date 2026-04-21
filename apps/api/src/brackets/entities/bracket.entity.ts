@@ -44,6 +44,23 @@ export class Bracket {
   @Column({ type: 'varchar', length: 200, nullable: true })
   name: string | null; // e.g. "Мужчины до 70 кг"
 
+  // Audit / management fields
+  @Column({ name: 'last_modified_by', type: 'uuid', nullable: true })
+  lastModifiedBy: string | null;
+
+  @Column({ name: 'last_modified_at', type: 'timestamptz', nullable: true })
+  lastModifiedAt: Date | null;
+
+  @Column({ name: 'modification_count', type: 'int', default: 0 })
+  modificationCount: number;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
+
+  /** When true, only admin can record/change results */
+  @Column({ name: 'is_locked', type: 'boolean', default: false })
+  isLocked: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

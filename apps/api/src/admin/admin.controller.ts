@@ -19,6 +19,8 @@ import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 import { AssignOperatorDto } from './dto/assign-operator.dto';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
+import { CorrectResultDto } from './dto/correct-result.dto';
+import { ResetMatchDto } from './dto/reset-match.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -109,5 +111,64 @@ export class AdminController {
     @Request() req: any,
   ) {
     return this.adminService.removeOperator(id, operatorId, req.user.sub, req.user.roles);
+  }
+
+  /* ───────── Bracket management ───────── */
+
+  @Roles('admin', 'organizer')
+  @Get('tournaments/:id/brackets')
+  getBrackets(@Param('id') id: string, @Request() req: any) {
+    return this.adminService.getBrackets(id, req.user.sub, req.user.roles);
+  }
+
+  @Roles('admin', 'organizer')
+  @Patch('brackets/:bracketId/correct-result')
+  correctMatchResult(
+    @Param('bracketId') bracketId: string,
+    @Body() dto: CorrectResultDto,
+    @Request() req: any,
+  ) {
+    return this.adminService.correctMatchResult(
+      bracketId,
+      dto.matchId,
+      dto.winnerId,
+      req.user.sub,
+      req.user.roles,
+      dto.reason,
+    );
+  }
+
+  @Roles('admin', 'organizer')
+  @Patch('brackets/:bracketId/reset-match')
+  resetMatch(
+    @Param('bracketId') bracketId: string,
+    @Body() dto: ResetMatchDto,
+    @Request() req: any,
+  ) {
+    return this.adminService.resetMatch(
+      bracketId,
+      dto.matchId,
+      req.user.sub,
+      req.user.roles,
+      dto.reason,
+    );
+  }
+
+  @Roles('admin', 'organizer')
+  @Patch('brackets/:bracketId/lock')
+  lockBracket(@Param('bracketId') bracketId: string, @Request() req: any) {
+    return this.adminService.lockBracket(bracketId, req.user.sub, req.user.roles);
+  }
+
+  @Roles('admin', 'organizer')
+  @Patch('brackets/:bracketId/unlock')
+  unlockBracket(@Param('bracketId') bracketId: string, @Request() req: any) {
+    return this.adminService.unlockBracket(bracketId, req.user.sub, req.user.roles);
+  }
+
+  @Roles('admin', 'organizer')
+  @Get('brackets/:bracketId/audit')
+  getBracketAuditLog(@Param('bracketId') bracketId: string, @Request() req: any) {
+    return this.adminService.getBracketAuditLog(bracketId, req.user.sub, req.user.roles);
   }
 }

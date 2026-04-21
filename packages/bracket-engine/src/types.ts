@@ -17,6 +17,11 @@ export interface Match {
   feeder1?: string;
   feeder2?: string;
   isLosers?: boolean;
+  // Audit fields
+  enteredBy?: string | null;
+  enteredAt?: string | null;
+  correctedBy?: string | null;
+  correctedAt?: string | null;
 }
 
 export interface GrandFinalMatch {
@@ -25,6 +30,11 @@ export interface GrandFinalMatch {
   player2: Player;
   winner: string | null;
   loser: string | null;
+  // Audit fields
+  enteredBy?: string | null;
+  enteredAt?: string | null;
+  correctedBy?: string | null;
+  correctedAt?: string | null;
 }
 
 export interface SuperFinalMatch extends GrandFinalMatch {
@@ -41,6 +51,11 @@ export interface BracketData {
   superFinal: SuperFinalMatch;
   champion: string | null;
   status: 'active' | 'completed';
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
 }
 
 export const TBD_PLAYER: Player = Object.freeze({

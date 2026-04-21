@@ -4,6 +4,7 @@ import {
   GrandFinalMatch,
   SuperFinalMatch,
   BracketData,
+  ValidationResult,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -366,9 +367,7 @@ export function propagateResults(data: BracketData): void {
   // Grand Final
   const wbFinal = data.winnersBracket[data.winnersBracket.length - 1][0];
   const lbFinal =
-    data.losersBracket.length > 0
-      ? data.losersBracket[data.losersBracket.length - 1][0]
-      : null;
+    data.losersBracket.length > 0 ? data.losersBracket[data.losersBracket.length - 1][0] : null;
 
   if (wbFinal?.winner) {
     data.grandFinal.player1 = getPlayerObj(data, wbFinal.winner);
@@ -398,17 +397,185 @@ export function propagateResults(data: BracketData): void {
   }
 }
 
-// ─── Select winner ──────────────────────────────────────────
+// ─── Validate result ────────────────────────────────────────
 
-export function selectWinner(data: BracketData, matchId: string, winnerId: string): BracketData {
+export function validateResult(
+  data: BracketData,
+  matchId: string,
+  winnerId: string,
+): ValidationResult {
+  const errors: string[] = [];
+  const match = findMatch(data, matchId);
+
+  if (!match) {
+    return { valid: false, errors: ['Match not found'] };
+  }
+
+  if (isTbd(match.player1.id) || isTbd(match.player2.id)) {
+    errors.push('Cannot record result: match is not ready yet (TBD players)');
+  }
+  if (isBye(match.player1.id) || isBye(match.player2.id)) {
+    errors.push('Cannot record result: match contains BYE slot');
+  }
+  if (match.player1.id !== winnerId && match.player2.id !== winnerId) {
+    errors.push('Winner must be one of the two players in this match');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ─── Can record result ───────────────────────────────────────
+
+export function canRecordResult(data: BracketData, matchId: string): ValidationResult {
+  const errors: string[] = [];
+  const match = findMatch(data, matchId);
+
+  if (!match) {
+    return { valid: false, errors: ['Match not found'] };
+  }
+
+  if (isTbd(match.player1.id) || isTbd(match.player2.id)) {
+    errors.push('Previous matches have not been completed yet');
+  }
+  if (isBye(match.player1.id) && isBye(match.player2.id)) {
+    errors.push('Both players are BYE — match auto-resolved');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ─── Reset match ────────────────────────────────────────────
+
+/**
+ * Clears the result of a single match and all downstream matches that
+ * depended on it, so the bracket is in a valid state for re-entry.
+ */
+export function resetMatch(data: BracketData, matchId: string): BracketData {
   const match = findMatch(data, matchId);
   if (!match) return data;
+
+  const oldWinner = match.winner;
+  const oldLoser = match.loser;
+
+  // Clear the match itself
+  match.winner = null;
+  match.loser = null;
+  match.enteredBy = null;
+  match.enteredAt = null;
+  match.correctedBy = null;
+  match.correctedAt = null;
+
+  // Cascade: clear all downstream matches that received this winner or loser
+  _clearDownstream(data, oldWinner, oldLoser);
+
+  return data;
+}
+
+function _clearDownstream(
+  data: BracketData,
+  winnerId: string | null,
+  loserId: string | null,
+): void {
+  const allMatches: (Match | GrandFinalMatch)[] = [
+    ...data.winnersBracket.flat(),
+    ...data.losersBracket.flat(),
+    data.grandFinal,
+    data.superFinal,
+  ];
+
+  for (const m of allMatches) {
+    let touched = false;
+
+    if (winnerId && isReal(winnerId)) {
+      if (m.player1.id === winnerId) {
+        (m as Match).player1 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+        touched = true;
+      }
+      if (m.player2.id === winnerId) {
+        (m as Match).player2 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+        touched = true;
+      }
+    }
+    if (loserId && isReal(loserId)) {
+      if (m.player1.id === loserId) {
+        (m as Match).player1 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+        touched = true;
+      }
+      if (m.player2.id === loserId) {
+        (m as Match).player2 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+        touched = true;
+      }
+    }
+
+    if (touched && m.winner) {
+      const downWinner = m.winner;
+      const downLoser = m.loser;
+      m.winner = null;
+      m.loser = null;
+      (m as Match).enteredBy = null;
+      (m as Match).enteredAt = null;
+      (m as Match).correctedBy = null;
+      (m as Match).correctedAt = null;
+      _clearDownstream(data, downWinner, downLoser);
+    }
+  }
+
+  // If grand final players are now incomplete (TBD), finals are no longer valid —
+  // clear champion / status / super-final regardless of who the cascaded player was.
+  const gfIncomplete = isTbd(data.grandFinal.player1.id) || isTbd(data.grandFinal.player2.id);
+
+  if (gfIncomplete || data.champion === winnerId || data.champion === loserId) {
+    data.champion = null;
+    data.status = 'active';
+    data.grandFinal.winner = null;
+    data.grandFinal.loser = null;
+    data.grandFinal.enteredBy = null;
+    data.grandFinal.enteredAt = null;
+    data.grandFinal.correctedBy = null;
+    data.grandFinal.correctedAt = null;
+
+    // Reset super final completely — players, flags, audit
+    data.superFinal.needed = false;
+    data.superFinal.winner = null;
+    data.superFinal.loser = null;
+    data.superFinal.player1 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+    data.superFinal.player2 = { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' };
+    data.superFinal.enteredBy = null;
+    data.superFinal.enteredAt = null;
+    data.superFinal.correctedBy = null;
+    data.superFinal.correctedAt = null;
+  }
+}
+
+// ─── Select winner ──────────────────────────────────────────
+
+export function selectWinner(
+  data: BracketData,
+  matchId: string,
+  winnerId: string,
+  enteredBy?: string,
+): BracketData {
+  const match = findMatch(data, matchId);
+  if (!match) return data;
+
+  const now = new Date().toISOString();
+  const isCorrection = !!match.winner;
 
   match.winner = winnerId;
   if (match.player1.id === winnerId) {
     match.loser = match.player2.id;
   } else {
     match.loser = match.player1.id;
+  }
+
+  if (enteredBy) {
+    if (isCorrection) {
+      match.correctedBy = enteredBy;
+      match.correctedAt = now;
+    } else {
+      match.enteredBy = enteredBy;
+      match.enteredAt = now;
+    }
   }
 
   propagateResults(data);

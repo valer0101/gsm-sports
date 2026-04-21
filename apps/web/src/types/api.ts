@@ -87,36 +87,91 @@ export interface TournamentEntry {
   };
 }
 
+export interface BracketPlayer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  number: string | number;
+  seed?: number;
+}
+
 export interface BracketMatch {
   id: string;
   round: number;
   matchIndex: number;
-  player1: { id: string; firstName: string; lastName: string; number: string | number };
-  player2: { id: string; firstName: string; lastName: string; number: string | number };
+  player1: BracketPlayer;
+  player2: BracketPlayer;
   winner: string | null;
   loser: string | null;
   feeder1?: string;
   feeder2?: string;
   isLosers?: boolean;
+  // Audit
+  enteredBy?: string | null;
+  enteredAt?: string | null;
+  correctedBy?: string | null;
+  correctedAt?: string | null;
+}
+
+export interface BracketData {
+  players: BracketPlayer[];
+  bracketSize: number;
+  wbRounds: number;
+  winnersBracket: BracketMatch[][];
+  losersBracket: BracketMatch[][];
+  grandFinal: BracketMatch;
+  superFinal: BracketMatch & { needed: boolean };
+  champion: string | null;
+  status: 'active' | 'completed';
 }
 
 export interface Bracket {
   id: string;
   tournamentId: string;
   weightCategoryId: string | null;
-  bracketData: {
-    players: { id: string; firstName: string; lastName: string; number: string | number }[];
-    bracketSize: number;
-    wbRounds: number;
-    winnersBracket: BracketMatch[][];
-    losersBracket: BracketMatch[][];
-    grandFinal: BracketMatch;
-    superFinal: BracketMatch & { needed: boolean };
-    champion: string | null;
-    status: 'active' | 'completed';
-  };
+  bracketData: BracketData | null;
   status: 'pending' | 'active' | 'completed';
+  name: string | null;
+  isLocked: boolean;
+  lastModifiedBy: string | null;
+  lastModifiedAt: string | null;
+  modificationCount: number;
+  completedAt: string | null;
   weightCategory?: WeightCategory;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BracketAuditLog {
+  id: string;
+  bracketId: string;
+  matchId: string | null;
+  changedBy: string | null;
+  action:
+    | 'result_recorded'
+    | 'result_corrected'
+    | 'match_reset'
+    | 'bracket_reset'
+    | 'bracket_locked'
+    | 'bracket_unlocked';
+  oldValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface PendingMatch {
+  matchId: string;
+  player1: BracketPlayer;
+  player2: BracketPlayer;
+  section: 'winners' | 'losers' | 'grand_final' | 'super_final';
+}
+
+export interface PendingMatchesByBracket {
+  bracketId: string;
+  bracketName: string | null;
+  isLocked: boolean;
+  pendingMatches: PendingMatch[];
 }
 
 export interface Athlete {
