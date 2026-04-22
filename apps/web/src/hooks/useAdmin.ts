@@ -193,3 +193,96 @@ export function useAdminBracketAuditLog(bracketId: string) {
     enabled: !!bracketId,
   });
 }
+
+/** Confirmed tournament entries — used as replacement candidates. */
+export interface ConfirmedEntry {
+  id: string;
+  status: string;
+  ageGroup: string | null;
+  hand: string | null;
+  weightKg: number | null;
+  seedNumber: number | null;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
+}
+
+export function useConfirmedEntries(tournamentId: string) {
+  return useQuery<{ data: ConfirmedEntry[] }>({
+    queryKey: ['admin', 'entries', tournamentId, 'confirmed'],
+    queryFn: () =>
+      api
+        .get(`/entries/tournament/${tournamentId}?status=confirmed&limit=100`)
+        .then((r: any) => r.data),
+    enabled: !!tournamentId,
+  });
+}
+
+/* ─── Manual slot edits (admin) ─── */
+
+export function useAdminReplacePlayer(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      matchId: string;
+      position: 1 | 2;
+      newEntryId: string;
+      reason: string;
+    }) =>
+      api
+        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/replace-player`, {
+          position: payload.position,
+          newEntryId: payload.newEntryId,
+          reason: payload.reason,
+        })
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'bracket-audit', bracketId] });
+    },
+  });
+}
+
+export function useAdminWithdrawPlayer(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { matchId: string; position: 1 | 2; reason: string }) =>
+      api
+        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/withdraw-player`, {
+          position: payload.position,
+          reason: payload.reason,
+        })
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'bracket-audit', bracketId] });
+    },
+  });
+}
+
+export function useAdminReassignEntry(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      entryId: string;
+      weightCategoryId?: string | null;
+      ageGroup?: 'juniors' | 'adults' | 'veterans';
+      hand?: 'left' | 'right';
+      weightKg?: number;
+      reason: string;
+    }) => {
+      const { entryId, ...body } = payload;
+      return api.patch(`/entries/${entryId}/reassign`, body).then((r: any) => r.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'entries', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['entries', tournamentId] });
+    },
+  });
+}

@@ -30,6 +30,24 @@ export function useOperatorPendingMatches(tournamentId: string) {
   });
 }
 
+export function useOperatorWithdrawPlayer(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { matchId: string; position: 1 | 2; reason: string }) =>
+      api
+        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/withdraw-player`, {
+          position: payload.position,
+          reason: payload.reason,
+        })
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
 export function useRecordResult(bracketId: string) {
   const qc = useQueryClient();
   return useMutation({
