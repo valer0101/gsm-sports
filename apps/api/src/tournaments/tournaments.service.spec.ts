@@ -2,11 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { TournamentsService } from './tournaments.service';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
 import { TournamentOperator } from './entities/tournament-operator.entity';
+import { TournamentTable } from './entities/tournament-table.entity';
 import { BracketsService } from '../brackets/brackets.service';
 
 // QueryBuilder mock — chainable, returns self for builder methods
@@ -41,6 +42,14 @@ const mockOperatorsRepo = () => ({
   create: vi.fn(),
   save: vi.fn(),
   count: vi.fn(),
+  remove: vi.fn(),
+});
+
+const mockTablesRepo = () => ({
+  find: vi.fn(),
+  findOne: vi.fn(),
+  create: vi.fn(),
+  save: vi.fn(),
   remove: vi.fn(),
 });
 
@@ -113,6 +122,8 @@ describe('TournamentsService', () => {
   let service: TournamentsService;
   let tournamentsRepo: ReturnType<typeof mockTournamentsRepo>;
   let weightCategoriesRepo: ReturnType<typeof mockWeightCategoriesRepo>;
+  let operatorsRepo: ReturnType<typeof mockOperatorsRepo>;
+  let tablesRepo: ReturnType<typeof mockTablesRepo>;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -121,6 +132,7 @@ describe('TournamentsService', () => {
         { provide: getRepositoryToken(Tournament), useFactory: mockTournamentsRepo },
         { provide: getRepositoryToken(WeightCategory), useFactory: mockWeightCategoriesRepo },
         { provide: getRepositoryToken(TournamentOperator), useFactory: mockOperatorsRepo },
+        { provide: getRepositoryToken(TournamentTable), useFactory: mockTablesRepo },
         { provide: DataSource, useFactory: mockDataSource },
         { provide: BracketsService, useValue: { generateWithWeightBuckets: vi.fn() } },
       ],
@@ -129,6 +141,8 @@ describe('TournamentsService', () => {
     service = module.get(TournamentsService);
     tournamentsRepo = module.get(getRepositoryToken(Tournament));
     weightCategoriesRepo = module.get(getRepositoryToken(WeightCategory));
+    operatorsRepo = module.get(getRepositoryToken(TournamentOperator));
+    tablesRepo = module.get(getRepositoryToken(TournamentTable));
   });
 
   afterEach(() => {
@@ -447,6 +461,118 @@ describe('TournamentsService', () => {
       await expect(service.toggleRegistration('missing', 'user')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('assignOperator', () => {
+    it('should assign operator without a table when tableId is omitted', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      operatorsRepo.findOne.mockResolvedValue(null);
+      operatorsRepo.create.mockImplementation((v) => v);
+      operatorsRepo.save.mockImplementation(async (v) => v);
+
+      const result = await service.assignOperator(
+        'tournament-uuid-1',
+        'operator-1',
+        'organizer-uuid-1',
+      );
+
+      expect(operatorsRepo.create).toHaveBeenCalledWith({
+        tournamentId: 'tournament-uuid-1',
+        operatorId: 'operator-1',
+        tableId: null,
+      });
+      expect((result as any).tableId).toBeNull();
+    });
+
+    it('should assign operator to a specific table when tableId is valid', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      tablesRepo.findOne.mockResolvedValue({ id: 'table-1', tournamentId: 'tournament-uuid-1' });
+      operatorsRepo.findOne.mockResolvedValue(null);
+      operatorsRepo.create.mockImplementation((v) => v);
+      operatorsRepo.save.mockImplementation(async (v) => v);
+
+      await service.assignOperator(
+        'tournament-uuid-1',
+        'operator-1',
+        'organizer-uuid-1',
+        'table-1',
+      );
+
+      expect(tablesRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'table-1', tournamentId: 'tournament-uuid-1' },
+      });
+      expect(operatorsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tableId: 'table-1' }),
+      );
+    });
+
+    it('should reject tableId that belongs to a different tournament', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      tablesRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assignOperator('tournament-uuid-1', 'operator-1', 'organizer-uuid-1', 'foreign-table'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ForbiddenException when user is not organizer', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament({ organizerId: 'organizer-uuid-1' }));
+
+      await expect(
+        service.assignOperator('tournament-uuid-1', 'operator-1', 'different-user'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('updateOperatorTable', () => {
+    it('should reassign operator to a different table', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      operatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 'tournament-uuid-1',
+        operatorId: 'operator-1',
+        tableId: null,
+      });
+      tablesRepo.findOne.mockResolvedValue({ id: 'table-2', tournamentId: 'tournament-uuid-1' });
+      operatorsRepo.save.mockImplementation(async (v) => v);
+
+      const result = await service.updateOperatorTable(
+        'tournament-uuid-1',
+        'operator-1',
+        'table-2',
+        'organizer-uuid-1',
+      );
+
+      expect((result as any).tableId).toBe('table-2');
+    });
+
+    it('should unassign table when tableId is null', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      operatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 'tournament-uuid-1',
+        operatorId: 'operator-1',
+        tableId: 'table-1',
+      });
+      operatorsRepo.save.mockImplementation(async (v) => v);
+
+      const result = await service.updateOperatorTable(
+        'tournament-uuid-1',
+        'operator-1',
+        null,
+        'organizer-uuid-1',
+      );
+
+      expect(tablesRepo.findOne).not.toHaveBeenCalled();
+      expect((result as any).tableId).toBeNull();
+    });
+
+    it('should throw NotFoundException when operator is not assigned', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+      operatorsRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateOperatorTable('tournament-uuid-1', 'operator-1', null, 'organizer-uuid-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

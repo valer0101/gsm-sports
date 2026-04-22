@@ -13,6 +13,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import { WeightCategory } from './entities/weight-category.entity';
 import { TournamentOperator } from './entities/tournament-operator.entity';
+import { TournamentTable } from './entities/tournament-table.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { BracketsService } from '../brackets/brackets.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
@@ -37,6 +38,8 @@ export class TournamentsService {
     private readonly weightCategoriesRepository: Repository<WeightCategory>,
     @InjectRepository(TournamentOperator)
     private readonly operatorsRepository: Repository<TournamentOperator>,
+    @InjectRepository(TournamentTable)
+    private readonly tablesRepository: Repository<TournamentTable>,
     private readonly dataSource: DataSource,
     @Inject(forwardRef(() => BracketsService))
     private readonly bracketsService: BracketsService,
@@ -291,7 +294,7 @@ export class TournamentsService {
     await this.findById(tournamentId); // ensure exists
     return this.operatorsRepository.find({
       where: { tournamentId },
-      relations: ['operator'],
+      relations: ['operator', 'table'],
     });
   }
 
@@ -299,10 +302,20 @@ export class TournamentsService {
     tournamentId: string,
     operatorId: string,
     userId: string,
+    tableId?: string | null,
   ): Promise<TournamentOperator> {
     const tournament = await this.findById(tournamentId);
     if (tournament.organizerId !== userId) {
       throw new ForbiddenException('Only the organizer can assign operators');
+    }
+
+    if (tableId) {
+      const table = await this.tablesRepository.findOne({
+        where: { id: tableId, tournamentId },
+      });
+      if (!table) {
+        throw new BadRequestException('Table does not belong to this tournament');
+      }
     }
 
     const existing = await this.operatorsRepository.findOne({
@@ -310,7 +323,40 @@ export class TournamentsService {
     });
     if (existing) throw new ConflictException('User is already an operator for this tournament');
 
-    const record = this.operatorsRepository.create({ tournamentId, operatorId });
+    const record = this.operatorsRepository.create({
+      tournamentId,
+      operatorId,
+      tableId: tableId ?? null,
+    });
+    return this.operatorsRepository.save(record);
+  }
+
+  async updateOperatorTable(
+    tournamentId: string,
+    operatorId: string,
+    tableId: string | null,
+    userId: string,
+  ): Promise<TournamentOperator> {
+    const tournament = await this.findById(tournamentId);
+    if (tournament.organizerId !== userId) {
+      throw new ForbiddenException('Only the organizer can reassign operators');
+    }
+
+    const record = await this.operatorsRepository.findOne({
+      where: { tournamentId, operatorId },
+    });
+    if (!record) throw new NotFoundException('Operator not found for this tournament');
+
+    if (tableId) {
+      const table = await this.tablesRepository.findOne({
+        where: { id: tableId, tournamentId },
+      });
+      if (!table) {
+        throw new BadRequestException('Table does not belong to this tournament');
+      }
+    }
+
+    record.tableId = tableId;
     return this.operatorsRepository.save(record);
   }
 

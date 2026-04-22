@@ -92,6 +92,31 @@ export type ExperienceLevel = 'beginner' | 'amateur' | 'semi_pro' | 'pro';
 // ─── Tournament entry ───────────────────────────────────────
 export type EntryStatus = 'pending' | 'confirmed' | 'checked_in' | 'withdrawn' | 'disqualified';
 
+// ─── Tables / rings / courts ────────────────────────────────
+/**
+ * Status of a playing surface (table / ring / court / cage …) within a tournament.
+ * - `idle`: free, eligible to receive the next pending match.
+ * - `busy`: a match is currently in progress.
+ * - `offline`: temporarily taken out of rotation (equipment failure, break, etc).
+ */
+export type TableStatus = 'idle' | 'busy' | 'offline';
+
+/**
+ * A physical playing surface inside a tournament venue. Called "table" in code
+ * regardless of sport — the user-facing label comes from the sport's
+ * `surfaceTerm` ("table" / "ring" / "court" / "cage").
+ */
+export interface TournamentTable {
+  id: string;
+  tournamentId: string;
+  number: number;
+  name: string | null;
+  status: TableStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── News ───────────────────────────────────────────────────
 export type NewsStatus = 'draft' | 'published' | 'archived';
 
