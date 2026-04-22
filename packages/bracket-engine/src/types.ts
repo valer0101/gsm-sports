@@ -4,6 +4,7 @@ export interface Player {
   lastName: string;
   number: string | number;
   seed?: number;
+  photoUrl?: string | null;
 }
 
 export interface Match {

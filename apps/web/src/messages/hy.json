@@ -25,6 +25,7 @@
     "register": "Գրանցում",
     "admin": "Կառավարում",
     "editor": "Խմբագիր",
+    "profile": "Իմ էջը",
     "logout": "Դուրս գալ"
   },
   "sport": {
@@ -332,6 +333,19 @@
     "verified": "Hastagrvats",
     "verify_btn": "Hastagrel",
     "edit_btn": "Khmbagrel"
+  },
+  "profile": {
+    "title": "Իմ էջը",
+    "avatar": "Լուսանկար",
+    "first_name": "Անուն",
+    "last_name": "Ազգանուն",
+    "country": "Երկիր",
+    "city": "Քաղաք",
+    "email": "Email",
+    "save": "Պահպանել",
+    "saving": "Պահպանվում է...",
+    "saved": "Պահպանված է",
+    "save_error": "Պահպանման սխալ"
   },
   "common": {
     "loading": "Բեռնում...",

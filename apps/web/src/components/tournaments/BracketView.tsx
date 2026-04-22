@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useBrackets } from '@/hooks/useTournaments';
 import { useBracketSocket } from '@/hooks/useBracketSocket';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Avatar } from '@/components/Avatar';
 import type { Bracket, BracketMatch } from '@/types/api';
 
 interface Props {
@@ -229,18 +230,26 @@ function PlayerRow({
 
   return (
     <div
-      className="flex items-center gap-2 px-2.5 py-2"
+      className="flex items-center gap-2 px-2.5 py-1.5"
       style={{
         backgroundColor: isWinner ? 'rgba(34,197,94,0.08)' : 'transparent',
         opacity: isLoser ? 0.45 : 1,
       }}
     >
       <span
-        className="text-xs w-4 text-right shrink-0 font-mono"
+        className="text-[10px] w-3.5 text-right shrink-0 font-mono"
         style={{ color: 'var(--color-text-secondary)' }}
       >
         {isTBD ? '' : player.number}
       </span>
+      {!isTBD && (
+        <Avatar
+          src={player.photoUrl}
+          firstName={player.firstName}
+          lastName={player.lastName}
+          size={22}
+        />
+      )}
       <span
         className="flex-1 text-xs truncate"
         style={{

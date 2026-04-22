@@ -93,6 +93,7 @@ export interface BracketPlayer {
   lastName: string;
   number: string | number;
   seed?: number;
+  photoUrl?: string | null;
 }
 
 export interface BracketMatch {

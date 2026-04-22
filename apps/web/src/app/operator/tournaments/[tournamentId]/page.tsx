@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useOperatorBrackets, useRecordResult } from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Avatar } from '@/components/Avatar';
 import type { Bracket, BracketMatch } from '@/types/api';
 
 export default function OperatorTournamentPage({
@@ -303,12 +304,19 @@ function PlayerButton({
     <button
       disabled={disabled}
       onClick={onClick}
-      className="py-4 px-3 rounded-xl border text-center transition-all hover:border-[var(--color-accent)] group disabled:opacity-50 disabled:cursor-not-allowed"
+      className="py-4 px-3 rounded-xl border text-center transition-all hover:border-[var(--color-accent)] group disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center"
       style={{
         borderColor: selected ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
         backgroundColor: selected ? 'var(--color-accent-dim)' : 'transparent',
       }}
     >
+      <Avatar
+        src={player.photoUrl}
+        firstName={player.firstName}
+        lastName={player.lastName}
+        size={56}
+        className="mb-2"
+      />
       <p className="font-bold text-white text-lg leading-tight">{player.firstName}</p>
       <p className="font-bold text-white text-lg leading-tight">{player.lastName}</p>
       {player.seed && (
