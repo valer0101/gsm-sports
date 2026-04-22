@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { IsString, IsEnum, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsNumber, Min, Max, IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { TournamentsService } from './tournaments.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
@@ -47,6 +47,27 @@ class AssignOperatorDto {
   @ApiProperty({ example: 'user-uuid-here' })
   @IsString()
   operatorId: string;
+
+  @ApiProperty({
+    example: 'table-uuid-here',
+    required: false,
+    description: 'Optional table assignment. Null/omitted = operator can work any table.',
+  })
+  @IsOptional()
+  @IsUUID()
+  tableId?: string;
+}
+
+class UpdateOperatorTableDto {
+  @ApiProperty({
+    example: 'table-uuid-here',
+    required: false,
+    nullable: true,
+    description: 'Pass null to unassign the operator from a specific table.',
+  })
+  @IsOptional()
+  @IsUUID()
+  tableId?: string | null;
 }
 
 @ApiTags('Tournaments')
@@ -168,7 +189,24 @@ export class TournamentsController {
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/operators')
   assignOperator(@Param('id') id: string, @Body() dto: AssignOperatorDto, @Request() req: any) {
-    return this.tournamentsService.assignOperator(id, dto.operatorId, req.user.sub);
+    return this.tournamentsService.assignOperator(id, dto.operatorId, req.user.sub, dto.tableId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id/operators/:operatorId')
+  updateOperatorTable(
+    @Param('id') id: string,
+    @Param('operatorId') operatorId: string,
+    @Body() dto: UpdateOperatorTableDto,
+    @Request() req: any,
+  ) {
+    return this.tournamentsService.updateOperatorTable(
+      id,
+      operatorId,
+      dto.tableId ?? null,
+      req.user.sub,
+    );
   }
 
   @ApiBearerAuth()
