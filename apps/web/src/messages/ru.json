@@ -291,6 +291,7 @@
     "reassign_cat_placeholder": "Категория...",
     "reassign_weight_placeholder": "Вес, кг",
     "reassign_reason_placeholder": "Причина изменения",
+    "kg_suffix": "кг",
     "editable_matches": "Несыгранные матчи",
     "replace_p1": "⇄ {name}",
     "replace_p2": "⇄ {name}",

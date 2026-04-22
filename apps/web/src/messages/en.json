@@ -291,6 +291,7 @@
     "reassign_cat_placeholder": "Weight category...",
     "reassign_weight_placeholder": "Weight, kg",
     "reassign_reason_placeholder": "Reason for change",
+    "kg_suffix": "kg",
     "editable_matches": "Unplayed matches",
     "replace_p1": "⇄ {name}",
     "replace_p2": "⇄ {name}",

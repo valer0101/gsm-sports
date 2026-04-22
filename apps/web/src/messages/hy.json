@@ -426,6 +426,7 @@
     "reassign_cat_placeholder": "Кархи...",
     "reassign_weight_placeholder": "Каш, кгр",
     "reassign_reason_placeholder": "Фопохман патчар",
+    "kg_suffix": "кгр",
     "editable_matches": "Чхахацвац матчер",
     "replace_p1": "⇄ {name}",
     "replace_p2": "⇄ {name}",

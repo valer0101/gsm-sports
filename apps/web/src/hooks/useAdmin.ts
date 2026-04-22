@@ -232,13 +232,7 @@ export function useAdminReplacePlayer(bracketId: string, tournamentId: string) {
       newEntryId: string;
       reason: string;
     }) =>
-      api
-        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/replace-player`, {
-          position: payload.position,
-          newEntryId: payload.newEntryId,
-          reason: payload.reason,
-        })
-        .then((r: any) => r.data),
+      api.patch(`/brackets/${bracketId}/replace-player`, payload).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
@@ -251,12 +245,7 @@ export function useAdminWithdrawPlayer(bracketId: string, tournamentId: string) 
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: { matchId: string; position: 1 | 2; reason: string }) =>
-      api
-        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/withdraw-player`, {
-          position: payload.position,
-          reason: payload.reason,
-        })
-        .then((r: any) => r.data),
+      api.patch(`/brackets/${bracketId}/withdraw-player`, payload).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });

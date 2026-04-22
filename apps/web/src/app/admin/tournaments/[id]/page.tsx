@@ -403,7 +403,7 @@ function RegistrationsManager({
                 <p className="text-sm text-white font-medium">{pName}</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                   {e.ageGroup ?? '—'} · {e.hand ?? '—'}
-                  {e.weightKg ? ` · ${e.weightKg} кг` : ''}
+                  {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
                 </p>
               </div>
               <button
@@ -814,7 +814,7 @@ function BracketManager({
                           .map((e) => (
                             <option key={e.id} value={e.id} className="bg-black">
                               {e.user?.firstName} {e.user?.lastName}
-                              {e.weightKg ? ` · ${e.weightKg}kg` : ''}
+                              {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
                             </option>
                           ))}
                       </select>

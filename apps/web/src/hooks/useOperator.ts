@@ -34,12 +34,7 @@ export function useOperatorWithdrawPlayer(bracketId: string, tournamentId: strin
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: { matchId: string; position: 1 | 2; reason: string }) =>
-      api
-        .patch(`/brackets/${bracketId}/matches/${payload.matchId}/withdraw-player`, {
-          position: payload.position,
-          reason: payload.reason,
-        })
-        .then((r: any) => r.data),
+      api.patch(`/brackets/${bracketId}/withdraw-player`, payload).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });

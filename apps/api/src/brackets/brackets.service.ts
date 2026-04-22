@@ -611,6 +611,36 @@ export class BracketsService {
     const match = findMatch(data, matchId);
     if (!match) throw new NotFoundException(`Match ${matchId} not found in bracket`);
 
+    // Player ids in the bracket are entry ids — look up the entry currently
+    // in the slot so we can enforce the same (weightCategory, ageGroup, hand).
+    // Without this the organizer could silently drop an 80 kg right-hander into
+    // a 60 kg left-hand bracket, breaking the division invariants the engine
+    // and the rankings depend on.
+    const currentSlot = dto.position === 1 ? match.player1 : match.player2;
+    if (currentSlot.id && currentSlot.id !== 'tbd' && currentSlot.id !== 'bye') {
+      const currentEntry = await this.entriesService.findById(currentSlot.id).catch(() => null);
+      if (currentEntry) {
+        const mismatches: string[] = [];
+        if (
+          currentEntry.weightCategoryId &&
+          newEntry.weightCategoryId !== currentEntry.weightCategoryId
+        ) {
+          mismatches.push('weight category');
+        }
+        if (currentEntry.ageGroup && newEntry.ageGroup !== currentEntry.ageGroup) {
+          mismatches.push('age group');
+        }
+        if (currentEntry.hand && newEntry.hand !== currentEntry.hand) {
+          mismatches.push('hand');
+        }
+        if (mismatches.length > 0) {
+          throw new BadRequestException(
+            `Replacement entry does not match the slot's ${mismatches.join(', ')}`,
+          );
+        }
+      }
+    }
+
     const oldMatchSnapshot = JSON.parse(JSON.stringify(match));
 
     const result = engineReplacePlayer(data, matchId, dto.position, {

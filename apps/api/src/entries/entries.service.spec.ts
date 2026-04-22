@@ -186,4 +186,96 @@ describe('EntriesService', () => {
       );
     });
   });
+
+  describe('reassign', () => {
+    const actor = { userId: 'org-1', roles: [] as string[] };
+
+    it('allows organizer to reassign before bracket is generated', async () => {
+      repo.findOne.mockResolvedValueOnce(
+        makeEntry({ tournament: makeTournament({ bracketGenerated: false }), notes: null }),
+      );
+      repo.update.mockResolvedValue(undefined);
+      repo.findOne.mockResolvedValueOnce(
+        makeEntry({ weightKg: 75, notes: '[reassign by org-1 ...] wrong weight' }),
+      );
+
+      const result = await service.reassign(
+        'entry-1',
+        { weightKg: 75, reason: 'wrong weight' },
+        actor,
+      );
+
+      expect(repo.update).toHaveBeenCalled();
+      const updateArg = repo.update.mock.calls[0][1];
+      expect(updateArg.weightKg).toBe(75);
+      expect(updateArg.notes).toMatch(/wrong weight/);
+      expect(result.weightKg).toBe(75);
+    });
+
+    it('allows admin to reassign even if not the organizer', async () => {
+      repo.findOne.mockResolvedValueOnce(
+        makeEntry({ tournament: makeTournament({ bracketGenerated: false }) }),
+      );
+      repo.update.mockResolvedValue(undefined);
+      repo.findOne.mockResolvedValueOnce(makeEntry());
+
+      await service.reassign(
+        'entry-1',
+        { ageGroup: 'veterans', reason: 'age correction' },
+        { userId: 'someone-else', roles: ['admin'] },
+      );
+
+      expect(repo.update).toHaveBeenCalled();
+    });
+
+    it('rejects non-admin non-organizer with Forbidden', async () => {
+      repo.findOne.mockResolvedValue(
+        makeEntry({ tournament: makeTournament({ bracketGenerated: false }) }),
+      );
+
+      await expect(
+        service.reassign(
+          'entry-1',
+          { hand: 'left', reason: 'fixing hand' },
+          { userId: 'random', roles: [] },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects reassign after the bracket is generated', async () => {
+      repo.findOne.mockResolvedValue(
+        makeEntry({ tournament: makeTournament({ bracketGenerated: true }) }),
+      );
+
+      await expect(
+        service.reassign('entry-1', { weightKg: 80, reason: 'too late' }, actor),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an empty patch (reason alone is not enough)', async () => {
+      repo.findOne.mockResolvedValue(
+        makeEntry({ tournament: makeTournament({ bracketGenerated: false }) }),
+      );
+
+      await expect(
+        service.reassign('entry-1', { reason: 'no fields' }, actor),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('appends the reason to entry.notes (preserving existing notes)', async () => {
+      repo.findOne.mockResolvedValueOnce(
+        makeEntry({
+          tournament: makeTournament({ bracketGenerated: false }),
+          notes: 'existing note',
+        }),
+      );
+      repo.update.mockResolvedValue(undefined);
+      repo.findOne.mockResolvedValueOnce(makeEntry());
+
+      await service.reassign('entry-1', { weightKg: 85, reason: 'weigh-in correction' }, actor);
+
+      const updateArg = repo.update.mock.calls[0][1];
+      expect(updateArg.notes).toMatch(/^existing note\n\[reassign by org-1 @ .+\] weigh-in correction$/);
+    });
+  });
 });
