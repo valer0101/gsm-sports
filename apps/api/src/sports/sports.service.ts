@@ -1,14 +1,11 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  resolveSportConfig,
-  SPORT_CONFIG_PRESETS,
-  type SportConfig,
-} from '@gsm/shared-types';
+import type { SportConfig } from '@gsm/shared-types';
 import { Sport } from './entities/sport.entity';
 import { CreateSportDto } from './dto/create-sport.dto';
 import { UpdateSportDto } from './dto/update-sport.dto';
+import { resolveSportConfig, SPORT_CONFIG_PRESETS } from './sport-config';
 
 /** Sport returned to API consumers with config always fully populated. */
 export type SportWithResolvedConfig = Omit<Sport, 'config'> & { config: SportConfig };
@@ -73,7 +70,8 @@ export class SportsService {
     const existing = await this.sportsRepository.findOne({ where: { slug: dto.slug } });
     if (existing) throw new ConflictException(`Sport with slug '${dto.slug}' already exists`);
 
-    const sport = this.sportsRepository.create(dto);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sport = this.sportsRepository.create(dto as any) as unknown as Sport;
     const saved = await this.sportsRepository.save(sport);
     this.logger.log(`Sport created: ${saved.slug}`);
     return withResolvedConfig(saved);

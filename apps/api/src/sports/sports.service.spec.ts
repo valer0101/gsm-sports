@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { resolveSportConfig } from '@gsm/shared-types';
 import { SportsService } from './sports.service';
 import { Sport } from './entities/sport.entity';
+import { resolveSportConfig } from './sport-config';
 
 const mockRepo = () => ({
   find: vi.fn(),
@@ -165,6 +165,50 @@ describe('SportsService', () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.update('missing-uuid', { nameEn: 'X' })).rejects.toThrow(NotFoundException);
     });
+
+    it('merges partial dto.config with existing config (preserves untouched keys)', async () => {
+      const existing = makeSport({
+        config: {
+          categoriesType: 'weight',
+          hasHands: true,
+          weighInRequired: true,
+          matchResultSchema: 'armwrestling',
+        },
+      });
+      repo.findOne.mockResolvedValueOnce(existing); // findRawById
+      repo.update.mockResolvedValue(undefined);
+      repo.findOne.mockResolvedValueOnce(existing); // findById after update
+
+      await service.update('sport-uuid-1', {
+        config: { weighInRequired: false } as any,
+      });
+
+      // The key assertion: untouched keys MUST survive the merge — this was the
+      // regression risk when update() started accepting partial config patches.
+      expect(repo.update).toHaveBeenCalledWith(
+        'sport-uuid-1',
+        expect.objectContaining({
+          config: expect.objectContaining({
+            categoriesType: 'weight',
+            hasHands: true,
+            matchResultSchema: 'armwrestling',
+            weighInRequired: false,
+          }),
+        }),
+      );
+    });
+
+    it('does not touch config when dto.config is undefined', async () => {
+      const existing = makeSport({ config: { hasHands: true } });
+      repo.findOne.mockResolvedValueOnce(existing);
+      repo.update.mockResolvedValue(undefined);
+      repo.findOne.mockResolvedValueOnce(existing);
+
+      await service.update('sport-uuid-1', { nameRu: 'Рука' });
+
+      const patch = repo.update.mock.calls[0][1] as { config?: unknown };
+      expect(patch.config).toBeUndefined();
+    });
   });
 
   describe('seed', () => {
@@ -206,7 +250,10 @@ describe('SportsService', () => {
           defaultBracketFormat: 'double_elim',
           matchResultSchema: 'armwrestling',
           weighInRequired: true,
-          surfaceTerm: { singular: 'стол', plural: 'столы' },
+          surfaceTerm: {
+            singular: { ru: 'стол', en: 'table', hy: 'սեղան' },
+            plural: { ru: 'столы', en: 'tables', hy: 'սեղաններ' },
+          },
         },
       });
       repo.count.mockResolvedValue(1);

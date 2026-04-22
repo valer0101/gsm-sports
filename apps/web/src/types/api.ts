@@ -22,6 +22,12 @@ export type SportMatchResultSchema =
   | 'time'
   | 'points';
 
+export interface LocalizedTerm {
+  ru: string;
+  en: string;
+  hy: string;
+}
+
 export interface SportConfig {
   categoriesType: SportCategoriesType;
   hasHands: boolean;
@@ -29,8 +35,8 @@ export interface SportConfig {
   defaultBracketFormat: SportBracketFormat;
   matchResultSchema: SportMatchResultSchema;
   weighInRequired: boolean;
-  surfaceTerm?: { singular: string; plural: string };
-  participantTerm?: { singular: string; plural: string };
+  surfaceTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
+  participantTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
 }
 
 export interface Sport {

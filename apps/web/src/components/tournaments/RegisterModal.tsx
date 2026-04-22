@@ -94,23 +94,30 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
     }
   };
 
-  async function handleSubmit() {
+  // `override` lets callers (e.g. the age-group step for chess-like sports
+  // where submit fires in the same click as `setAgeGroup`) pass the chosen
+  // value explicitly, avoiding React's stale-state trap — state setters are
+  // batched, so reading `ageGroup` in the same handler would still be null.
+  async function handleSubmit(override: { ageGroup?: AgeGroup; hand?: HandChoice } = {}) {
+    const effectiveAge = override.ageGroup ?? ageGroup;
+    const effectiveHand = override.hand ?? hand;
+    if (!effectiveAge) return;
     // Weight is required for weight-class sports, but some sports don't use it.
     if (usesWeightCategories && !selectedWeight) return;
     const weightKg = selectedWeight?.weightKg;
     try {
-      if (sportHasHands && hand === 'both') {
-        await mutateAsync({ ageGroup: ageGroup!, hand: 'right', weightKg });
-        await mutateAsync({ ageGroup: ageGroup!, hand: 'left', weightKg });
+      if (sportHasHands && effectiveHand === 'both') {
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'right', weightKg });
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'left', weightKg });
         onSuccess();
         onClose();
       } else {
         const resolvedHand: 'left' | 'right' | undefined = sportHasHands
-          ? (hand as 'left' | 'right' | undefined)
+          ? (effectiveHand as 'left' | 'right' | undefined)
           : undefined;
         mutate(
           {
-            ageGroup: ageGroup!,
+            ageGroup: effectiveAge,
             hand: resolvedHand,
             weightKg,
           },
@@ -273,9 +280,10 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                   <button
                     key={ag.value}
                     onClick={() => {
-                      setAgeGroup(ag.value as AgeGroup);
+                      const picked = ag.value as AgeGroup;
+                      setAgeGroup(picked);
                       if (nextStep) setStep(nextStep);
-                      else handleSubmit();
+                      else handleSubmit({ ageGroup: picked });
                     }}
                     className="w-full text-left px-4 py-3 rounded-xl border transition-colors"
                     style={{
@@ -429,7 +437,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
               )}
 
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
                 disabled={isPending || (usesWeightCategories && !selectedWeight)}
                 className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-50"
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
