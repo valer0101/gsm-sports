@@ -4,6 +4,74 @@ export type UserRole = 'user' | 'athlete' | 'organizer' | 'admin' | 'super_admin
 // ─── Sports ─────────────────────────────────────────────────
 export type SportSlug = 'armwrestling' | 'boxing' | 'mma' | string;
 
+/** Defines how participants are grouped for a sport. */
+export type CategoriesType = 'weight' | 'age' | 'skill' | 'none';
+
+/** Supported bracket formats — what `bracket-engine` can generate. */
+export type BracketFormat =
+  | 'single_elim'
+  | 'double_elim'
+  | 'round_robin'
+  | 'swiss'
+  | 'groups_playoff';
+
+/**
+ * What data is recorded for a completed match. Determines which UI fields the
+ * operator sees when entering a result, and which fields the public bracket
+ * surfaces. Start simple and grow as sports are added.
+ */
+export type MatchResultSchema =
+  | 'simple_winner' // just winnerId (default fallback)
+  | 'armwrestling' // winnerId + victoryType + fouls + round durations
+  | 'score' // winnerId + team scores per period (football, basketball…)
+  | 'time' // no winner per match — ranked by fastest time (swimming, running)
+  | 'points'; // winnerId + judge point totals (boxing, MMA by decision)
+
+/** A label localised to all supported UI locales. */
+export interface LocalizedTerm {
+  ru: string;
+  en: string;
+  hy: string;
+}
+
+/**
+ * Sport-level configuration.
+ *
+ * Stored in `sports.config` (JSONB). This is the SHAPE of what's there — the
+ * DB doesn't enforce it; writes are validated by `SportConfigDto` (apps/api)
+ * and reads go through `resolveSportConfig(slug, raw)` which fills defaults.
+ *
+ * Runtime presets + resolver live in `apps/api/src/sports/sport-config.ts`;
+ * this package is types-only per the @gsm/shared-types contract.
+ *
+ * Keep this deliberately narrow — platform-wide behavior for a sport. Anything
+ * that varies between tournaments of the same sport (prizes, entry fees,
+ * which weight categories are used *for this event*) lives on
+ * Tournament.sportConfig instead.
+ */
+export interface SportConfig {
+  /** How participants are split into divisions. */
+  categoriesType: CategoriesType;
+  /** True iff the sport has a left/right hand distinction (armwrestling). */
+  hasHands: boolean;
+  /** Bracket formats the organizer can choose from for this sport. */
+  bracketFormats: BracketFormat[];
+  /** Format used when the organizer doesn't pick one explicitly. */
+  defaultBracketFormat: BracketFormat;
+  /** Shape of a recorded match result. */
+  matchResultSchema: MatchResultSchema;
+  /** True iff participants must be officially weighed-in before the bracket is generated. */
+  weighInRequired: boolean;
+  /**
+   * Label for the "playing surface": table for armwrestling, ring for boxing,
+   * cage for MMA, court for tennis, field for football. Localised per UI
+   * locale so the frontend can pick the right word.
+   */
+  surfaceTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
+  /** Label for participants — athletes vs teams. Localised. */
+  participantTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
+}
+
 // ─── Tournaments ────────────────────────────────────────────
 export type TournamentStatus =
   | 'draft'

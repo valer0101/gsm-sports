@@ -3,11 +3,13 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
-  IsObject,
   MinLength,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { SportConfigDto } from './sport-config.dto';
 
 export class CreateSportDto {
   @ApiProperty({ example: 'armwrestling' })
@@ -58,8 +60,9 @@ export class CreateSportDto {
   @IsInt()
   sortOrder?: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ type: SportConfigDto, required: false })
   @IsOptional()
-  @IsObject()
-  config?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => SportConfigDto)
+  config?: SportConfigDto;
 }
