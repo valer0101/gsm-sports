@@ -16,6 +16,8 @@ import {
   validateResult,
   canRecordResult,
   findMatch,
+  replacePlayerInSlot as engineReplacePlayer,
+  withdrawPlayerFromSlot as engineWithdrawPlayer,
 } from '@gsm/bracket-engine';
 import type { Player, BracketData } from '@gsm/bracket-engine';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
@@ -569,6 +571,218 @@ export class BracketsService {
 
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
+    return this.findById(bracketId);
+  }
+
+  // ─── Manual edits: replace / withdraw player ──────────────
+
+  /**
+   * Replace a player in a slot with a different confirmed entry.
+   * Only the organizer or admin can perform this. Not allowed for locked brackets.
+   */
+  async replacePlayer(
+    bracketId: string,
+    matchId: string,
+    dto: { position: 1 | 2; newEntryId: string; reason: string },
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: false });
+
+    if (bracket.isLocked) {
+      throw new ForbiddenException('Bracket is locked');
+    }
+
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data');
+    }
+
+    // Fetch replacement entry and verify it belongs to the same tournament
+    const newEntry = await this.entriesService.findById(dto.newEntryId);
+    if (newEntry.tournamentId !== bracket.tournamentId) {
+      throw new BadRequestException(
+        'Replacement entry does not belong to this tournament',
+      );
+    }
+    if (newEntry.status !== 'confirmed') {
+      throw new BadRequestException('Replacement entry must be in confirmed status');
+    }
+
+    const data = bracket.bracketData as unknown as BracketData;
+    const match = findMatch(data, matchId);
+    if (!match) throw new NotFoundException(`Match ${matchId} not found in bracket`);
+
+    // Player ids in the bracket are entry ids — look up the entry currently
+    // in the slot so we can enforce the same (weightCategory, ageGroup, hand).
+    // Without this the organizer could silently drop an 80 kg right-hander into
+    // a 60 kg left-hand bracket, breaking the division invariants the engine
+    // and the rankings depend on.
+    const currentSlot = dto.position === 1 ? match.player1 : match.player2;
+    if (currentSlot.id && currentSlot.id !== 'tbd' && currentSlot.id !== 'bye') {
+      const currentEntry = await this.entriesService.findById(currentSlot.id).catch(() => null);
+      if (currentEntry) {
+        const mismatches: string[] = [];
+        if (
+          currentEntry.weightCategoryId &&
+          newEntry.weightCategoryId !== currentEntry.weightCategoryId
+        ) {
+          mismatches.push('weight category');
+        }
+        if (currentEntry.ageGroup && newEntry.ageGroup !== currentEntry.ageGroup) {
+          mismatches.push('age group');
+        }
+        if (currentEntry.hand && newEntry.hand !== currentEntry.hand) {
+          mismatches.push('hand');
+        }
+        if (mismatches.length > 0) {
+          throw new BadRequestException(
+            `Replacement entry does not match the slot's ${mismatches.join(', ')}`,
+          );
+        }
+      }
+    }
+
+    const oldMatchSnapshot = JSON.parse(JSON.stringify(match));
+
+    const result = engineReplacePlayer(data, matchId, dto.position, {
+      id: newEntry.id,
+      firstName: newEntry.user?.firstName ?? 'Player',
+      lastName: newEntry.user?.lastName ?? '',
+      number: newEntry.seedNumber ?? 0,
+      seed: newEntry.seedNumber ?? undefined,
+    });
+
+    if (!result.ok) {
+      throw new BadRequestException(result.error ?? 'Replace failed');
+    }
+
+    const expectedVersion = bracket.modificationCount ?? 0;
+
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
+
+      const res = await bRepo
+        .createQueryBuilder()
+        .update(Bracket)
+        .set({
+          bracketData: data as unknown as Record<string, unknown>,
+          lastModifiedBy: userId,
+          lastModifiedAt: new Date(),
+          modificationCount: expectedVersion + 1,
+        } as any)
+        .where('id = :id AND modification_count = :expected', {
+          id: bracketId,
+          expected: expectedVersion,
+        })
+        .execute();
+
+      if (res.affected === 0) {
+        throw new BadRequestException(
+          'Bracket was modified concurrently. Please refresh and retry.',
+        );
+      }
+
+      const newMatch = findMatch(data, matchId);
+      await this.writeAudit(
+        bracketId,
+        'player_replaced',
+        userId,
+        matchId,
+        oldMatchSnapshot as Record<string, unknown>,
+        newMatch as unknown as Record<string, unknown> | null,
+        dto.reason,
+        em,
+      );
+    });
+
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, data);
+    return this.findById(bracketId);
+  }
+
+  /**
+   * Withdraw a player from a pending match — opponent gets an automatic forfeit.
+   * Admin, organizer, or assigned operator can perform this.
+   */
+  async withdrawPlayer(
+    bracketId: string,
+    matchId: string,
+    dto: { position: 1 | 2; reason: string },
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: true });
+
+    if (bracket.isLocked) {
+      const isAdmin = userRoles.includes('admin');
+      if (!isAdmin) {
+        throw new ForbiddenException('Bracket is locked. Only admin can modify.');
+      }
+    }
+
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data');
+    }
+
+    const data = bracket.bracketData as unknown as BracketData;
+    const match = findMatch(data, matchId);
+    if (!match) throw new NotFoundException(`Match ${matchId} not found in bracket`);
+
+    const oldMatchSnapshot = JSON.parse(JSON.stringify(match));
+
+    const result = engineWithdrawPlayer(data, matchId, dto.position);
+    if (!result.ok || !result.forfeitTo) {
+      throw new BadRequestException(result.error ?? 'Withdraw failed');
+    }
+
+    // Grant forfeit to the opponent — this propagates the opponent through the bracket.
+    const updated = selectWinner(data, matchId, result.forfeitTo, userId);
+    const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
+    const expectedVersion = bracket.modificationCount ?? 0;
+
+    await this.dataSource.transaction(async (em) => {
+      const bRepo = em.getRepository(Bracket);
+
+      const res = await bRepo
+        .createQueryBuilder()
+        .update(Bracket)
+        .set({
+          bracketData: updated as unknown as Record<string, unknown>,
+          status: newStatus as BracketStatus,
+          lastModifiedBy: userId,
+          lastModifiedAt: new Date(),
+          modificationCount: expectedVersion + 1,
+          completedAt: newStatus === 'completed' ? new Date() : (bracket.completedAt ?? null),
+        } as any)
+        .where('id = :id AND modification_count = :expected', {
+          id: bracketId,
+          expected: expectedVersion,
+        })
+        .execute();
+
+      if (res.affected === 0) {
+        throw new BadRequestException(
+          'Bracket was modified concurrently. Please refresh and retry.',
+        );
+      }
+
+      const newMatch = findMatch(updated, matchId);
+      await this.writeAudit(
+        bracketId,
+        'player_withdrawn',
+        userId,
+        matchId,
+        oldMatchSnapshot as Record<string, unknown>,
+        newMatch as unknown as Record<string, unknown> | null,
+        dto.reason,
+        em,
+      );
+    });
+
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
     return this.findById(bracketId);
   }
 

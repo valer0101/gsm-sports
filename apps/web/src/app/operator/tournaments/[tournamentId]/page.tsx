@@ -3,7 +3,11 @@
 import { useState, use } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useOperatorBrackets, useRecordResult } from '@/hooks/useOperator';
+import {
+  useOperatorBrackets,
+  useRecordResult,
+  useOperatorWithdrawPlayer,
+} from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
 import type { Bracket, BracketMatch } from '@/types/api';
@@ -105,11 +109,19 @@ export default function OperatorTournamentPage({
 function MatchList({ bracket }: { bracket: Bracket }) {
   const t = useTranslations('operator_tournament');
   const record = useRecordResult(bracket.id);
+  const withdraw = useOperatorWithdrawPlayer(bracket.id, bracket.tournamentId);
   const [confirm, setConfirm] = useState<{
     matchId: string;
     winnerId: string;
     winnerName: string;
   } | null>(null);
+  const [withdrawState, setWithdrawState] = useState<{
+    matchId: string;
+    position: 1 | 2;
+    playerName: string;
+    opponentName: string;
+  } | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
   const [lastResult, setLastResult] = useState<string | null>(null);
 
   const bd = bracket.bracketData!;
@@ -276,6 +288,101 @@ function MatchList({ bracket }: { bracket: Bracket }) {
                 {record.error && (
                   <p className="mt-2 text-xs text-red-400">
                     {(record.error as any)?.response?.data?.message ?? t('error')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Withdraw row */}
+            {!isConfirming && !bracket.isLocked && (
+              <div className="px-4 pb-3 flex gap-2">
+                <button
+                  onClick={() => {
+                    setWithdrawState({
+                      matchId: match.id,
+                      position: 1,
+                      playerName: playerName(match.player1),
+                      opponentName: playerName(match.player2),
+                    });
+                    setWithdrawReason('');
+                  }}
+                  className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                  style={{ color: '#f87171' }}
+                >
+                  {t('withdraw_btn', { name: match.player1.firstName })}
+                </button>
+                <button
+                  onClick={() => {
+                    setWithdrawState({
+                      matchId: match.id,
+                      position: 2,
+                      playerName: playerName(match.player2),
+                      opponentName: playerName(match.player1),
+                    });
+                    setWithdrawReason('');
+                  }}
+                  className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                  style={{ color: '#f87171' }}
+                >
+                  {t('withdraw_btn', { name: match.player2.firstName })}
+                </button>
+              </div>
+            )}
+
+            {/* Withdraw form */}
+            {withdrawState?.matchId === match.id && (
+              <div className="mx-4 mb-4 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                <p className="text-xs text-red-300 mb-2">
+                  {t('withdraw_confirm', {
+                    player: withdrawState.playerName,
+                    opponent: withdrawState.opponentName,
+                  })}
+                </p>
+                <input
+                  value={withdrawReason}
+                  onChange={(e) => setWithdrawReason(e.target.value)}
+                  placeholder={t('withdraw_reason_placeholder')}
+                  className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    disabled={withdraw.isPending || withdrawReason.trim().length < 3}
+                    onClick={() =>
+                      withdraw.mutate(
+                        {
+                          matchId: withdrawState.matchId,
+                          position: withdrawState.position,
+                          reason: withdrawReason.trim(),
+                        },
+                        {
+                          onSuccess: () => {
+                            setLastResult(
+                              t('withdraw_result', {
+                                player: withdrawState.playerName,
+                                opponent: withdrawState.opponentName,
+                              }),
+                            );
+                            setWithdrawState(null);
+                            setTimeout(() => setLastResult(null), 3000);
+                          },
+                        },
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-300 disabled:opacity-50"
+                  >
+                    {withdraw.isPending ? '...' : t('withdraw_confirm_btn')}
+                  </button>
+                  <button
+                    onClick={() => setWithdrawState(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+                {withdraw.error && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {(withdraw.error as any)?.response?.data?.message ?? t('error')}
                   </p>
                 )}
               </div>

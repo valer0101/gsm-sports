@@ -33,6 +33,8 @@ vi.mock('@gsm/bracket-engine', () => ({
     winner: null,
     loser: null,
   })),
+  replacePlayerInSlot: vi.fn(() => ({ ok: true })),
+  withdrawPlayerFromSlot: vi.fn(() => ({ ok: true, forfeitTo: 'p2' })),
 }));
 
 // Builder that mimics TypeORM's createQueryBuilder().update().set().where().execute()
@@ -473,6 +475,219 @@ describe('BracketsService', () => {
 
       const pending = service.getPendingMatches(bd);
       expect(pending.some((p) => p.section === 'grand_final')).toBe(true);
+    });
+  });
+
+  describe('replacePlayer', () => {
+    const makeConfirmedEntry = (overrides: any = {}) => ({
+      id: 'entry-replacement',
+      tournamentId: 'tournament-1',
+      status: 'confirmed',
+      weightCategoryId: 'wc-1',
+      ageGroup: 'adults',
+      hand: 'right',
+      weightKg: 75,
+      seedNumber: 5,
+      user: { firstName: 'Sub', lastName: 'Player', avatarUrl: null },
+      ...overrides,
+    });
+
+    const makeCurrentEntry = (overrides: any = {}) => ({
+      id: 'p1',
+      tournamentId: 'tournament-1',
+      weightCategoryId: 'wc-1',
+      ageGroup: 'adults',
+      hand: 'right',
+      ...overrides,
+    });
+
+    it('replaces the slot when admin/organizer, writes audit and emits socket update', async () => {
+      repo.findOne.mockResolvedValue(makeBracket({ modificationCount: 0 }));
+      entriesService.findById = vi
+        .fn()
+        .mockResolvedValueOnce(makeConfirmedEntry()) // lookup for new entry
+        .mockResolvedValueOnce(makeCurrentEntry()); // lookup for slot's current entry
+
+      const result = await service.replacePlayer(
+        'bracket-1',
+        'wb_1_0',
+        { position: 1, newEntryId: 'entry-replacement', reason: 'athlete injured' },
+        'org-1',
+        [],
+      );
+
+      expect(result).toBeDefined();
+      expect(auditRepo.save).toHaveBeenCalled();
+      expect(eventsGateway.emitBracketUpdate).toHaveBeenCalled();
+    });
+
+    it('rejects a replacement entry from a different tournament', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      entriesService.findById = vi
+        .fn()
+        .mockResolvedValueOnce(makeConfirmedEntry({ tournamentId: 'different-tournament' }));
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a replacement entry that is not confirmed', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      entriesService.findById = vi
+        .fn()
+        .mockResolvedValueOnce(makeConfirmedEntry({ status: 'pending' }));
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects cross-category replacements (different weight/age/hand)', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      entriesService.findById = vi
+        .fn()
+        .mockResolvedValueOnce(makeConfirmedEntry({ weightCategoryId: 'wc-DIFFERENT' }))
+        .mockResolvedValueOnce(makeCurrentEntry());
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(/weight category/);
+    });
+
+    it('rejects non-admin non-organizer callers (operator not allowed for replace)', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'some-operator',
+          [],
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects when the bracket is locked', async () => {
+      repo.findOne.mockResolvedValue(makeBracket({ isLocked: true }));
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('surfaces engine errors as BadRequest', async () => {
+      const engine = await import('@gsm/bracket-engine');
+      (engine.replacePlayerInSlot as any).mockReturnValueOnce({
+        ok: false,
+        error: 'Player has already won a prior match',
+      });
+      repo.findOne.mockResolvedValue(makeBracket());
+      entriesService.findById = vi
+        .fn()
+        .mockResolvedValueOnce(makeConfirmedEntry())
+        .mockResolvedValueOnce(makeCurrentEntry());
+
+      await expect(
+        service.replacePlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, newEntryId: 'entry-x', reason: 'swap' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(/prior match/);
+    });
+  });
+
+  describe('withdrawPlayer', () => {
+    it('allows assigned operator to withdraw and forfeits to opponent', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      operatorsRepo.count.mockResolvedValue(1); // caller is assigned operator
+
+      const result = await service.withdrawPlayer(
+        'bracket-1',
+        'wb_1_0',
+        { position: 1, reason: 'no-show' },
+        'operator-user',
+        [],
+      );
+
+      expect(result).toBeDefined();
+      expect(auditRepo.save).toHaveBeenCalled();
+      expect(eventsGateway.emitBracketUpdate).toHaveBeenCalled();
+    });
+
+    it('rejects non-admin when the bracket is locked', async () => {
+      repo.findOne.mockResolvedValue(makeBracket({ isLocked: true }));
+
+      await expect(
+        service.withdrawPlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, reason: 'no-show' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows admin to override lock', async () => {
+      repo.findOne.mockResolvedValue(makeBracket({ isLocked: true }));
+
+      const result = await service.withdrawPlayer(
+        'bracket-1',
+        'wb_1_0',
+        { position: 1, reason: 'injury' },
+        'admin-user',
+        ['admin'],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it('surfaces engine errors (e.g. opponent is BYE) as BadRequest', async () => {
+      const engine = await import('@gsm/bracket-engine');
+      (engine.withdrawPlayerFromSlot as any).mockReturnValueOnce({
+        ok: false,
+        error: 'Opponent is not a real player',
+      });
+      repo.findOne.mockResolvedValue(makeBracket());
+
+      await expect(
+        service.withdrawPlayer(
+          'bracket-1',
+          'wb_1_0',
+          { position: 1, reason: 'no-show' },
+          'org-1',
+          [],
+        ),
+      ).rejects.toThrow(/real player/);
     });
   });
 });

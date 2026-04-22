@@ -15,6 +15,10 @@ import {
   useAdminLockBracket,
   useAdminBracketAuditLog,
   useAdminCorrectResult,
+  useAdminReplacePlayer,
+  useAdminWithdrawPlayer,
+  useAdminReassignEntry,
+  useConfirmedEntries,
 } from '@/hooks/useAdmin';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { Bracket, BracketMatch, BracketAuditLog } from '@/types/api';
@@ -253,6 +257,13 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         {assignError && <p className="mt-2 text-xs text-red-400">{assignError}</p>}
       </Section>
 
+      {/* Registrations management — only available before bracket is generated */}
+      {!tournament.bracketGenerated && (
+        <Section title={t('registrations_title')}>
+          <RegistrationsManager tournamentId={id} weightCategories={tournament.weightCategories ?? []} t={t} />
+        </Section>
+      )}
+
       {/* Bracket management — visible after bracket is generated */}
       {tournament.bracketGenerated && brackets && brackets.length > 0 && (
         <Section title={t('bracket_management_title')}>
@@ -343,6 +354,175 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ─── Registrations Manager (pre-bracket) ────────────────
+
+function RegistrationsManager({
+  tournamentId,
+  weightCategories,
+  t,
+}: {
+  tournamentId: string;
+  weightCategories: { id: string; name: string; minWeight: number | null; maxWeight: number | null }[];
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const { data: entriesRes, isLoading } = useConfirmedEntries(tournamentId);
+  const reassign = useAdminReassignEntry(tournamentId);
+  const entries = entriesRes?.data ?? [];
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editWeightCategoryId, setEditWeightCategoryId] = useState<string>('');
+  const [editHand, setEditHand] = useState<'left' | 'right' | ''>('');
+  const [editAgeGroup, setEditAgeGroup] = useState<'juniors' | 'adults' | 'veterans' | ''>('');
+  const [editWeightKg, setEditWeightKg] = useState<string>('');
+  const [editReason, setEditReason] = useState('');
+
+  if (isLoading) {
+    return <Skeleton className="h-20 w-full rounded-xl" />;
+  }
+  if (entries.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        {t('no_registrations')}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {entries.map((e) => {
+        const isEditing = editingId === e.id;
+        const pName = `${e.user?.firstName ?? ''} ${e.user?.lastName ?? ''}`.trim() || '—';
+        return (
+          <div
+            key={e.id}
+            className="rounded-xl border border-white/8 p-3"
+            style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="text-sm text-white font-medium">{pName}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  {e.ageGroup ?? '—'} · {e.hand ?? '—'}
+                  {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingId(isEditing ? null : e.id);
+                  setEditWeightCategoryId('');
+                  setEditHand('');
+                  setEditAgeGroup('');
+                  setEditWeightKg(e.weightKg ? String(e.weightKg) : '');
+                  setEditReason('');
+                }}
+                className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                style={{ color: '#60a5fa' }}
+              >
+                {isEditing ? t('cancel') : t('reassign_btn')}
+              </button>
+            </div>
+
+            {isEditing && (
+              <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={editAgeGroup}
+                    onChange={(ev) => setEditAgeGroup(ev.target.value as typeof editAgeGroup)}
+                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                  >
+                    <option value="" className="bg-black">
+                      {t('reassign_age_placeholder')}
+                    </option>
+                    <option value="juniors" className="bg-black">juniors</option>
+                    <option value="adults" className="bg-black">adults</option>
+                    <option value="veterans" className="bg-black">veterans</option>
+                  </select>
+                  <select
+                    value={editHand}
+                    onChange={(ev) => setEditHand(ev.target.value as typeof editHand)}
+                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                  >
+                    <option value="" className="bg-black">
+                      {t('reassign_hand_placeholder')}
+                    </option>
+                    <option value="left" className="bg-black">left</option>
+                    <option value="right" className="bg-black">right</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={editWeightCategoryId}
+                    onChange={(ev) => setEditWeightCategoryId(ev.target.value)}
+                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                  >
+                    <option value="" className="bg-black">
+                      {t('reassign_cat_placeholder')}
+                    </option>
+                    {weightCategories.map((wc) => (
+                      <option key={wc.id} value={wc.id} className="bg-black">
+                        {wc.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="20"
+                    max="300"
+                    step="0.1"
+                    value={editWeightKg}
+                    onChange={(ev) => setEditWeightKg(ev.target.value)}
+                    placeholder={t('reassign_weight_placeholder')}
+                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                  />
+                </div>
+                <input
+                  value={editReason}
+                  onChange={(ev) => setEditReason(ev.target.value)}
+                  placeholder={t('reassign_reason_placeholder')}
+                  className="w-full px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    disabled={reassign.isPending || editReason.trim().length < 3}
+                    onClick={() => {
+                      const payload: any = {
+                        entryId: e.id,
+                        reason: editReason.trim(),
+                      };
+                      if (editWeightCategoryId) payload.weightCategoryId = editWeightCategoryId;
+                      if (editHand) payload.hand = editHand;
+                      if (editAgeGroup) payload.ageGroup = editAgeGroup;
+                      if (editWeightKg) payload.weightKg = Number(editWeightKg);
+                      reassign.mutate(payload, {
+                        onSuccess: () => setEditingId(null),
+                      });
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 disabled:opacity-40"
+                  >
+                    {reassign.isPending ? '...' : t('save')}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+                {reassign.error && (
+                  <p className="text-xs text-red-400">
+                    {(reassign.error as any)?.response?.data?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Bracket Manager Component ─────────────────────────────
 
 function BracketManager({
@@ -360,6 +540,10 @@ function BracketManager({
   const lockMutation = useAdminLockBracket(bracketId, tournamentId);
   const resetMatch = useAdminResetMatch(bracketId, tournamentId);
   const correctResult = useAdminCorrectResult(bracketId, tournamentId);
+  const replacePlayer = useAdminReplacePlayer(bracketId, tournamentId);
+  const withdrawPlayer = useAdminWithdrawPlayer(bracketId, tournamentId);
+  const { data: confirmedEntriesRes } = useConfirmedEntries(tournamentId);
+  const confirmedEntries = confirmedEntriesRes?.data ?? [];
   const { data: auditLog } = useAdminBracketAuditLog(bracketId);
 
   const [showAudit, setShowAudit] = useState(false);
@@ -378,6 +562,22 @@ function BracketManager({
   const [resetReason, setResetReason] = useState('');
   const [correctWinnerId, setCorrectWinnerId] = useState('');
   const [correctReason, setCorrectReason] = useState('');
+
+  // Replace / withdraw state
+  const [replaceState, setReplaceState] = useState<{
+    matchId: string;
+    position: 1 | 2;
+    currentName: string;
+  } | null>(null);
+  const [replaceEntryId, setReplaceEntryId] = useState('');
+  const [replaceReason, setReplaceReason] = useState('');
+  const [withdrawState, setWithdrawState] = useState<{
+    matchId: string;
+    position: 1 | 2;
+    playerName: string;
+    opponentName: string;
+  } | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
 
   const bd = bracket.bracketData;
 
@@ -420,6 +620,27 @@ function BracketManager({
       r.match.player1.id !== 'tbd' &&
       r.match.player2.id !== 'tbd',
   );
+
+  // Editable = unplayed real-player matches (replace/withdraw applies here).
+  const editableMatches = allMatches.filter(
+    (r) =>
+      !r.match.winner &&
+      r.match.player1.id !== 'tbd' &&
+      r.match.player2.id !== 'tbd' &&
+      r.match.player1.id !== 'bye' &&
+      r.match.player2.id !== 'bye',
+  );
+
+  // Entries currently placed in this bracket — excluded from replacement picker.
+  const placedEntryIds = new Set<string>();
+  allMatches.forEach((r) => {
+    if (r.match.player1.id && r.match.player1.id !== 'tbd' && r.match.player1.id !== 'bye') {
+      placedEntryIds.add(r.match.player1.id);
+    }
+    if (r.match.player2.id && r.match.player2.id !== 'tbd' && r.match.player2.id !== 'bye') {
+      placedEntryIds.add(r.match.player2.id);
+    }
+  });
 
   function pName(p: { firstName: string; lastName: string }) {
     return `${p.firstName} ${p.lastName}`.trim();
@@ -473,6 +694,229 @@ function BracketManager({
 
       {/* Audit log */}
       {showAudit && auditLog && <AuditLogTable logs={auditLog} getPlayerName={getPlayerName} />}
+
+      {/* Editable unplayed matches — replace or withdraw */}
+      {editableMatches.length > 0 && !bracket.isLocked && (
+        <div>
+          <p
+            className="text-xs font-bold uppercase tracking-wider mb-2"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {t('editable_matches')}
+          </p>
+          <div className="space-y-2">
+            {editableMatches.map(({ match, label }) => {
+              const replaceHere = replaceState?.matchId === match.id;
+              const withdrawHere = withdrawState?.matchId === match.id;
+
+              return (
+                <div
+                  key={match.id}
+                  className="rounded-xl border border-white/8 p-3"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <span
+                        className="text-xs mr-2"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {label}
+                      </span>
+                      <span className="text-sm text-white">
+                        {pName(match.player1)} vs {pName(match.player2)}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          setReplaceState({
+                            matchId: match.id,
+                            position: 1,
+                            currentName: pName(match.player1),
+                          });
+                          setReplaceEntryId('');
+                          setReplaceReason('');
+                          setWithdrawState(null);
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                        style={{ color: '#60a5fa' }}
+                      >
+                        {t('replace_p1', { name: match.player1.firstName })}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReplaceState({
+                            matchId: match.id,
+                            position: 2,
+                            currentName: pName(match.player2),
+                          });
+                          setReplaceEntryId('');
+                          setReplaceReason('');
+                          setWithdrawState(null);
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                        style={{ color: '#60a5fa' }}
+                      >
+                        {t('replace_p2', { name: match.player2.firstName })}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setWithdrawState({
+                            matchId: match.id,
+                            position: 1,
+                            playerName: pName(match.player1),
+                            opponentName: pName(match.player2),
+                          });
+                          setWithdrawReason('');
+                          setReplaceState(null);
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                        style={{ color: '#f87171' }}
+                      >
+                        {t('withdraw_p1', { name: match.player1.firstName })}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setWithdrawState({
+                            matchId: match.id,
+                            position: 2,
+                            playerName: pName(match.player2),
+                            opponentName: pName(match.player1),
+                          });
+                          setWithdrawReason('');
+                          setReplaceState(null);
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                        style={{ color: '#f87171' }}
+                      >
+                        {t('withdraw_p2', { name: match.player2.firstName })}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Replace form */}
+                  {replaceHere && replaceState && (
+                    <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
+                      <p className="text-xs text-blue-300 mb-2">
+                        {t('replace_title', { name: replaceState.currentName })}
+                      </p>
+                      <select
+                        value={replaceEntryId}
+                        onChange={(e) => setReplaceEntryId(e.target.value)}
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                      >
+                        <option value="" className="bg-black">
+                          {t('replace_pick_placeholder')}
+                        </option>
+                        {confirmedEntries
+                          .filter((e) => !placedEntryIds.has(e.id))
+                          .map((e) => (
+                            <option key={e.id} value={e.id} className="bg-black">
+                              {e.user?.firstName} {e.user?.lastName}
+                              {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        value={replaceReason}
+                        onChange={(e) => setReplaceReason(e.target.value)}
+                        placeholder={t('replace_reason_placeholder')}
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          disabled={
+                            !replaceEntryId ||
+                            replaceReason.trim().length < 3 ||
+                            replacePlayer.isPending
+                          }
+                          onClick={() =>
+                            replacePlayer.mutate(
+                              {
+                                matchId: replaceState.matchId,
+                                position: replaceState.position,
+                                newEntryId: replaceEntryId,
+                                reason: replaceReason.trim(),
+                              },
+                              { onSuccess: () => setReplaceState(null) },
+                            )
+                          }
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 disabled:opacity-40"
+                        >
+                          {replacePlayer.isPending ? '...' : t('save')}
+                        </button>
+                        <button
+                          onClick={() => setReplaceState(null)}
+                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          {t('cancel')}
+                        </button>
+                      </div>
+                      {replacePlayer.error && (
+                        <p className="mt-2 text-xs text-red-400">
+                          {(replacePlayer.error as any)?.response?.data?.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Withdraw form */}
+                  {withdrawHere && withdrawState && (
+                    <div className="mt-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                      <p className="text-xs text-red-300 mb-2">
+                        {t('withdraw_title', {
+                          player: withdrawState.playerName,
+                          opponent: withdrawState.opponentName,
+                        })}
+                      </p>
+                      <input
+                        value={withdrawReason}
+                        onChange={(e) => setWithdrawReason(e.target.value)}
+                        placeholder={t('withdraw_reason_placeholder')}
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          disabled={
+                            withdrawReason.trim().length < 3 || withdrawPlayer.isPending
+                          }
+                          onClick={() =>
+                            withdrawPlayer.mutate(
+                              {
+                                matchId: withdrawState.matchId,
+                                position: withdrawState.position,
+                                reason: withdrawReason.trim(),
+                              },
+                              { onSuccess: () => setWithdrawState(null) },
+                            )
+                          }
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-300 disabled:opacity-40"
+                        >
+                          {withdrawPlayer.isPending ? '...' : t('save')}
+                        </button>
+                        <button
+                          onClick={() => setWithdrawState(null)}
+                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          {t('cancel')}
+                        </button>
+                      </div>
+                      {withdrawPlayer.error && (
+                        <p className="mt-2 text-xs text-red-400">
+                          {(withdrawPlayer.error as any)?.response?.data?.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Played matches — can reset or correct */}
       {playedMatches.length > 0 && (
@@ -702,6 +1146,8 @@ function AuditLogTable({
     bracket_reset: t('action_bracket_reset'),
     bracket_locked: t('action_bracket_locked'),
     bracket_unlocked: t('action_bracket_unlocked'),
+    player_replaced: t('action_player_replaced'),
+    player_withdrawn: t('action_player_withdrawn'),
   };
 
   return (
