@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { resolveSportConfig } from '@gsm/shared-types';
 import { SportsService } from './sports.service';
 import { Sport } from './entities/sport.entity';
 
@@ -57,7 +58,11 @@ describe('SportsService', () => {
 
       const result = await service.findAll();
 
-      expect(result.data).toEqual(sports);
+      // Service resolves config through presets/defaults, so compare shape + resolved config.
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].slug).toBe('armwrestling');
+      expect(result.data[0].config).toEqual(resolveSportConfig('armwrestling', {}));
+      expect(result.data[1].config).toEqual(resolveSportConfig('boxing', {}));
       expect(result.meta).toEqual({ total: 2, page: 1, limit: 50, totalPages: 1 });
       expect(repo.findAndCount).toHaveBeenCalledWith({
         where: { isActive: true },
@@ -82,7 +87,8 @@ describe('SportsService', () => {
 
       const result = await service.findBySlug('armwrestling');
 
-      expect(result).toEqual(sport);
+      expect(result.slug).toBe('armwrestling');
+      expect(result.config).toEqual(resolveSportConfig('armwrestling', {}));
       expect(repo.findOne).toHaveBeenCalledWith({ where: { slug: 'armwrestling' } });
     });
 
@@ -100,7 +106,8 @@ describe('SportsService', () => {
 
       const result = await service.findById('sport-uuid-1');
 
-      expect(result).toEqual(sport);
+      expect(result.id).toBe('sport-uuid-1');
+      expect(result.config).toEqual(resolveSportConfig('armwrestling', {}));
       expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'sport-uuid-1' } });
     });
 
@@ -127,7 +134,8 @@ describe('SportsService', () => {
 
       const result = await service.create(dto);
 
-      expect(result).toEqual(created);
+      expect(result.slug).toBe('boxing');
+      expect(result.config).toEqual(resolveSportConfig('boxing', {}));
       expect(repo.create).toHaveBeenCalledWith(dto);
       expect(repo.save).toHaveBeenCalled();
     });
@@ -143,7 +151,7 @@ describe('SportsService', () => {
     it('should update sport and return updated version', async () => {
       const sport = makeSport();
       const updated = makeSport({ nameEn: 'Arm Wrestling' });
-      repo.findOne.mockResolvedValueOnce(sport); // findById check
+      repo.findOne.mockResolvedValueOnce(sport); // findRawById pre-update
       repo.update.mockResolvedValue(undefined);
       repo.findOne.mockResolvedValueOnce(updated); // findById after update
 
@@ -173,12 +181,40 @@ describe('SportsService', () => {
       );
     });
 
-    it('should skip seeding when sports already exist', async () => {
-      repo.count.mockResolvedValue(3);
+    it('should backfill config but not create new sports when rows exist', async () => {
+      // Existing sport with no config — should be backfilled with preset defaults.
+      const existing = makeSport({ config: {} });
+      repo.count.mockResolvedValue(1);
+      repo.find.mockResolvedValue([existing]);
 
       await service.seed();
 
+      // Didn't create new — only backfilled existing via update.
       expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.update).toHaveBeenCalledWith(
+        'sport-uuid-1',
+        expect.objectContaining({ config: expect.objectContaining({ hasHands: true }) }),
+      );
+    });
+
+    it('should not touch existing sports whose config already has all preset keys', async () => {
+      const complete = makeSport({
+        config: {
+          categoriesType: 'weight',
+          hasHands: true,
+          bracketFormats: ['double_elim', 'single_elim'],
+          defaultBracketFormat: 'double_elim',
+          matchResultSchema: 'armwrestling',
+          weighInRequired: true,
+          surfaceTerm: { singular: 'стол', plural: 'столы' },
+        },
+      });
+      repo.count.mockResolvedValue(1);
+      repo.find.mockResolvedValue([complete]);
+
+      await service.seed();
+
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 });

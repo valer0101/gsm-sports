@@ -41,7 +41,19 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
 
   const cfg = (tournament.sportConfig ?? {}) as Record<string, any>;
   const configuredAgeGroups: string[] = cfg.ageGroups ?? [];
-  const configuredHands: string[] = cfg.hands ?? ['right', 'left'];
+
+  // Hand selection is driven by the SPORT's config (hasHands), not the per-
+  // tournament config — armwrestling always has hands; football never does.
+  // The per-tournament `hands` still narrows which hands are offered at this
+  // specific event (e.g. a right-arm-only tournament).
+  const sportHasHands = tournament.sport?.config?.hasHands ?? true;
+  const configuredHands: string[] = sportHasHands
+    ? (cfg.hands ?? ['right', 'left'])
+    : [];
+
+  // Weight categories only matter for weight-class sports.
+  const usesWeightCategories = (tournament.sport?.config?.categoriesType ?? 'weight') === 'weight';
+
   const prizes: any[] = cfg.prizes ?? [];
   const entryFee = cfg.entryFee;
 
@@ -83,20 +95,25 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
   };
 
   async function handleSubmit() {
-    if (!selectedWeight) return;
+    // Weight is required for weight-class sports, but some sports don't use it.
+    if (usesWeightCategories && !selectedWeight) return;
+    const weightKg = selectedWeight?.weightKg;
     try {
-      if (hand === 'both') {
-        await mutateAsync({
-          ageGroup: ageGroup!,
-          hand: 'right',
-          weightKg: selectedWeight.weightKg,
-        });
-        await mutateAsync({ ageGroup: ageGroup!, hand: 'left', weightKg: selectedWeight.weightKg });
+      if (sportHasHands && hand === 'both') {
+        await mutateAsync({ ageGroup: ageGroup!, hand: 'right', weightKg });
+        await mutateAsync({ ageGroup: ageGroup!, hand: 'left', weightKg });
         onSuccess();
         onClose();
       } else {
+        const resolvedHand: 'left' | 'right' | undefined = sportHasHands
+          ? (hand as 'left' | 'right' | undefined)
+          : undefined;
         mutate(
-          { ageGroup: ageGroup!, hand: hand!, weightKg: selectedWeight.weightKg },
+          {
+            ageGroup: ageGroup!,
+            hand: resolvedHand,
+            weightKg,
+          },
           {
             onSuccess: () => {
               onSuccess();
@@ -111,8 +128,19 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
     }
   }
 
-  const steps: Step[] = ['age_group', 'hand', 'weight'];
-  const stepIdx = steps.indexOf(step);
+  // Dynamic step flow — only include steps relevant to this sport config.
+  const steps: Step[] = [
+    'age_group',
+    ...(sportHasHands ? (['hand'] as Step[]) : []),
+    ...(usesWeightCategories ? (['weight'] as Step[]) : []),
+  ];
+  // Snap forward if the stored step isn't in the active list (e.g. hand step
+  // selected but sport has no hands).
+  const activeStep: Step = steps.includes(step) ? step : steps[0];
+  const stepIdx = steps.indexOf(activeStep);
+  const prevStep = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const nextStep = stepIdx >= 0 && stepIdx < steps.length - 1 ? steps[stepIdx + 1] : null;
+  const isLastStep = stepIdx === steps.length - 1;
 
   return (
     <div
@@ -237,7 +265,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
           </div>
 
           {/* ─── Step 1: Age Group ─── */}
-          {step === 'age_group' && (
+          {activeStep === 'age_group' && (
             <div>
               <p className="font-semibold text-white mb-3">{t('select_age_group')}</p>
               <div className="space-y-2">
@@ -246,7 +274,8 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                     key={ag.value}
                     onClick={() => {
                       setAgeGroup(ag.value as AgeGroup);
-                      setStep('hand');
+                      if (nextStep) setStep(nextStep);
+                      else handleSubmit();
                     }}
                     className="w-full text-left px-4 py-3 rounded-xl border transition-colors"
                     style={{
@@ -265,7 +294,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
           )}
 
           {/* ─── Step 2: Hand ─── */}
-          {step === 'hand' && (
+          {activeStep === 'hand' && (
             <div>
               <p className="font-semibold text-white mb-3">{t('select_hand')}</p>
               <div
@@ -282,7 +311,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                     key={h.value}
                     onClick={() => {
                       setHand(h.value);
-                      setStep('weight');
+                      if (nextStep) setStep(nextStep);
                     }}
                     className="px-4 py-5 rounded-xl border flex flex-col items-center gap-2 transition-colors"
                     style={{
@@ -300,18 +329,20 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setStep('age_group')}
-                className="mt-3 text-sm hover:text-white transition-colors"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                {tm('back')}
-              </button>
+              {prevStep && (
+                <button
+                  onClick={() => setStep(prevStep)}
+                  className="mt-3 text-sm hover:text-white transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {tm('back')}
+                </button>
+              )}
             </div>
           )}
 
           {/* ─── Step 3: Weight ─── */}
-          {step === 'weight' && (
+          {activeStep === 'weight' && (
             <div>
               <p className="font-semibold text-white mb-1">{tm('select_weight')}</p>
               <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
@@ -364,18 +395,20 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                     {ageGroup ? (ageGroupLabelMap[ageGroup] ?? ageGroup) : '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_hand')}</span>
-                  <span className="text-white font-medium">
-                    {hand === 'right'
-                      ? tm('hand_right_summary')
-                      : hand === 'left'
-                        ? tm('hand_left_summary')
-                        : hand === 'both'
-                          ? tm('hand_both_summary')
-                          : '—'}
-                  </span>
-                </div>
+                {sportHasHands && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_hand')}</span>
+                    <span className="text-white font-medium">
+                      {hand === 'right'
+                        ? tm('hand_right_summary')
+                        : hand === 'left'
+                          ? tm('hand_left_summary')
+                          : hand === 'both'
+                            ? tm('hand_both_summary')
+                            : '—'}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_category')}</span>
                   <span
@@ -397,7 +430,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
 
               <button
                 onClick={handleSubmit}
-                disabled={isPending || !selectedWeight}
+                disabled={isPending || (usesWeightCategories && !selectedWeight)}
                 className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-50"
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
               >
@@ -408,13 +441,15 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                     : t('confirm_register')}
               </button>
 
-              <button
-                onClick={() => setStep('hand')}
-                className="mt-3 w-full text-sm hover:text-white transition-colors"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                {tm('back')}
-              </button>
+              {prevStep && (
+                <button
+                  onClick={() => setStep(prevStep)}
+                  className="mt-3 w-full text-sm hover:text-white transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {tm('back')}
+                </button>
+              )}
             </div>
           )}
         </div>

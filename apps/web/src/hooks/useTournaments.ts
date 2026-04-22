@@ -66,8 +66,8 @@ export function useBrackets(tournamentId: string) {
 
 interface RegisterPayload {
   ageGroup: AgeGroup;
-  hand: 'left' | 'right';
-  weightKg: number;
+  hand?: 'left' | 'right';
+  weightKg?: number;
   notes?: string;
 }
 

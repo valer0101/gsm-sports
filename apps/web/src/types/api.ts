@@ -8,6 +8,31 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export type SportCategoriesType = 'weight' | 'age' | 'skill' | 'none';
+export type SportBracketFormat =
+  | 'single_elim'
+  | 'double_elim'
+  | 'round_robin'
+  | 'swiss'
+  | 'groups_playoff';
+export type SportMatchResultSchema =
+  | 'simple_winner'
+  | 'armwrestling'
+  | 'score'
+  | 'time'
+  | 'points';
+
+export interface SportConfig {
+  categoriesType: SportCategoriesType;
+  hasHands: boolean;
+  bracketFormats: SportBracketFormat[];
+  defaultBracketFormat: SportBracketFormat;
+  matchResultSchema: SportMatchResultSchema;
+  weighInRequired: boolean;
+  surfaceTerm?: { singular: string; plural: string };
+  participantTerm?: { singular: string; plural: string };
+}
+
 export interface Sport {
   id: string;
   slug: string;
@@ -17,6 +42,8 @@ export interface Sport {
   iconUrl: string | null;
   isActive: boolean;
   sortOrder: number;
+  /** Always fully populated by the API — defaults applied server-side. */
+  config: SportConfig;
 }
 
 export interface WeightCategory {
