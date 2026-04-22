@@ -77,6 +77,59 @@ export class UsersService {
     return this.findById(id) as Promise<User>;
   }
 
+  /**
+   * Self-update for the authenticated user. Applies conversions the controller
+   * shouldn't care about (dateOfBirth string → Date, empty avatarUrl → null)
+   * and returns a safe projection with passwordHash stripped.
+   *
+   * The allowlist of writable fields is enforced by UpdateMeDto + the global
+   * ValidationPipe({ whitelist: true }) — roles/email/passwordHash can never
+   * reach this method via HTTP.
+   */
+  async updateMe(
+    id: string,
+    patch: {
+      firstName?: string;
+      lastName?: string;
+      avatarUrl?: string | null;
+      country?: string;
+      city?: string;
+      language?: string;
+      dateOfBirth?: string;
+    },
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const data: Partial<User> = {};
+    if (patch.firstName !== undefined) data.firstName = patch.firstName;
+    if (patch.lastName !== undefined) data.lastName = patch.lastName;
+    if (patch.country !== undefined) data.country = patch.country;
+    if (patch.city !== undefined) data.city = patch.city;
+    if (patch.language !== undefined) data.language = patch.language;
+    if (patch.dateOfBirth !== undefined) {
+      data.dateOfBirth = patch.dateOfBirth ? new Date(patch.dateOfBirth) : null;
+    }
+    // Normalise empty string to null so the column matches `string | null`.
+    if (patch.avatarUrl !== undefined) {
+      data.avatarUrl = patch.avatarUrl && patch.avatarUrl.length > 0 ? patch.avatarUrl : null;
+    }
+
+    const updated = await this.update(id, data);
+    return this.toSafeUser(updated);
+  }
+
+  /** Returns the current user without passwordHash. */
+  async findMeSafe(id: string): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.findById(id);
+    if (!user) throw new Error('User not found');
+    return this.toSafeUser(user);
+  }
+
+  /** Strip the password hash before returning a user to an HTTP caller. */
+  private toSafeUser(user: User): Omit<User, 'passwordHash'> {
+    const { passwordHash: _ph, ...safe } = user as User & { passwordHash?: string | null };
+    void _ph;
+    return safe;
+  }
+
   async seedAdmin(): Promise<void> {
     const email = process.env.ADMIN_EMAIL;
     const password = process.env.ADMIN_PASSWORD;

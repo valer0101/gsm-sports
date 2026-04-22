@@ -7,6 +7,7 @@ import {
   MaxLength,
   IsIn,
   IsDateString,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateMeDto {
@@ -24,11 +25,15 @@ export class UpdateMeDto {
   @MaxLength(100)
   lastName?: string;
 
-  @ApiProperty({ required: false })
+  // Empty string is the "clear avatar" signal from the frontend. Skip URL
+  // validation in that case — the service normalises '' to null before writing
+  // so the column stays consistent with the `string | null` entity shape.
+  @ApiProperty({ required: false, nullable: true })
   @IsOptional()
+  @ValidateIf((_, value) => value !== '' && value !== null)
   @IsUrl({ require_tld: false })
   @MaxLength(500)
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 
   @ApiProperty({ required: false })
   @IsOptional()

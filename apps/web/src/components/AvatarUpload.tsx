@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { api } from '@/lib/api';
+import { useUploadImage } from '@/hooks/useProfile';
 
 interface Props {
   value: string | null | undefined;
@@ -15,24 +15,21 @@ interface Props {
 export function AvatarUpload({ value, onChange, size = 120, fallbackInitials }: Props) {
   const t = useTranslations('common');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const upload = useUploadImage();
   const [error, setError] = useState('');
+  const uploading = upload.isPending;
 
-  const handleFile = async (file: File) => {
+  const handleFile = (file: File) => {
     setError('');
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await api.post('/upload/image', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      onChange((res as any).data.url);
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? t('upload_error'));
-    } finally {
-      setUploading(false);
-    }
+    upload.mutate(file, {
+      onSuccess: (data) => onChange(data.url),
+      onError: (e: unknown) => {
+        const msg =
+          (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          t('upload_error');
+        setError(msg);
+      },
+    });
   };
 
   return (
