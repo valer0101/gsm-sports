@@ -13,7 +13,12 @@ import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { User } from '../../users/entities/user.entity';
 import { WeightCategory } from '../../tournaments/entities/weight-category.entity';
 
-export type EntryStatus = 'pending' | 'confirmed' | 'rejected' | 'withdrawn';
+export type EntryStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'checked_in'
+  | 'rejected'
+  | 'withdrawn';
 export type AgeGroup = 'juniors' | 'adults' | 'veterans';
 
 // Unique per: one user can register in same tournament multiple times
@@ -67,6 +72,14 @@ export class TournamentEntry {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  /** Timestamp of physical check-in at the venue (scan / manual). */
+  @Column({ name: 'checked_in_at', type: 'timestamptz', nullable: true })
+  checkedInAt: Date | null;
+
+  /** User id of the admin / organizer who performed the check-in. */
+  @Column({ name: 'checked_in_by', type: 'uuid', nullable: true })
+  checkedInBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

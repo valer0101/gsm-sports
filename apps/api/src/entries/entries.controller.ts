@@ -8,20 +8,27 @@ import {
   Query,
   UseGuards,
   Request,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiQuery, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { EntriesService } from './entries.service';
+import { CheckInService } from './check-in.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
 import { EntryStatus } from './entities/tournament-entry.entity';
 import { SetSeedNumbersDto } from './dto/set-seed-numbers.dto';
 import { ReassignEntryDto } from './dto/reassign-entry.dto';
+import { CheckInByQrDto } from './dto/check-in-by-qr.dto';
 
 @ApiTags('Tournament Entries')
 @Controller('v1/entries')
 export class EntriesController {
-  constructor(private readonly entriesService: EntriesService) {}
+  constructor(
+    private readonly entriesService: EntriesService,
+    private readonly checkInService: CheckInService,
+  ) {}
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
@@ -101,5 +108,44 @@ export class EntriesController {
     @Request() req: any,
   ) {
     return this.entriesService.setSeedNumbers(tournamentId, dto.seeds, req.user.sub);
+  }
+
+  // ─── Check-in ───────────────────────────────────────────────────────────
+
+  @ApiOperation({
+    summary: "Athlete: issue a signed QR token for venue check-in",
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/checkin-qr')
+  issueCheckinQr(@Param('id') id: string, @Request() req: any) {
+    return this.checkInService.issueQrToken(id, req.user.sub);
+  }
+
+  @ApiOperation({ summary: 'Admin / organizer: check-in via scanned QR token' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Post('check-in-by-qr')
+  @HttpCode(HttpStatus.OK)
+  checkInByQr(@Body() dto: CheckInByQrDto, @Request() req: any) {
+    return this.checkInService.checkInByToken(dto.token, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiOperation({ summary: 'Admin / organizer: manually check in an entry' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/check-in')
+  @HttpCode(HttpStatus.OK)
+  checkInManual(@Param('id') id: string, @Request() req: any) {
+    return this.checkInService.checkInManual(id, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiOperation({ summary: 'Admin: undo a previous check-in' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/undo-check-in')
+  @HttpCode(HttpStatus.OK)
+  undoCheckIn(@Param('id') id: string, @Request() req: any) {
+    return this.checkInService.undoCheckIn(id, req.user.sub, req.user.roles ?? []);
   }
 }
