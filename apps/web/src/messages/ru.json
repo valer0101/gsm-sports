@@ -353,7 +353,9 @@
     "vs": "VS",
     "upcoming_title": "Очередь",
     "no_upcoming": "Очередь пуста",
-    "no_tables": "Столы не настроены"
+    "no_tables": "Столы не настроены",
+    "eta_now": "—",
+    "eta_minutes": "~{n} мин"
   },
   "register_modal": {
     "age_juniors": "Юниоры (до 18)",

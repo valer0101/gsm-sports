@@ -353,7 +353,9 @@
     "vs": "VS",
     "upcoming_title": "Up next",
     "no_upcoming": "Queue is empty",
-    "no_tables": "No tables configured"
+    "no_tables": "No tables configured",
+    "eta_now": "—",
+    "eta_minutes": "~{n} min"
   },
   "register_modal": {
     "age_juniors": "Juniors (under 18)",

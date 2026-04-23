@@ -501,7 +501,9 @@
     "vs": "VS",
     "upcoming_title": "Հաջորդ հերթում",
     "no_upcoming": "Հերթը դատարկ է",
-    "no_tables": "Սեղաններ կարգավորված չեն"
+    "no_tables": "Սեղաններ կարգավորված չեն",
+    "eta_now": "—",
+    "eta_minutes": "~{n} րոպե"
   },
   "register_modal": {
     "age_juniors": "Джуниорнер (18-ы мутк)",

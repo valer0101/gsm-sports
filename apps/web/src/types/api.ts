@@ -226,14 +226,15 @@ export interface OperatorMyTable {
   activeAssignment: MatchTableAssignment | null;
 }
 
-// Scheduler-shaped types come straight from `@gsm/scheduler` so we don't
-// drift from the backend / package contract. Re-exported for convenience
-// so consumers import from `@/types/api` alongside everything else.
+// Scheduler-shaped types come straight from `@gsm/scheduler`; the wire
+// shape of `GET /tournaments/:id/schedule` lives in `@gsm/shared-types`
+// (it adds `active` on top of the scheduler's pure output). Both re-
+// exported here so page-level consumers import from `@/types/api`.
+export type { ScheduledMatch, SchedulerMatch } from '@gsm/scheduler';
 export type {
-  ScheduledMatch,
-  SchedulerOutput as TournamentSchedule,
-  SchedulerMatch,
-} from '@gsm/scheduler';
+  TournamentScheduleResponse as TournamentSchedule,
+  ScheduleActiveMatch,
+} from '@gsm/shared-types';
 
 export interface PendingMatch {
   matchId: string;

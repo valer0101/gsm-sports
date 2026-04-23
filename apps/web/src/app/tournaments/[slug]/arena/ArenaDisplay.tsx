@@ -10,6 +10,7 @@ import type {
   BracketMatch,
   BracketPlayer,
   ScheduledMatch,
+  ScheduleActiveMatch,
 } from '@/types/api';
 
 interface ResolvedMatch {
@@ -50,23 +51,22 @@ export function ArenaDisplay({ tournament }: { tournament: Tournament }) {
   const t = useTranslations('arena');
   const { data: tables } = useTournamentTables(tournament.id);
   const { data: schedule } = useTournamentSchedule(tournament.id);
-  const { data: brackets } = useBrackets(tournament.id);
+  // 30s poll covers the projector use case: matches finish, TBD slots fill
+  // in, the big screen shouldn't need a manual refresh.
+  const { data: brackets } = useBrackets(tournament.id, { refetchInterval: 30_000 });
 
   const matchIndex = indexMatches(brackets);
 
   // Which scheduled matches are the "queue" — cap at 12 so projector stays
-  // legible. Pinned matches sorted by `order` already by the server.
+  // legible. Sorted by `order` already by the server.
   const upcoming = (schedule?.scheduled ?? []).slice(0, 12);
 
-  // Current running match per table = scheduled entry whose estimatedStartAt
-  // is in the past AND the table's status is busy. Simpler heuristic: map
-  // tableId → first scheduled entry for that table that has started.
-  const runningByTableId = new Map<string, ScheduledMatch>();
-  const nowMs = Date.now();
-  for (const s of schedule?.scheduled ?? []) {
-    if (s.estimatedStartAt <= nowMs && !runningByTableId.has(s.tableId)) {
-      runningByTableId.set(s.tableId, s);
-    }
+  // The server excludes currently-running matches from `scheduled` (they're
+  // no longer pending) and returns them separately as `active`. Index by
+  // tableId so TableCard can resolve "what's on this surface right now".
+  const activeByTableId = new Map<string, ScheduleActiveMatch>();
+  for (const a of schedule?.active ?? []) {
+    activeByTableId.set(a.tableId, a);
   }
 
   const tablesSorted = (tables ?? []).slice().sort((a, b) => a.number - b.number);
@@ -108,7 +108,7 @@ export function ArenaDisplay({ tournament }: { tournament: Tournament }) {
               <TableCard
                 key={table.id}
                 table={table}
-                running={runningByTableId.get(table.id) ?? null}
+                running={activeByTableId.get(table.id) ?? null}
                 matchIndex={matchIndex}
                 labels={{
                   idle: t('table_idle'),
@@ -141,6 +141,8 @@ export function ArenaDisplay({ tournament }: { tournament: Tournament }) {
                   tableNumberById={new Map(tablesSorted.map((x) => [x.id, x.number]))}
                   vsLabel={t('vs')}
                   tableLabel={(n: number) => t('table_number', { n })}
+                  etaNowLabel={t('eta_now')}
+                  etaMinutesLabel={(n: number) => t('eta_minutes', { n })}
                 />
               ))}
             </ol>
@@ -158,7 +160,7 @@ function TableCard({
   labels,
 }: {
   table: TournamentTable;
-  running: ScheduledMatch | null;
+  running: ScheduleActiveMatch | null;
   matchIndex: Map<string, ResolvedMatch>;
   labels: {
     idle: string;
@@ -237,12 +239,16 @@ function QueueItem({
   tableNumberById,
   vsLabel,
   tableLabel,
+  etaNowLabel,
+  etaMinutesLabel,
 }: {
   scheduled: ScheduledMatch;
   matchIndex: Map<string, ResolvedMatch>;
   tableNumberById: Map<string, number>;
   vsLabel: string;
   tableLabel: (n: number) => string;
+  etaNowLabel: string;
+  etaMinutesLabel: (n: number) => string;
 }) {
   const resolved = matchIndex.get(scheduled.matchId);
   const p1 = playerLabel(resolved?.match.player1);
@@ -261,7 +267,7 @@ function QueueItem({
           #{scheduled.order} · {tableNumber !== undefined ? tableLabel(tableNumber) : ''}
         </span>
         <span className="text-xs" style={{ color: 'var(--color-accent)' }}>
-          {diffMin === 0 ? '—' : `~${diffMin} min`}
+          {diffMin === 0 ? etaNowLabel : etaMinutesLabel(diffMin)}
         </span>
       </div>
       <p className="text-white font-bold text-sm truncate">
