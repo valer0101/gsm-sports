@@ -111,6 +111,7 @@ describe('CheckInService', () => {
         purpose: 'checkin',
       });
       repo.findOne
+        .mockResolvedValueOnce(makeEntry()) // tournamentId guard
         .mockResolvedValueOnce(makeEntry()) // performCheckIn → findEntry
         .mockResolvedValueOnce(makeEntry({ status: 'checked_in' })); // return
 
@@ -165,7 +166,8 @@ describe('CheckInService', () => {
         purpose: 'checkin',
       });
       repo.findOne
-        .mockResolvedValueOnce(makeEntry())
+        .mockResolvedValueOnce(makeEntry()) // tournamentId guard
+        .mockResolvedValueOnce(makeEntry()) // performCheckIn → findEntry
         .mockResolvedValueOnce(makeEntry({ status: 'checked_in' }));
 
       await service.checkInByToken('token', 'admin-user', ['admin']);
@@ -198,6 +200,64 @@ describe('CheckInService', () => {
       await expect(
         service.checkInByToken('token', 'organizer-1', []),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects stale token whose tournamentId no longer matches the entry', async () => {
+      jwt.verify.mockReturnValue({
+        entryId: 'entry-1',
+        tournamentId: 'tournament-OLD',
+        purpose: 'checkin',
+      });
+      repo.findOne.mockResolvedValue(makeEntry({ tournamentId: 'tournament-1' }));
+
+      await expect(
+        service.checkInByToken('token', 'organizer-1', []),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('production secret guard', () => {
+    it('refuses to start in production if JWT_CHECKIN_SECRET is not explicitly set', async () => {
+      const prodConfig = {
+        get: vi.fn((key: string, def?: string) => {
+          if (key === 'JWT_CHECKIN_SECRET') return undefined;
+          if (key === 'NODE_ENV') return 'production';
+          return def;
+        }),
+      };
+
+      await expect(
+        Test.createTestingModule({
+          providers: [
+            CheckInService,
+            { provide: getRepositoryToken(TournamentEntry), useFactory: mockRepo },
+            { provide: JwtService, useFactory: mockJwt },
+            { provide: ConfigService, useValue: prodConfig },
+          ],
+        }).compile(),
+      ).rejects.toThrow(/JWT_CHECKIN_SECRET must be set in production/);
+    });
+
+    it('accepts the derived fallback in non-production', async () => {
+      const devConfig = {
+        get: vi.fn((key: string, def?: string) => {
+          if (key === 'JWT_CHECKIN_SECRET') return undefined;
+          if (key === 'NODE_ENV') return 'development';
+          return def;
+        }),
+      };
+
+      await expect(
+        Test.createTestingModule({
+          providers: [
+            CheckInService,
+            { provide: getRepositoryToken(TournamentEntry), useFactory: mockRepo },
+            { provide: JwtService, useFactory: mockJwt },
+            { provide: ConfigService, useValue: devConfig },
+          ],
+        }).compile(),
+      ).resolves.toBeDefined();
     });
   });
 

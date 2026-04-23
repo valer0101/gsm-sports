@@ -42,11 +42,24 @@ export class CheckInService {
     private readonly jwtService: JwtService,
     config: ConfigService,
   ) {
+    const explicit = config.get<string>('JWT_CHECKIN_SECRET');
+    const nodeEnv = config.get<string>('NODE_ENV') ?? process.env.NODE_ENV;
+
+    // In production we refuse to start without an explicit check-in secret:
+    // deriving it from `JWT_ACCESS_SECRET` is convenient for dev but means
+    // a leak of the access secret compromises check-in too. Dev keeps the
+    // derived fallback so local setup stays one-env-var.
+    if (!explicit && nodeEnv === 'production') {
+      throw new Error(
+        'JWT_CHECKIN_SECRET must be set in production (deriving from JWT_ACCESS_SECRET is unsafe)',
+      );
+    }
+
     const access = config.get<string>(
       'JWT_ACCESS_SECRET',
       'dev-access-secret-change-in-prod',
     );
-    this.checkInSecret = config.get<string>('JWT_CHECKIN_SECRET', `${access}-checkin`);
+    this.checkInSecret = explicit ?? `${access}-checkin`;
   }
 
   // ─── QR issue ──────────────────────────────────────────────
@@ -97,6 +110,18 @@ export class CheckInService {
 
     if (payload.purpose !== 'checkin' || !payload.entryId) {
       throw new UnauthorizedException('Check-in token has wrong shape');
+    }
+
+    // Guard against stale cross-tournament tokens: if an entry is ever
+    // reassigned (admin action), the old QR still verifies signature-wise
+    // but its `tournamentId` claim no longer matches the current row.
+    if (payload.tournamentId) {
+      const entry = await this.findEntry(payload.entryId);
+      if (payload.tournamentId !== entry.tournamentId) {
+        throw new UnauthorizedException(
+          'Check-in token no longer matches the entry — ask the athlete for a fresh QR',
+        );
+      }
     }
 
     return this.performCheckIn(payload.entryId, actorId, actorRoles);
