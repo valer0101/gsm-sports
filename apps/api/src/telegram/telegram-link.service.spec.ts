@@ -61,7 +61,7 @@ describe('TelegramLinkService', () => {
 
       expect(jwt.sign).toHaveBeenCalledWith(
         { userId: 'user-1', purpose: 'telegram-link' },
-        expect.objectContaining({ expiresIn: 15 * 60 }),
+        expect.objectContaining({ expiresIn: 5 * 60 }),
       );
       expect(result.token).toBe('signed.jwt.token');
       expect(result.deepLink).toBe(
@@ -113,6 +113,32 @@ describe('TelegramLinkService', () => {
       expect(link.chatId).toBe('new-chat');
       expect(repo.save).toHaveBeenCalled();
       expect(repo.create).not.toHaveBeenCalled(); // reused existing row
+    });
+
+    it('warn-logs when an existing link gets its chat id overwritten (hijack-detection trail)', async () => {
+      const warnSpy = vi.spyOn((service as unknown as { logger: { warn: (m: string) => void } }).logger, 'warn');
+      jwt.verify.mockReturnValueOnce({ userId: 'user-1', purpose: 'telegram-link' });
+      repo.findOne.mockResolvedValueOnce({
+        id: 'link-1',
+        userId: 'user-1',
+        chatId: '111',
+      });
+
+      await service.completeLink('t', '999');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/111.*999/));
+    });
+
+    it('does NOT warn when the chat id stays the same (idempotent re-link)', async () => {
+      const warnSpy = vi.spyOn((service as unknown as { logger: { warn: (m: string) => void } }).logger, 'warn');
+      jwt.verify.mockReturnValueOnce({ userId: 'user-1', purpose: 'telegram-link' });
+      repo.findOne.mockResolvedValueOnce({
+        id: 'link-1',
+        userId: 'user-1',
+        chatId: '111',
+      });
+
+      await service.completeLink('t', '111');
+      expect(warnSpy).not.toHaveBeenCalled();
     });
 
     it('rejects a token with wrong purpose (anti-replay vs session tokens)', async () => {
@@ -170,6 +196,40 @@ describe('TelegramLinkService', () => {
     it('getChatId returns null when not linked', async () => {
       repo.findOne.mockResolvedValueOnce(null);
       expect(await service.getChatId('user-1')).toBeNull();
+    });
+  });
+
+  describe('getLinkStatus (controller-facing mask)', () => {
+    beforeEach(() => buildService());
+
+    it('returns null when the user has no link', async () => {
+      repo.findOne.mockResolvedValueOnce(null);
+      expect(await service.getLinkStatus('user-1')).toBeNull();
+    });
+
+    it('masks the chat id to the last 4 digits', async () => {
+      repo.findOne.mockResolvedValueOnce({
+        id: 'link-1',
+        chatId: '1234567890',
+        createdAt: new Date('2026-05-01T00:00:00Z'),
+      });
+
+      const status = await service.getLinkStatus('user-1');
+      expect(status).toEqual({
+        id: 'link-1',
+        chatIdMasked: '…7890',
+        linkedAt: new Date('2026-05-01T00:00:00Z'),
+      });
+    });
+
+    it('handles short chat ids without losing characters', async () => {
+      repo.findOne.mockResolvedValueOnce({
+        id: 'link-2',
+        chatId: '42',
+        createdAt: new Date(),
+      });
+      const status = await service.getLinkStatus('user-1');
+      expect(status?.chatIdMasked).toBe('42');
     });
   });
 

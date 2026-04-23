@@ -30,18 +30,8 @@ export class TelegramController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Get('link')
-  async getLink(@Request() req: any) {
-    const link = await this.linkService.findByUser(req.user.sub);
-    if (!link) return null;
-    // Don't leak the full chat_id — last 4 digits are enough for the UI
-    // to render "connected ending in …1234" without turning every linked
-    // athlete into a scrape-able directory.
-    const masked = link.chatId.length > 4 ? `…${link.chatId.slice(-4)}` : link.chatId;
-    return {
-      id: link.id,
-      chatIdMasked: masked,
-      linkedAt: link.createdAt,
-    };
+  getLink(@Request() req: any) {
+    return this.linkService.getLinkStatus(req.user.sub);
   }
 
   @ApiOperation({ summary: 'Unlink the Telegram account — stop notifications' })

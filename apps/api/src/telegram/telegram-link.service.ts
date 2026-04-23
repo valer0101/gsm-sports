@@ -1,7 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -43,8 +42,14 @@ export class TelegramLinkService {
   private logger = new Logger(TelegramLinkService.name);
   private readonly linkSecret: string;
   private readonly botUsername: string | null;
-  /** 15 minutes — see class docstring. */
-  private readonly tokenTtlSeconds = 15 * 60;
+  /**
+   * 5 minutes — enough for an athlete to tap the deep-link but short
+   * enough that a casually leaked screenshot is useless by the time an
+   * attacker sees it. Combined with the "warn on re-link" log, a hijack
+   * attempt leaves a trail. A tighter single-use `jti` check is a
+   * follow-up hardening PR.
+   */
+  private readonly tokenTtlSeconds = 5 * 60;
 
   constructor(
     @InjectRepository(TelegramLink)
@@ -114,6 +119,17 @@ export class TelegramLinkService {
       where: { userId: payload.userId },
     });
     if (existing) {
+      // Warn when the chat id actually changes — that's the "new phone"
+      // legitimate case BUT also the hijack attempt case (a leaked
+      // deep-link bound to someone else's Telegram within the TTL). The
+      // log line leaves a trail a tournament operator can audit. Future
+      // hardening: send a "your account was re-linked" message to the
+      // OLD chat before overwriting so the legit user sees the drift.
+      if (existing.chatId !== chatIdStr) {
+        this.logger.warn(
+          `Telegram link for user ${payload.userId} changed chat: ${existing.chatId} → ${chatIdStr}`,
+        );
+      }
       existing.chatId = chatIdStr;
       const saved = await this.linksRepository.save(existing);
       this.logger.log(`Telegram link updated for user ${payload.userId}`);
@@ -140,6 +156,22 @@ export class TelegramLinkService {
   /** Current link (if any) — used by the UI to show "connected as ..." state. */
   async findByUser(userId: string): Promise<TelegramLink | null> {
     return this.linksRepository.findOne({ where: { userId } });
+  }
+
+  /**
+   * UI-facing view of the current link — masks the chat id so a linked
+   * athlete's Telegram cannot be scraped from the endpoint. Controller
+   * just serialises this shape; presentation logic stays in the service.
+   */
+  async getLinkStatus(userId: string): Promise<{
+    id: string;
+    chatIdMasked: string;
+    linkedAt: Date;
+  } | null> {
+    const link = await this.findByUser(userId);
+    if (!link) return null;
+    const masked = link.chatId.length > 4 ? `…${link.chatId.slice(-4)}` : link.chatId;
+    return { id: link.id, chatIdMasked: masked, linkedAt: link.createdAt };
   }
 
   /**
