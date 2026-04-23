@@ -231,7 +231,7 @@
   "admin_checkin_scan": {
     "title": "Сканирование check-in QR",
     "subtitle": "Наведите камеру на QR-код участника. Успешные сканы отмечают check-in автоматически.",
-    "back": "← К турниру",
+    "back": "К турниру",
     "stat_checked_in": "Отмечено",
     "stat_errors": "Ошибок",
     "point_camera_hint": "Наведите камеру на QR-код",

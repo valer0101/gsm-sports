@@ -379,7 +379,7 @@
   "admin_checkin_scan": {
     "title": "Check-in QR-ի սկանավորում",
     "subtitle": "Ուղղեք տեսախցիկը մասնակցի QR կոդին։ Հաջող սկանները ավտոմատ գրանցում են check-in-ը։",
-    "back": "← Մրցաշարի էջ",
+    "back": "Մրցաշարի էջ",
     "stat_checked_in": "Գրանցված",
     "stat_errors": "Սխալներ",
     "point_camera_hint": "Ուղղեք տեսախցիկը QR կոդին",
