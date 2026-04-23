@@ -226,6 +226,24 @@ export interface OperatorMyTable {
   activeAssignment: MatchTableAssignment | null;
 }
 
+/** One entry from the tournament schedule endpoint. */
+export interface ScheduledMatch {
+  matchId: string;
+  bracketId: string;
+  tableId: string;
+  /** Epoch ms. */
+  estimatedStartAt: number;
+  /** Epoch ms. */
+  estimatedEndAt: number;
+  /** 1-based queue position across all tables. */
+  order: number;
+}
+
+export interface TournamentSchedule {
+  scheduled: ScheduledMatch[];
+  unscheduled: Array<{ matchId: string; bracketId: string; athleteIds: [string, string] }>;
+}
+
 export interface PendingMatch {
   matchId: string;
   player1: BracketPlayer;

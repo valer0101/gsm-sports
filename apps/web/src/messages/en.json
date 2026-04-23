@@ -337,7 +337,10 @@
     "claim_next_btn": "Claim next match",
     "running_now": "Running now:",
     "match_id_label": "Match {id}",
-    "running_on_my_table": "Your table"
+    "running_on_my_table": "Your table",
+    "eta_now": "now",
+    "eta_minutes": "~{n} min",
+    "eta_hours": "~{n} h"
   },
   "register_modal": {
     "age_juniors": "Juniors (under 18)",

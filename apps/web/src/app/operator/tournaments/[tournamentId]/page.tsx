@@ -10,6 +10,7 @@ import {
   useOperatorMyTable,
   useOperatorClaimNext,
 } from '@/hooks/useOperator';
+import { useTournamentSchedule } from '@/hooks/useSchedule';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
 import type { Bracket, BracketMatch } from '@/types/api';
@@ -183,8 +184,14 @@ function MyTableBanner({ tournamentId }: { tournamentId: string }) {
 
 function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: string }) {
   const { data: myTable } = useOperatorMyTable(tournamentId);
+  const { data: schedule } = useTournamentSchedule(tournamentId);
   const myTableId = myTable?.table?.id ?? null;
   const activeAssignmentMatchId = myTable?.activeAssignment?.matchId ?? null;
+
+  // matchId → scheduled entry (ETA + queue position) for quick lookup.
+  const scheduledByMatchId = new Map(
+    (schedule?.scheduled ?? []).map((s) => [s.matchId, s]),
+  );
   const t = useTranslations('operator_tournament');
   const record = useRecordResult(bracket.id);
   const withdraw = useOperatorWithdrawPlayer(bracket.id, bracket.tournamentId);
@@ -286,6 +293,7 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
         const isConfirming = confirm?.matchId === match.id;
         const isRecording = record.isPending && isConfirming;
         const isRunningOnMyTable = myTableId !== null && activeAssignmentMatchId === match.id;
+        const scheduled = scheduledByMatchId.get(match.id);
 
         return (
           <div
@@ -306,17 +314,25 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <span>{match.sectionLabel}</span>
-              {isRunningOnMyTable && (
-                <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-black"
-                  style={{
-                    color: 'var(--color-accent)',
-                    backgroundColor: 'var(--color-accent-dim)',
-                  }}
-                >
-                  ▶ {t('running_on_my_table')}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {scheduled && !isRunningOnMyTable && (
+                  <EtaBadge
+                    estimatedStartAt={scheduled.estimatedStartAt}
+                    order={scheduled.order}
+                  />
+                )}
+                {isRunningOnMyTable && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                    style={{
+                      color: 'var(--color-accent)',
+                      backgroundColor: 'var(--color-accent-dim)',
+                    }}
+                  >
+                    ▶ {t('running_on_my_table')}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="p-4 grid grid-cols-2 gap-3">
@@ -485,6 +501,43 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Small ETA pill on each pending match card. Shows a coarse "in N min"
+ * label rather than an absolute clock time — the scheduler output drifts
+ * on every recompute and minutes-from-now is the accurate mental model
+ * for operators. Order is the global queue position across all tables.
+ */
+function EtaBadge({
+  estimatedStartAt,
+  order,
+}: {
+  estimatedStartAt: number;
+  order: number;
+}) {
+  const t = useTranslations('operator_tournament');
+  const nowMs = Date.now();
+  const diffSec = Math.max(0, Math.round((estimatedStartAt - nowMs) / 1000));
+
+  let label: string;
+  if (diffSec < 60) label = t('eta_now');
+  else if (diffSec < 3600) label = t('eta_minutes', { n: Math.round(diffSec / 60) });
+  else label = t('eta_hours', { n: Math.round((diffSec / 3600) * 10) / 10 });
+
+  return (
+    <span
+      className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1"
+      style={{
+        color: 'var(--color-text-secondary)',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+      }}
+    >
+      <span>🕒 {label}</span>
+      <span className="opacity-50">·</span>
+      <span>#{order}</span>
+    </span>
   );
 }
 
