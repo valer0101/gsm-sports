@@ -16,6 +16,7 @@ import { AdminModule } from './admin/admin.module';
 import { OperatorModule } from './operator/operator.module';
 import { UploadModule } from './upload/upload.module';
 import { NewsModule } from './news/news.module';
+import { MatchAssignmentsModule } from './match-assignments/match-assignments.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { NewsModule } from './news/news.module';
     OperatorModule,
     UploadModule,
     NewsModule,
+    MatchAssignmentsModule,
   ],
   providers: [
     // Global JWT guard — routes are protected by default; mark exceptions with @Public()

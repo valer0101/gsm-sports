@@ -47,4 +47,22 @@ export class OperatorController {
       dto.notes,
     );
   }
+
+  @ApiOperation({
+    summary: "Get the operator's assigned table and what's running on it",
+  })
+  @Get('tournaments/:tournamentId/my-table')
+  getMyTable(@Param('tournamentId') tournamentId: string, @Request() req: any) {
+    return this.operatorService.getMyTable(tournamentId, req.user.sub);
+  }
+
+  @ApiOperation({ summary: 'Claim the next playable match to a table' })
+  @Post('tournaments/:tournamentId/tables/:tableId/claim-next')
+  claimNext(
+    @Param('tournamentId') tournamentId: string,
+    @Param('tableId') tableId: string,
+    @Request() req: any,
+  ) {
+    return this.operatorService.claimNextMatch(tournamentId, tableId, req.user.sub);
+  }
 }
