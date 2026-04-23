@@ -5,9 +5,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TelegramService } from './telegram.service';
 import { TelegramLinkService } from './telegram-link.service';
 import { TelegramUpdateService } from './telegram-update.service';
+import { TelegramNotificationsService } from './telegram-notifications.service';
+import { MatchReminderTask } from './match-reminder.task';
 import { TelegramController } from './telegram.controller';
 import { TelegramWebhookController } from './telegram-webhook.controller';
 import { TelegramLink } from './entities/telegram-link.entity';
+import { MatchNotification } from './entities/match-notification.entity';
+import { Tournament } from '../tournaments/entities/tournament.entity';
+import { Bracket } from '../brackets/entities/bracket.entity';
+import { TournamentTable } from '../tournaments/entities/tournament-table.entity';
+import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
+import { ScheduleModule } from '../schedule/schedule.module';
 
 /**
  * Registers:
@@ -27,10 +35,24 @@ import { TelegramLink } from './entities/telegram-link.entity';
   imports: [
     ConfigModule,
     JwtModule.register({}),
-    TypeOrmModule.forFeature([TelegramLink]),
+    TypeOrmModule.forFeature([
+      TelegramLink,
+      MatchNotification,
+      Tournament,
+      Bracket,
+      TournamentTable,
+      TournamentEntry,
+    ]),
+    ScheduleModule,
   ],
   controllers: [TelegramController, TelegramWebhookController],
-  providers: [TelegramService, TelegramLinkService, TelegramUpdateService],
-  exports: [TelegramService, TelegramLinkService],
+  providers: [
+    TelegramService,
+    TelegramLinkService,
+    TelegramUpdateService,
+    TelegramNotificationsService,
+    MatchReminderTask,
+  ],
+  exports: [TelegramService, TelegramLinkService, TelegramNotificationsService],
 })
 export class TelegramModule {}

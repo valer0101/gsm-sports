@@ -10,6 +10,7 @@ import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
 import { EventsGateway } from '../events/events.gateway';
 import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
+import { TelegramNotificationsService } from '../telegram/telegram-notifications.service';
 
 vi.mock('@gsm/bracket-engine', () => ({
   generateDoubleElimination: vi.fn(() => ({
@@ -132,6 +133,13 @@ describe('BracketsService', () => {
         {
           provide: MatchAssignmentsService,
           useValue: { finishForMatch: vi.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: TelegramNotificationsService,
+          useValue: {
+            notifyOpponentWithdrew: vi.fn().mockResolvedValue(undefined),
+            notifyMatchReminder: vi.fn().mockResolvedValue(undefined),
+          },
         },
         {
           provide: getDataSourceToken(),
