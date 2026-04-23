@@ -335,6 +335,22 @@
     "withdraw_title": "Снять {player}? {opponent} получает техническую победу.",
     "withdraw_reason_placeholder": "Причина снятия"
   },
+  "match_result": {
+    "aw_victory_type": "Тип победы",
+    "aw_pin": "Прижим",
+    "aw_points": "По очкам",
+    "aw_fouls": "По фолам",
+    "aw_dq": "Дисквал.",
+    "aw_fouls_short": "Фолы",
+    "aw_summary_with_fouls": "{victory} · {fouls} фолов",
+    "points_hint": "Сумма очков судей — одна карта на обоих спортсменов.",
+    "points_summary": "Очки {player1}–{player2}",
+    "score_hint": "Итоговый счёт.",
+    "score_summary": "Счёт {player1}–{player2}",
+    "time_hint": "Время финиша в секундах (например, 48.30).",
+    "time_seconds_label": "секунд",
+    "time_summary": "{player1} и {player2}"
+  },
   "operator_tournament": {
     "no_bracket": "Сетка ещё не сформирована",
     "no_bracket_desc": "Дождитесь, пока администратор сформирует сетку",
