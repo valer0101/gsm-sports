@@ -262,8 +262,11 @@ export function useAdminBracketAuditLog(bracketId: string) {
  * vanish).
  *
  * The hook name is kept for backwards compatibility with its original
- * single-status meaning; its queryKey now carries `active` so any stale
- * `confirmed` cache doesn't overlap.
+ * single-status meaning; its queryKey was renamed to
+ * `['admin', 'confirmed-entries', tournamentId]` to dodge any stale
+ * `confirmed`-suffixed cache from before. Callers that invalidate this
+ * list must target the new key (not the legacy `['admin','entries',...]`
+ * prefix).
  */
 export interface ConfirmedEntry {
   id: string;
@@ -350,7 +353,11 @@ export function useAdminReassignEntry(tournamentId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
-      qc.invalidateQueries({ queryKey: ['admin', 'entries', tournamentId] });
+      // useConfirmedEntries now lives under ['admin','confirmed-entries',id].
+      // The previous prefix `['admin','entries',id]` used to match its old
+      // 4-segment key but the rename broke that — target the new key
+      // explicitly so the registrations list refetches after a reassign.
+      qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
       qc.invalidateQueries({ queryKey: ['entries', tournamentId] });
     },
   });
