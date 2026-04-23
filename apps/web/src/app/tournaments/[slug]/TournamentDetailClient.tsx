@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '@/lib/api';
-import type { Tournament } from '@/types/api';
+import type { Tournament, TournamentEntry } from '@/types/api';
 import { ParticipantsList } from '@/components/tournaments/ParticipantsList';
 import { BracketView } from '@/components/tournaments/BracketView';
 import { RegisterModal } from '@/components/tournaments/RegisterModal';
+import { useMyEntries, useCheckinQr } from '@/hooks/useEntries';
 
 type Tab = 'participants' | 'bracket';
 
@@ -54,6 +56,11 @@ export function TournamentDetailClient({ tournament }: Props) {
           </button>
         </div>
       )}
+
+      {/* Athlete's own registration(s) for this tournament — shows the
+          check-in QR before the event, a "checked in" badge once they're
+          on site, or nothing for anonymous / unregistered visitors. */}
+      {currentUser && <MyRegistrationSection tournamentId={tournament.id} />}
 
       {/* Tabs */}
       <div
@@ -152,5 +159,100 @@ function TabButton({
         </span>
       )}
     </button>
+  );
+}
+
+function MyRegistrationSection({ tournamentId }: { tournamentId: string }) {
+  const t = useTranslations('tournaments');
+  const { data: myEntries, isLoading } = useMyEntries();
+
+  // Filter to THIS tournament. Athletes can register multiple times in
+  // the same tournament when a sport has multiple hands/categories (e.g.
+  // armwrestling left + right), so render one card per entry.
+  const mine = (myEntries ?? []).filter((e) => e.tournamentId === tournamentId);
+
+  if (isLoading || mine.length === 0) return null;
+
+  return (
+    <div className="mb-6 space-y-3">
+      {mine.map((entry) => (
+        <MyRegistrationCard key={entry.id} entry={entry} />
+      ))}
+    </div>
+  );
+}
+
+function MyRegistrationCard({ entry }: { entry: TournamentEntry }) {
+  const t = useTranslations('tournaments');
+  const isCheckedIn = entry.status === 'checked_in';
+  // Only fetch a QR when one will actually be shown — saves a round trip
+  // for already-checked-in / withdrawn / rejected entries.
+  const qrNeeded = !isCheckedIn && entry.status !== 'withdrawn' && entry.status !== 'rejected';
+  const { data: qr } = useCheckinQr(qrNeeded ? entry.id : null);
+
+  const statusLabel =
+    isCheckedIn ? t('checkin_status_checked_in')
+    : entry.status === 'confirmed' ? t('checkin_status_confirmed')
+    : entry.status === 'pending' ? t('checkin_status_pending')
+    : entry.status === 'withdrawn' ? t('checkin_status_withdrawn')
+    : t('checkin_status_rejected');
+
+  const statusColor =
+    isCheckedIn ? '#10b981'
+    : entry.status === 'confirmed' ? 'var(--color-accent)'
+    : entry.status === 'pending' ? '#fbbf24'
+    : '#9ca3af';
+
+  return (
+    <div
+      className="rounded-2xl border p-5 flex flex-col sm:flex-row items-start gap-5"
+      style={{
+        backgroundColor: 'var(--color-secondary)',
+        borderColor: isCheckedIn ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-xs uppercase tracking-wider mb-1"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          {t('my_registration_label')}
+        </p>
+        <p className="text-lg font-black text-white mb-2">
+          {[entry.ageGroup, entry.hand, entry.weightKg ? `${entry.weightKg} kg` : null]
+            .filter(Boolean)
+            .join(' · ') || t('my_registration_entry_fallback')}
+        </p>
+        <span
+          className="inline-block px-2.5 py-1 rounded-full text-xs font-bold"
+          style={{ color: statusColor, backgroundColor: 'rgba(255,255,255,0.05)' }}
+        >
+          {statusLabel}
+        </span>
+
+        {qrNeeded && (
+          <p className="text-xs mt-3" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('checkin_qr_hint')}
+          </p>
+        )}
+      </div>
+
+      {qrNeeded && qr?.token && (
+        <div className="shrink-0 rounded-xl bg-white p-3">
+          {/* White background required — QR needs strong contrast for a
+              phone camera to lock on even in venue lighting. */}
+          <QRCodeSVG value={qr.token} size={140} level="M" />
+        </div>
+      )}
+
+      {isCheckedIn && (
+        <div
+          className="shrink-0 text-center text-5xl"
+          style={{ color: '#10b981' }}
+        >
+          ✓
+        </div>
+      )}
+    </div>
   );
 }
