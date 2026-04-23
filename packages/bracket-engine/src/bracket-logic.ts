@@ -519,6 +519,11 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
   match.enteredAt = null;
   match.correctedBy = null;
   match.correctedAt = null;
+  // Reset drops the sport-specific result too so the next recordResult
+  // starts clean. (`selectWinner` only overwrites `result` when the caller
+  // explicitly passes one, so without this the stale payload would linger
+  // after a reset → record-again cycle.)
+  match.result = null;
 
   // Cascade: clear all downstream matches that received this winner or loser
   _clearDownstream(data, oldWinner, oldLoser);
@@ -571,6 +576,7 @@ function _clearDownstream(
       (m as Match).enteredAt = null;
       (m as Match).correctedBy = null;
       (m as Match).correctedAt = null;
+      (m as Match).result = null;
       _clearDownstream(data, downWinner, downLoser);
     }
   }
@@ -708,6 +714,15 @@ export function selectWinner(
   matchId: string,
   winnerId: string,
   enteredBy?: string,
+  /**
+   * Optional sport-specific result detail. Opaque to the engine — stored
+   * verbatim on the match and echoed back via `findMatch`. Pass `null` to
+   * explicitly clear a previously-recorded payload (e.g. on correction
+   * where the new result has none). If omitted, an existing payload is
+   * preserved — so a plain winner correction doesn't silently wipe the
+   * armwrestling victoryType / fouls / etc. recorded earlier.
+   */
+  result?: Record<string, unknown> | null,
 ): BracketData {
   const match = findMatch(data, matchId);
   if (!match) return data;
@@ -730,6 +745,10 @@ export function selectWinner(
       match.enteredBy = enteredBy;
       match.enteredAt = now;
     }
+  }
+
+  if (result !== undefined) {
+    match.result = result;
   }
 
   propagateResults(data);
