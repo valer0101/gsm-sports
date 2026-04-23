@@ -576,6 +576,20 @@
     "saved": "Saved",
     "save_error": "Failed to save"
   },
+  "profile_telegram": {
+    "section_label": "Telegram notifications",
+    "headline": "Get match reminders in Telegram",
+    "description": "We'll message you ~15 min before your match and when an opponent forfeits. Only you and the tournament admin can use this.",
+    "connect_btn": "📲 Connect Telegram",
+    "qr_hint": "Scan this QR with your phone camera, or tap the button below on mobile. Telegram will open and confirm the link.",
+    "open_in_telegram": "Open in Telegram",
+    "cancel": "Cancel",
+    "expires_at": "Link expires at {time}",
+    "connected_as": "Connected to chat ending in {masked}",
+    "connected_since": "Connected since {date}",
+    "unlink": "Unlink",
+    "error": "Couldn't generate link"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Something went wrong",
