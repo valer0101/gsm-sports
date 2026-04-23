@@ -70,6 +70,17 @@ export interface SportConfig {
   surfaceTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
   /** Label for participants — athletes vs teams. Localised. */
   participantTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
+  /**
+   * Typical duration of a single match in seconds — the scheduler's `avg`
+   * input. Per-sport platform default; `Tournament.sportConfig` may override
+   * per event.
+   */
+  avgMatchDurationSec: number;
+  /**
+   * Minimum rest between an athlete's own matches in seconds. Fatigue +
+   * rule-of-thumb, overridable per tournament.
+   */
+  minRestBetweenMatchesSec: number;
 }
 
 // ─── Tournaments ────────────────────────────────────────────

@@ -250,6 +250,8 @@ describe('SportsService', () => {
           defaultBracketFormat: 'double_elim',
           matchResultSchema: 'armwrestling',
           weighInRequired: true,
+          avgMatchDurationSec: 180,
+          minRestBetweenMatchesSec: 600,
           surfaceTerm: {
             singular: { ru: 'стол', en: 'table', hy: 'սեղան' },
             plural: { ru: 'столы', en: 'tables', hy: 'սեղաններ' },

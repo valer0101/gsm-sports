@@ -21,6 +21,11 @@ export const SPORT_CONFIG_DEFAULTS: SportConfig = {
   defaultBracketFormat: 'single_elim',
   matchResultSchema: 'simple_winner',
   weighInRequired: false,
+  // Generic defaults used when a sport doesn't override. 5 min per match and
+  // 15 min rest is a reasonable fallback for fast combat sports; organizers
+  // override per event anyway.
+  avgMatchDurationSec: 300,
+  minRestBetweenMatchesSec: 900,
 };
 
 type LocalizedPair = {
@@ -49,6 +54,10 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     defaultBracketFormat: 'double_elim',
     matchResultSchema: 'armwrestling',
     weighInRequired: true,
+    // A pinned match is often over in <30s, but counting setup + ref call
+    // + result entry ~3 min is realistic.
+    avgMatchDurationSec: 180,
+    minRestBetweenMatchesSec: 600, // 10 min — per WAF guidance
     surfaceTerm: {
       singular: { ru: 'стол', en: 'table', hy: 'սեղան' },
       plural: { ru: 'столы', en: 'tables', hy: 'սեղաններ' },
@@ -60,6 +69,9 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     defaultBracketFormat: 'single_elim',
     matchResultSchema: 'points',
     weighInRequired: true,
+    // 3 rounds × 3 min + 2 breaks × 1 min + walk-in + judging ≈ 15 min.
+    avgMatchDurationSec: 900,
+    minRestBetweenMatchesSec: 1800, // 30 min — medical minimum
     surfaceTerm: {
       singular: { ru: 'ринг', en: 'ring', hy: 'ռինգ' },
       plural: { ru: 'ринги', en: 'rings', hy: 'ռինգներ' },
@@ -71,6 +83,8 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     defaultBracketFormat: 'single_elim',
     matchResultSchema: 'points',
     weighInRequired: true,
+    avgMatchDurationSec: 900,
+    minRestBetweenMatchesSec: 2700, // 45 min — recovery + medical
     surfaceTerm: {
       singular: { ru: 'клетка', en: 'cage', hy: 'վանդակ' },
       plural: { ru: 'клетки', en: 'cages', hy: 'վանդակներ' },
@@ -82,6 +96,8 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     defaultBracketFormat: 'double_elim',
     matchResultSchema: 'points',
     weighInRequired: true,
+    avgMatchDurationSec: 420, // 6–7 min match + transitions
+    minRestBetweenMatchesSec: 900,
   },
   chess: {
     categoriesType: 'skill',
@@ -89,6 +105,8 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     defaultBracketFormat: 'swiss',
     matchResultSchema: 'simple_winner',
     weighInRequired: false,
+    avgMatchDurationSec: 3600, // 60 min rapid
+    minRestBetweenMatchesSec: 600,
   },
 };
 

@@ -37,6 +37,8 @@ export interface SportConfig {
   weighInRequired: boolean;
   surfaceTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
   participantTerm?: { singular: LocalizedTerm; plural: LocalizedTerm };
+  avgMatchDurationSec: number;
+  minRestBetweenMatchesSec: number;
 }
 
 export interface Sport {
