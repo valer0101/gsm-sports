@@ -6,6 +6,7 @@ import { useBrackets } from '@/hooks/useTournaments';
 import { useBracketSocket } from '@/hooks/useBracketSocket';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
+import { MatchResultSummary } from '@/components/tournaments/MatchResultSummary';
 import type { Bracket, BracketMatch } from '@/types/api';
 
 interface Props {
@@ -207,6 +208,13 @@ function MatchCard({
         isLoser={match.loser === p2.id}
         isTBD={isTBD(p2)}
       />
+      {/* Sport-specific result chip (Phase 3.2). Renders nothing when the
+          match has no result payload or the schema is `simple_winner`. */}
+      {match.winner && match.result && (
+        <div className="px-2.5 py-1 border-t border-white/5">
+          <MatchResultSummary result={match.result} />
+        </div>
+      )}
     </div>
   );
 }

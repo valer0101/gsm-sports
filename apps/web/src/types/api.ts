@@ -165,6 +165,13 @@ export interface BracketMatch {
   enteredAt?: string | null;
   correctedBy?: string | null;
   correctedAt?: string | null;
+  /**
+   * Sport-specific result detail (Phase 3.2). Declared as a loose
+   * `Record<string, unknown>` here to mirror the engine's opaque carrier;
+   * consumers should narrow to `MatchResult` from `@gsm/shared-types` by
+   * inspecting `.schema`.
+   */
+  result?: Record<string, unknown> | null;
 }
 
 export interface BracketData {
@@ -192,6 +199,16 @@ export interface Bracket {
   modificationCount: number;
   completedAt: string | null;
   weightCategory?: WeightCategory;
+  /**
+   * Nested tournament + sport info used by the result-entry UI to pick the
+   * right `MatchResultSchema` form. Optional because not every endpoint
+   * that returns a `Bracket` loads these relations; the operator and admin
+   * endpoints do.
+   */
+  tournament?: {
+    id: string;
+    sport?: { slug: string; config: SportConfig } | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -252,6 +269,13 @@ export type { ScheduledMatch, SchedulerMatch } from '@gsm/scheduler';
 export type {
   TournamentScheduleResponse as TournamentSchedule,
   ScheduleActiveMatch,
+  MatchResult,
+  MatchResultSchema,
+  ArmwrestlingMatchResult,
+  ScoreMatchResult,
+  PointsMatchResult,
+  TimeMatchResult,
+  SimpleMatchResult,
 } from '@gsm/shared-types';
 
 export interface PendingMatch {

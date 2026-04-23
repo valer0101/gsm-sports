@@ -152,7 +152,13 @@ export function useAdminBrackets(tournamentId: string) {
 export function useAdminCorrectResult(bracketId: string, tournamentId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { matchId: string; winnerId: string; reason?: string }) =>
+    mutationFn: (payload: {
+      matchId: string;
+      winnerId: string;
+      reason?: string;
+      /** Optional sport-specific result detail — see `useRecordResult`. */
+      result?: Record<string, unknown> | null;
+    }) =>
       api.patch(`/admin/brackets/${bracketId}/correct-result`, payload).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
