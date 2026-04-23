@@ -3,8 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { QRCodeSVG } from 'qrcode.react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUpdateMe } from '@/hooks/useProfile';
+import {
+  useTelegramLink,
+  useIssueTelegramLinkToken,
+  useUnlinkTelegram,
+  type TelegramLinkToken,
+} from '@/hooks/useTelegram';
 import { AvatarUpload } from '@/components/AvatarUpload';
 
 export function ProfilePageClient() {
@@ -120,6 +127,147 @@ export function ProfilePageClient() {
           {isPending ? t('saving') : t('save')}
         </button>
       </div>
+
+      {/* Telegram notifications — opt-in. Hidden for anon visitors (they
+          can't reach /profile anyway) and for users who haven't finished
+          onboarding. */}
+      <div className="mt-6">
+        <TelegramLinkSection />
+      </div>
+    </div>
+  );
+}
+
+function TelegramLinkSection() {
+  const t = useTranslations('profile_telegram');
+  const { data: link, isLoading } = useTelegramLink();
+  const issueToken = useIssueTelegramLinkToken();
+  const unlink = useUnlinkTelegram();
+
+  const [qr, setQr] = useState<TelegramLinkToken | null>(null);
+
+  if (isLoading) {
+    return (
+      <div
+        className="rounded-2xl border border-white/10 p-6 animate-pulse h-24"
+        style={{ backgroundColor: 'var(--color-secondary)' }}
+      />
+    );
+  }
+
+  // ─── Already linked: show status + unlink ─────────────────────────
+  if (link) {
+    return (
+      <div
+        className="rounded-2xl border p-6"
+        style={{
+          backgroundColor: 'var(--color-secondary)',
+          borderColor: 'rgba(16,185,129,0.3)',
+        }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wider mb-1"
+               style={{ color: 'var(--color-text-secondary)' }}>
+              {t('section_label')}
+            </p>
+            <p className="text-white font-semibold">
+              ✓ {t('connected_as', { masked: link.chatIdMasked })}
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('connected_since', {
+                date: new Date(link.linkedAt).toLocaleDateString(),
+              })}
+            </p>
+          </div>
+          <button
+            onClick={() => unlink.mutate()}
+            disabled={unlink.isPending}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-xs border transition-colors disabled:opacity-50"
+            style={{
+              borderColor: 'rgba(239,68,68,0.3)',
+              color: '#f87171',
+            }}
+          >
+            {unlink.isPending ? '...' : t('unlink')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Not linked: connect CTA + on-demand QR ───────────────────────
+  return (
+    <div
+      className="rounded-2xl border border-white/10 p-6"
+      style={{ backgroundColor: 'var(--color-secondary)' }}
+    >
+      <p className="text-xs uppercase tracking-wider mb-1"
+         style={{ color: 'var(--color-text-secondary)' }}>
+        {t('section_label')}
+      </p>
+      <p className="text-white font-semibold mb-1">{t('headline')}</p>
+      <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+        {t('description')}
+      </p>
+
+      {!qr && (
+        <button
+          onClick={() =>
+            issueToken.mutate(undefined, {
+              onSuccess: (data) => setQr(data),
+            })
+          }
+          disabled={issueToken.isPending}
+          className="px-4 py-2 rounded-xl font-bold text-white transition-opacity disabled:opacity-50"
+          style={{ backgroundColor: 'var(--color-accent)' }}
+        >
+          {issueToken.isPending ? '...' : t('connect_btn')}
+        </button>
+      )}
+
+      {issueToken.error && (
+        <p className="mt-3 text-xs text-red-400">
+          {(issueToken.error as any)?.response?.data?.message ?? t('error')}
+        </p>
+      )}
+
+      {qr && (
+        <div className="mt-4 flex flex-col sm:flex-row items-start gap-5">
+          {/* QR — white background mandatory for phone cameras to lock on. */}
+          <div className="shrink-0 rounded-xl bg-white p-3">
+            <QRCodeSVG value={qr.deepLink} size={160} level="M" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-white mb-2">{t('qr_hint')}</p>
+            <a
+              href={qr.deepLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-2 rounded-lg text-sm font-bold"
+              style={{
+                backgroundColor: 'var(--color-accent-dim)',
+                color: 'var(--color-accent)',
+              }}
+            >
+              {t('open_in_telegram')}
+            </a>
+            <p className="text-xs mt-3" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('expires_at', {
+                time: new Date(qr.expiresAt).toLocaleTimeString(),
+              })}
+            </p>
+            <button
+              onClick={() => setQr(null)}
+              className="text-xs mt-2 underline"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
