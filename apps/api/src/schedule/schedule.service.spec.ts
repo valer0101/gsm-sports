@@ -176,6 +176,16 @@ describe('ScheduleService', () => {
     expect(out.scheduled[0].matchId).toBe('m-pending');
     // Must go to t2 because t1 is busy.
     expect(out.scheduled[0].tableId).toBe('t2');
+    // The running match is exposed separately so the arena can render it.
+    expect(out.active).toHaveLength(1);
+    expect(out.active[0]).toEqual(
+      expect.objectContaining({
+        matchId: 'm-running',
+        tableId: 't1',
+        bracketId: 'b1',
+      }),
+    );
+    expect(out.active[0].estimatedEndAt).toBe(started.getTime() + 180 * 1000);
   });
 
   it('skips locked and non-active brackets', async () => {

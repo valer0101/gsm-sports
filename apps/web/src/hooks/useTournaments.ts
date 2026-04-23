@@ -55,12 +55,18 @@ export function useRegistrations(tournamentId: string, params: RegistrationsPara
   });
 }
 
-export function useBrackets(tournamentId: string) {
+export function useBrackets(
+  tournamentId: string,
+  options: { refetchInterval?: number } = {},
+) {
   return useQuery<Bracket[]>({
     queryKey: ['brackets', tournamentId],
     queryFn: () =>
       api.get(`/brackets/tournament/${tournamentId}`).then((r: { data: any }) => r.data),
     enabled: !!tournamentId,
+    // Default: fetch once on mount + invalidation. Consumers that display
+    // live state (arena projector, etc.) can pass `refetchInterval` to poll.
+    refetchInterval: options.refetchInterval,
   });
 }
 

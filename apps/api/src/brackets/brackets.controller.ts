@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Public } from '../auth/public.decorator';
 import { BracketsService } from './brackets.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
 import { RecordResultDto } from './dto/record-result.dto';
@@ -41,12 +42,14 @@ export class BracketsController {
   }
 
   @ApiOperation({ summary: 'Get bracket by ID' })
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.bracketsService.findById(id);
   }
 
   @ApiOperation({ summary: 'Get all brackets for a tournament' })
+  @Public()
   @Get('tournament/:tournamentId')
   findByTournament(@Param('tournamentId') tournamentId: string) {
     return this.bracketsService.findByTournament(tournamentId);

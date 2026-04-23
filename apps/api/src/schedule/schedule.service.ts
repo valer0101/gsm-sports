@@ -2,13 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { buildSchedule } from '@gsm/scheduler';
-import type {
-  SchedulerMatch,
-  SchedulerTable,
-  SchedulerOutput,
-} from '@gsm/scheduler';
+import type { SchedulerMatch, SchedulerTable } from '@gsm/scheduler';
 import type { BracketData } from '@gsm/bracket-engine';
-import type { SportConfig } from '@gsm/shared-types';
+import type {
+  ScheduleActiveMatch,
+  SportConfig,
+  TournamentScheduleResponse,
+} from '@gsm/shared-types';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentTable } from '../tournaments/entities/tournament-table.entity';
 import { Bracket } from '../brackets/entities/bracket.entity';
@@ -44,7 +44,7 @@ export class ScheduleService {
     private readonly assignmentsRepository: Repository<MatchTableAssignment>,
   ) {}
 
-  async getForTournament(tournamentId: string): Promise<SchedulerOutput> {
+  async getForTournament(tournamentId: string): Promise<TournamentScheduleResponse> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
       relations: ['sport'],
@@ -199,7 +199,7 @@ export class ScheduleService {
       recordAthleteFinish(match.player2?.id, projectedEndIso);
     }
 
-    return buildSchedule({
+    const schedulerOutput = buildSchedule({
       now,
       tables: schedulerTables,
       pendingMatches: schedulerMatches,
@@ -207,6 +207,29 @@ export class ScheduleService {
       minRestBetweenMatchesSec,
       athleteLastFinishAt,
     });
+
+    // Arena display + operator UI need the currently-running matches too —
+    // and the scheduler filters those out of `scheduled` on purpose (they're
+    // not pending any more). Expose them as a separate `active` field so
+    // clients have one request to render the full table state.
+    const active: ScheduleActiveMatch[] = Array.from(activeByTable.values()).map(
+      (a) => {
+        const startedMs = a.startedAt
+          ? new Date(a.startedAt).getTime()
+          : a.assignedAt
+            ? new Date(a.assignedAt).getTime()
+            : nowMs;
+        return {
+          tableId: a.tableId,
+          matchId: a.matchId,
+          bracketId: a.bracketId,
+          startedAt: a.startedAt ? new Date(a.startedAt).toISOString() : null,
+          estimatedEndAt: startedMs + avgDurationMs,
+        };
+      },
+    );
+
+    return { ...schedulerOutput, active };
   }
 
   /** Locate a match by id across every section of a BracketData blob. */

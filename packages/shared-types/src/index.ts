@@ -144,6 +144,47 @@ export interface MatchTableAssignment {
   finishedAt: string | null;
 }
 
+/**
+ * Shape returned by `GET /v1/tournaments/:id/schedule`. Extends the pure
+ * scheduler output (`scheduled` + `unscheduled`) with `active` — the matches
+ * currently in progress. The scheduler itself doesn't know about them
+ * (they're excluded from its pending input by design), but consumers like
+ * the arena display and operator UI need them to render the current state.
+ */
+export interface ScheduleActiveMatch {
+  tableId: string;
+  matchId: string;
+  bracketId: string;
+  startedAt: string | null;
+  /** Epoch ms — projected end (= startedAt + avgMatchDurationSec * 1000). */
+  estimatedEndAt: number;
+}
+
+/**
+ * Wire shape of `GET /v1/tournaments/:id/schedule`.
+ *
+ * Mirrors `SchedulerOutput` from `@gsm/scheduler` (scheduled + unscheduled)
+ * plus an `active` array for matches currently in progress. Declared here
+ * rather than in the scheduler package to keep that package pure-algorithm
+ * with no knowledge of server-side state like table assignments.
+ */
+export interface TournamentScheduleResponse {
+  scheduled: Array<{
+    matchId: string;
+    bracketId: string;
+    tableId: string;
+    estimatedStartAt: number;
+    estimatedEndAt: number;
+    order: number;
+  }>;
+  unscheduled: Array<{
+    matchId: string;
+    bracketId: string;
+    athleteIds: [string, string];
+  }>;
+  active: ScheduleActiveMatch[];
+}
+
 // ─── News ───────────────────────────────────────────────────
 export type NewsStatus = 'draft' | 'published' | 'archived';
 
