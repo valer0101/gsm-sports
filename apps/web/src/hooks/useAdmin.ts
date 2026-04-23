@@ -217,6 +217,36 @@ export function useAdminStartCategory(bracketId: string, tournamentId: string) {
   });
 }
 
+/**
+ * Admin/organizer manually marks an athlete as physically present on site.
+ * Equivalent to scanning their QR but skips the camera step — used for
+ * walk-up check-in at a kiosk / front desk.
+ */
+export function useAdminCheckInEntry(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      api.post(`/entries/${entryId}/check-in`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['entries', 'my'] });
+    },
+  });
+}
+
+/** Admin-only — revert a previous check-in (e.g. scanner error). */
+export function useAdminUndoCheckIn(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      api.post(`/entries/${entryId}/undo-check-in`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['entries', 'my'] });
+    },
+  });
+}
+
 export function useAdminBracketAuditLog(bracketId: string) {
   return useQuery<BracketAuditLog[]>({
     queryKey: ['admin', 'bracket-audit', bracketId],
@@ -225,7 +255,19 @@ export function useAdminBracketAuditLog(bracketId: string) {
   });
 }
 
-/** Confirmed tournament entries — used as replacement candidates. */
+/**
+ * Tournament entries in an "actively competing" status — confirmed OR
+ * checked_in. Used as bracket-replacement candidates AND as the data
+ * source for the admin registrations list (so post-check-in rows don't
+ * vanish).
+ *
+ * The hook name is kept for backwards compatibility with its original
+ * single-status meaning; its queryKey was renamed to
+ * `['admin', 'confirmed-entries', tournamentId]` to dodge any stale
+ * `confirmed`-suffixed cache from before. Callers that invalidate this
+ * list must target the new key (not the legacy `['admin','entries',...]`
+ * prefix).
+ */
 export interface ConfirmedEntry {
   id: string;
   status: string;
@@ -233,6 +275,8 @@ export interface ConfirmedEntry {
   hand: string | null;
   weightKg: number | null;
   seedNumber: number | null;
+  checkedInAt?: string | null;
+  checkedInBy?: string | null;
   user?: {
     id: string;
     firstName: string;
@@ -243,11 +287,19 @@ export interface ConfirmedEntry {
 
 export function useConfirmedEntries(tournamentId: string) {
   return useQuery<{ data: ConfirmedEntry[] }>({
-    queryKey: ['admin', 'entries', tournamentId, 'confirmed'],
+    queryKey: ['admin', 'confirmed-entries', tournamentId],
+    // Fetch with no status filter, then narrow to the set we care about on
+    // the client. Cheaper than two round-trips, and the admin payload is
+    // capped at 100 entries anyway.
     queryFn: () =>
       api
-        .get(`/entries/tournament/${tournamentId}?status=confirmed&limit=100`)
-        .then((r: any) => r.data),
+        .get(`/entries/tournament/${tournamentId}?limit=100`)
+        .then((r: { data: { data: ConfirmedEntry[]; meta: unknown } }) => ({
+          ...r.data,
+          data: r.data.data.filter(
+            (e) => e.status === 'confirmed' || e.status === 'checked_in',
+          ),
+        })),
     enabled: !!tournamentId,
   });
 }
@@ -301,7 +353,11 @@ export function useAdminReassignEntry(tournamentId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
-      qc.invalidateQueries({ queryKey: ['admin', 'entries', tournamentId] });
+      // useConfirmedEntries now lives under ['admin','confirmed-entries',id].
+      // The previous prefix `['admin','entries',id]` used to match its old
+      // 4-segment key but the rename broke that — target the new key
+      // explicitly so the registrations list refetches after a reassign.
+      qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
       qc.invalidateQueries({ queryKey: ['entries', tournamentId] });
     },
   });

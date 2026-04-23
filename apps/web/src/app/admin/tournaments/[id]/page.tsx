@@ -14,6 +14,8 @@ import {
   useAdminResetMatch,
   useAdminLockBracket,
   useAdminStartCategory,
+  useAdminCheckInEntry,
+  useAdminUndoCheckIn,
   useAdminBracketAuditLog,
   useAdminCorrectResult,
   useAdminReplacePlayer,
@@ -368,6 +370,8 @@ function RegistrationsManager({
 }) {
   const { data: entriesRes, isLoading } = useConfirmedEntries(tournamentId);
   const reassign = useAdminReassignEntry(tournamentId);
+  const checkIn = useAdminCheckInEntry(tournamentId);
+  const undoCheckIn = useAdminUndoCheckIn(tournamentId);
   const entries = entriesRes?.data ?? [];
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -401,26 +405,64 @@ function RegistrationsManager({
           >
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-sm text-white font-medium">{pName}</p>
+                <p className="text-sm text-white font-medium flex items-center gap-2">
+                  {pName}
+                  {e.status === 'checked_in' && (
+                    <span
+                      className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                      style={{ color: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' }}
+                    >
+                      ✓ {t('checked_in_badge')}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                   {e.ageGroup ?? '—'} · {e.hand ?? '—'}
                   {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setEditingId(isEditing ? null : e.id);
-                  setEditWeightCategoryId('');
-                  setEditHand('');
-                  setEditAgeGroup('');
-                  setEditWeightKg(e.weightKg ? String(e.weightKg) : '');
-                  setEditReason('');
-                }}
-                className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                style={{ color: '#60a5fa' }}
-              >
-                {isEditing ? t('cancel') : t('reassign_btn')}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Check-in / undo — flips entry.status between confirmed and checked_in */}
+                {e.status === 'checked_in' ? (
+                  <button
+                    disabled={undoCheckIn.isPending}
+                    onClick={() => undoCheckIn.mutate(e.id)}
+                    className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                    style={{
+                      borderColor: 'rgba(239,68,68,0.3)',
+                      color: '#f87171',
+                    }}
+                  >
+                    {t('undo_checkin_btn')}
+                  </button>
+                ) : (
+                  <button
+                    disabled={checkIn.isPending}
+                    onClick={() => checkIn.mutate(e.id)}
+                    className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                    style={{
+                      borderColor: 'rgba(16,185,129,0.3)',
+                      color: '#10b981',
+                    }}
+                  >
+                    {t('checkin_btn')}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setEditingId(isEditing ? null : e.id);
+                    setEditWeightCategoryId('');
+                    setEditHand('');
+                    setEditAgeGroup('');
+                    setEditWeightKg(e.weightKg ? String(e.weightKg) : '');
+                    setEditReason('');
+                  }}
+                  className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                  style={{ color: '#60a5fa' }}
+                >
+                  {isEditing ? t('cancel') : t('reassign_btn')}
+                </button>
+              </div>
             </div>
 
             {isEditing && (
