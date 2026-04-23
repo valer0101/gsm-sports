@@ -376,6 +376,17 @@
     "image_formats_hint": "JPEG, PNG, WebP — minchev 5 ՄԲ",
     "upload_error": "Buzkum skаlvets"
   },
+  "admin_checkin_scan": {
+    "title": "Check-in QR-ի սկանավորում",
+    "subtitle": "Ուղղեք տեսախցիկը մասնակցի QR կոդին։ Հաջող սկանները ավտոմատ գրանցում են check-in-ը։",
+    "back": "← Մրցաշարի էջ",
+    "stat_checked_in": "Գրանցված",
+    "stat_errors": "Սխալներ",
+    "point_camera_hint": "Ուղղեք տեսախցիկը QR կոդին",
+    "checked_in_generic": "Check-in ավարտվեց",
+    "camera_error": "Տեսախցիկի սխալ",
+    "unknown_error": "Check-in չհաջողվեց"
+  },
   "admin_tournament": {
     "not_found": "Մрcашарне чи гтнвел.",
     "back": "← Болор мрцашарерне",
@@ -449,6 +460,7 @@
     "corrected_badge": "✎ ухгвац",
     "cancel": "Чегаркел",
     "registrations_title": "Грантсумнер",
+    "scan_checkin_qr": "📷 Սկան QR",
     "no_registrations": "Хастатвац грантсумнер чкан",
     "checkin_btn": "✓ Check-in",
     "undo_checkin_btn": "Չեղարկել check-in-ը",

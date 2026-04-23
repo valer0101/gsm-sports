@@ -228,6 +228,17 @@
     "bracket_ready": "Bracket ready",
     "error": "Failed to load tournaments"
   },
+  "admin_checkin_scan": {
+    "title": "Scan check-in QR",
+    "subtitle": "Point the camera at the athlete's QR code. Successful scans check the athlete in automatically.",
+    "back": "Back to tournament",
+    "stat_checked_in": "Checked in",
+    "stat_errors": "Errors",
+    "point_camera_hint": "Point the camera at a QR code",
+    "checked_in_generic": "Athlete checked in",
+    "camera_error": "Camera error",
+    "unknown_error": "Check-in failed"
+  },
   "admin_tournament": {
     "not_found": "Tournament not found.",
     "back": "← All Tournaments",
@@ -301,6 +312,7 @@
     "corrected_badge": "✎ corrected",
     "cancel": "Cancel",
     "registrations_title": "Registrations",
+    "scan_checkin_qr": "📷 Scan QR",
     "no_registrations": "No confirmed registrations yet",
     "checkin_btn": "✓ Check in",
     "undo_checkin_btn": "Undo check-in",

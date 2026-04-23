@@ -228,6 +228,17 @@
     "bracket_ready": "Сетка готова",
     "error": "Ошибка загрузки турниров"
   },
+  "admin_checkin_scan": {
+    "title": "Сканирование check-in QR",
+    "subtitle": "Наведите камеру на QR-код участника. Успешные сканы отмечают check-in автоматически.",
+    "back": "← К турниру",
+    "stat_checked_in": "Отмечено",
+    "stat_errors": "Ошибок",
+    "point_camera_hint": "Наведите камеру на QR-код",
+    "checked_in_generic": "Check-in пройден",
+    "camera_error": "Ошибка камеры",
+    "unknown_error": "Check-in не прошёл"
+  },
   "admin_tournament": {
     "not_found": "Турнир не найден.",
     "back": "← Все турниры",
@@ -301,6 +312,7 @@
     "corrected_badge": "✎ исправлен",
     "cancel": "Отмена",
     "registrations_title": "Регистрации",
+    "scan_checkin_qr": "📷 Скан QR",
     "no_registrations": "Подтверждённых регистраций нет",
     "checkin_btn": "✓ Check-in",
     "undo_checkin_btn": "Отменить check-in",
