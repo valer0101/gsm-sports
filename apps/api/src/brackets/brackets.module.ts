@@ -10,6 +10,7 @@ import { EntriesModule } from '../entries/entries.module';
 import { EventsModule } from '../events/events.module';
 import { MatchAssignmentsModule } from '../match-assignments/match-assignments.module';
 import { TelegramModule } from '../telegram/telegram.module';
+import { WeighInsModule } from '../weigh-ins/weigh-ins.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TelegramModule } from '../telegram/telegram.module';
     EventsModule,
     MatchAssignmentsModule,
     TelegramModule,
+    WeighInsModule,
   ],
   controllers: [BracketsController],
   providers: [BracketsService],
