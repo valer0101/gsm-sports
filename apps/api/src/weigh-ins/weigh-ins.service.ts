@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { WeighIn } from './entities/weigh-in.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
@@ -116,6 +116,23 @@ export class WeighInsService {
 
   async findByEntryId(entryId: string): Promise<WeighIn | null> {
     return this.weighInsRepository.findOne({ where: { entryId } });
+  }
+
+  /**
+   * Return the subset of `entryIds` that have NO weigh-in row. Used by
+   * bracket generation to block when `SportConfig.weighInRequired` and
+   * any confirmed entry is still unweighed. The caller is responsible
+   * for looking up the sport config — this helper is a pure set
+   * difference that works for any sport.
+   */
+  async findMissingForEntries(entryIds: string[]): Promise<string[]> {
+    if (entryIds.length === 0) return [];
+    const rows = await this.weighInsRepository.find({
+      where: { entryId: In(entryIds) },
+      select: ['entryId'],
+    });
+    const weighedIn = new Set(rows.map((r) => r.entryId));
+    return entryIds.filter((id) => !weighedIn.has(id));
   }
 
   async findByTournamentId(tournamentId: string): Promise<WeighIn[]> {

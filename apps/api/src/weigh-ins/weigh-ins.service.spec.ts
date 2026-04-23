@@ -305,6 +305,26 @@ describe('WeighInsService', () => {
     });
   });
 
+  describe('findMissingForEntries', () => {
+    it('returns the subset of ids with no weigh-in row', async () => {
+      repo.find.mockResolvedValue([{ entryId: 'e1' }, { entryId: 'e3' }]);
+      const result = await service.findMissingForEntries(['e1', 'e2', 'e3', 'e4']);
+      expect(result).toEqual(['e2', 'e4']);
+    });
+
+    it('short-circuits on empty input (no query)', async () => {
+      const result = await service.findMissingForEntries([]);
+      expect(result).toEqual([]);
+      expect(repo.find).not.toHaveBeenCalled();
+    });
+
+    it('returns all ids when none are weighed', async () => {
+      repo.find.mockResolvedValue([]);
+      const result = await service.findMissingForEntries(['e1', 'e2']);
+      expect(result).toEqual(['e1', 'e2']);
+    });
+  });
+
   describe('findByEntryId / findByTournamentId', () => {
     it('returns null when no weigh-in exists for entry', async () => {
       repo.findOne.mockResolvedValue(null);
