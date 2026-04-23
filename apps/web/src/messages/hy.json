@@ -521,6 +521,11 @@
     "eta_minutes": "~{n} րոպե",
     "eta_hours": "~{n} ժ"
   },
+  "broadcast": {
+    "table_number": "Սեղան №{n}",
+    "waiting": "Հանդիպման սպասում",
+    "unknown_table": "Սեղանը չի գտնվել"
+  },
   "arena": {
     "label": "ԱՐԵՆԱ",
     "live": "ԵԹԵՐ",

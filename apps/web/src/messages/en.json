@@ -373,6 +373,11 @@
     "eta_minutes": "~{n} min",
     "eta_hours": "~{n} h"
   },
+  "broadcast": {
+    "table_number": "Table #{n}",
+    "waiting": "Waiting for match",
+    "unknown_table": "Table not found"
+  },
   "arena": {
     "label": "ARENA",
     "live": "LIVE",
