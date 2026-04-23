@@ -328,7 +328,16 @@
     "withdraw_confirm": "Withdraw {player}? {opponent} receives a forfeit win.",
     "withdraw_reason_placeholder": "Reason (injury, no-show, DQ)",
     "withdraw_confirm_btn": "Confirm withdrawal",
-    "withdraw_result": "{player} withdrew. Winner: {opponent}"
+    "withdraw_result": "{player} withdrew. Winner: {opponent}",
+    "your_table_label": "Your table",
+    "table_number": "Table #{n}",
+    "table_status_idle": "Idle — ready to claim a match",
+    "table_status_busy": "Busy — match in progress",
+    "table_status_offline": "Offline",
+    "claim_next_btn": "Claim next match",
+    "running_now": "Running now:",
+    "match_id_label": "Match {id}",
+    "running_on_my_table": "Your table"
   },
   "register_modal": {
     "age_juniors": "Juniors (under 18)",

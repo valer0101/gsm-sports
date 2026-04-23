@@ -194,11 +194,47 @@ export interface BracketAuditLog {
   createdAt: string;
 }
 
+export type TableStatus = 'idle' | 'busy' | 'offline';
+
+export interface TournamentTable {
+  id: string;
+  tournamentId: string;
+  number: number;
+  name: string | null;
+  status: TableStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MatchTableAssignment {
+  id: string;
+  tournamentId: string;
+  bracketId: string;
+  matchId: string;
+  tableId: string;
+  claimedBy: string | null;
+  assignedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface OperatorMyTable {
+  table: TournamentTable;
+  activeAssignment: MatchTableAssignment | null;
+}
+
 export interface PendingMatch {
   matchId: string;
   player1: BracketPlayer;
   player2: BracketPlayer;
   section: 'winners' | 'losers' | 'grand_final' | 'super_final';
+  /** Active assignment row (null if the match is still unclaimed). */
+  assignment?: MatchTableAssignment | null;
+  /** True iff the match is claimed to the caller's own table. */
+  assignedToMe?: boolean;
+  /** True iff the match is claimed to SOME OTHER table (roaming operators only). */
+  assignedToOther?: boolean;
 }
 
 export interface PendingMatchesByBracket {
