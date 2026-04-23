@@ -108,7 +108,8 @@
     "checkin_status_confirmed": "Подтверждена — check-in не пройден",
     "checkin_status_checked_in": "Check-in пройден ✓",
     "checkin_status_withdrawn": "Снята",
-    "checkin_status_rejected": "Отклонена"
+    "checkin_status_rejected": "Отклонена",
+    "weigh_in_badge": "Взвешен · {kg} кг"
   },
   "athletes": {
     "title": "Атлеты",
@@ -333,7 +334,20 @@
     "replace_pick_placeholder": "Выберите заявку на замену...",
     "replace_reason_placeholder": "Причина замены (min 3 символа)",
     "withdraw_title": "Снять {player}? {opponent} получает техническую победу.",
-    "withdraw_reason_placeholder": "Причина снятия"
+    "withdraw_reason_placeholder": "Причина снятия",
+    "weigh_ins_title": "Взвешивание",
+    "weigh_in_required_error": "Требуется взвешивание — {count} спортсмен(ов) ещё не взвешены."
+  },
+  "admin_weigh_ins": {
+    "no_entries": "Подтверждённых заявок пока нет.",
+    "progress_done": "✓ Все спортсмены взвешены — можно генерировать сетку.",
+    "progress_status": "Взвешено {done} из {total}",
+    "progress_gate_hint": "Генерация сетки заблокирована до взвешивания всех подтверждённых спортсменов.",
+    "weight_placeholder": "кг",
+    "record_btn": "Записать",
+    "registered_kg": "заявленный {kg} кг",
+    "official_kg": "{kg} кг",
+    "generic_error": "Не удалось записать взвешивание."
   },
   "operator_tournament": {
     "no_bracket": "Сетка ещё не сформирована",

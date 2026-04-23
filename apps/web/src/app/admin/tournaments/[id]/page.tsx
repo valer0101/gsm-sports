@@ -23,7 +23,9 @@ import {
   useAdminReassignEntry,
   useConfirmedEntries,
 } from '@/hooks/useAdmin';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { WeighInsManager } from '@/components/admin/WeighInsManager';
 import type { Bracket, BracketMatch, BracketAuditLog } from '@/types/api';
 
 export default function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +45,20 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   const [operatorEmail, setOperatorEmail] = useState('');
   const [assignError, setAssignError] = useState('');
   const [selectedBracketId, setSelectedBracketId] = useState<string | null>(null);
+
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = (currentUser?.roles ?? []).includes('admin');
+
+  // When bracket generation is blocked by the weigh-in gate the API returns
+  // `{ code: 'WEIGH_IN_REQUIRED', unweighedEntryIds }`. We surface the ids to
+  // the WeighInsManager so the unweighed rows get a red ring.
+  const generateErrorData = (generateBrackets.error as any)?.response?.data as
+    | { code?: string; message?: string; unweighedEntryIds?: string[] }
+    | undefined;
+  const weighInBlockedIds =
+    generateErrorData?.code === 'WEIGH_IN_REQUIRED'
+      ? (generateErrorData.unweighedEntryIds ?? [])
+      : [];
 
   if (isLoading) {
     return (
@@ -199,7 +215,11 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             )}
             {generateBrackets.error && (
               <p className="mt-2 text-red-400 text-sm">
-                {(generateBrackets.error as any)?.response?.data?.message ?? t('error')}
+                {generateErrorData?.code === 'WEIGH_IN_REQUIRED'
+                  ? t('weigh_in_required_error', {
+                      count: generateErrorData.unweighedEntryIds?.length ?? 0,
+                    })
+                  : (generateErrorData?.message ?? t('error'))}
               </p>
             )}
           </div>
@@ -275,6 +295,17 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           }
         >
           <RegistrationsManager tournamentId={id} weightCategories={tournament.weightCategories ?? []} t={t} />
+        </Section>
+      )}
+
+      {/* Weigh-ins — sports that require them, before bracket is generated */}
+      {!tournament.bracketGenerated && tournament.sport?.config.weighInRequired && (
+        <Section title={t('weigh_ins_title')}>
+          <WeighInsManager
+            tournamentId={id}
+            canUndo={isAdmin}
+            highlightEntryIds={weighInBlockedIds}
+          />
         </Section>
       )}
 

@@ -108,7 +108,8 @@
     "checkin_status_confirmed": "Հաստատված — check-in դեռ չի արվել",
     "checkin_status_checked_in": "Check-in արվել է ✓",
     "checkin_status_withdrawn": "Հեռացված է",
-    "checkin_status_rejected": "Մերժված է"
+    "checkin_status_rejected": "Մերժված է",
+    "weigh_in_badge": "Կշռված է · {kg} կգ"
   },
   "athletes": {
     "title": "Մարզիկներ",
@@ -495,7 +496,20 @@
     "replace_pick_placeholder": "Энтрел фопохохе...",
     "replace_reason_placeholder": "Патчар (нвазагуйне 3 ниш)",
     "withdraw_title": "Снел {player}? {opponent}-н станум э техникакан хаhтанак.",
-    "withdraw_reason_placeholder": "Снелу патчар"
+    "withdraw_reason_placeholder": "Снелу патчар",
+    "weigh_ins_title": "Կշռում",
+    "weigh_in_required_error": "Պահանջվում է կշռում — {count} մարզիկ դեռ չի կշռվել։"
+  },
+  "admin_weigh_ins": {
+    "no_entries": "Հաստատված գրանցումներ դեռ չկան։",
+    "progress_done": "✓ Բոլոր մարզիկները կշռված են — ցանցը կարելի է գեներացնել։",
+    "progress_status": "Կշռված է {done}-ը {total}-ից",
+    "progress_gate_hint": "Ցանցի գեներացումը արգելափակված է մինչև բոլոր հաստատված մարզիկների կշռումը։",
+    "weight_placeholder": "կգ",
+    "record_btn": "Գրանցել",
+    "registered_kg": "հայտագրված {kg} կգ",
+    "official_kg": "{kg} կգ",
+    "generic_error": "Չստացվեց գրանցել կշռումը։"
   },
   "operator_tournament": {
     "no_bracket": "Цанцне дер чи дзеваворвел",
