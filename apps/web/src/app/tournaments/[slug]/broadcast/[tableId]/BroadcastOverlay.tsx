@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import Image from 'next/image';
 import { useTournamentSchedule, useTournamentTables } from '@/hooks/useSchedule';
 import { useBrackets } from '@/hooks/useTournaments';
+import { Avatar } from '@/components/Avatar';
 import type {
   Tournament,
   Bracket,
@@ -147,28 +147,24 @@ function PlayerPanel({
         </div>
       )}
 
-      {player.photoUrl ? (
-        <div
-          className="relative w-28 h-28 rounded-full overflow-hidden shrink-0"
-          style={{
-            border: '4px solid var(--color-accent)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          }}
-        >
-          <Image src={player.photoUrl} alt={name} fill style={{ objectFit: 'cover' }} />
-        </div>
-      ) : (
-        <div
-          className="w-28 h-28 rounded-full shrink-0 flex items-center justify-center text-4xl font-black"
-          style={{
-            border: '4px solid var(--color-accent)',
-            backgroundColor: 'rgba(255,255,255,0.08)',
-            color: 'white',
-          }}
-        >
-          {name.charAt(0).toUpperCase() || '?'}
-        </div>
-      )}
+      {/* Reuse the shared <Avatar> (passes `unoptimized` so next/image does
+          not try to proxy the API upload host — which is not in
+          `remotePatterns`) + handles fallback initials for us. Accent
+          ring + shadow to make it pop over a video feed. */}
+      <div
+        className="rounded-full shrink-0"
+        style={{
+          border: '4px solid var(--color-accent)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        }}
+      >
+        <Avatar
+          src={player.photoUrl ?? null}
+          firstName={player.firstName}
+          lastName={player.lastName}
+          size={112}
+        />
+      </div>
 
       {align === 'left' && (
         <div style={{ textAlign: 'left' }}>
