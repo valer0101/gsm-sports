@@ -117,6 +117,22 @@ export interface TournamentTable {
   updatedAt: string;
 }
 
+/**
+ * One match-to-table assignment. Active while `finishedAt` is null — at most
+ * one active assignment per match is enforced at the service layer.
+ */
+export interface MatchTableAssignment {
+  id: string;
+  tournamentId: string;
+  bracketId: string;
+  matchId: string;
+  tableId: string;
+  claimedBy: string | null;
+  assignedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 // ─── News ───────────────────────────────────────────────────
 export type NewsStatus = 'draft' | 'published' | 'archived';
 

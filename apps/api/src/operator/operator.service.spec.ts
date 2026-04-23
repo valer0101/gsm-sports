@@ -4,11 +4,17 @@ import { ForbiddenException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OperatorService } from './operator.service';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
+import { TournamentTable } from '../tournaments/entities/tournament-table.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { BracketsService } from '../brackets/brackets.service';
+import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
 
 const mockOperatorsRepo = {
   find: vi.fn(),
+  findOne: vi.fn(),
+};
+
+const mockTablesRepo = {
   findOne: vi.fn(),
 };
 
@@ -22,6 +28,12 @@ const mockBracketsService = {
   getPendingMatches: vi.fn(),
 };
 
+const mockMatchAssignments = {
+  getActiveByTournament: vi.fn(),
+  getActiveByTable: vi.fn(),
+  claimNextForTable: vi.fn(),
+};
+
 describe('OperatorService', () => {
   let service: OperatorService;
 
@@ -30,8 +42,10 @@ describe('OperatorService', () => {
       providers: [
         OperatorService,
         { provide: getRepositoryToken(TournamentOperator), useValue: mockOperatorsRepo },
+        { provide: getRepositoryToken(TournamentTable), useValue: mockTablesRepo },
         { provide: getRepositoryToken(Tournament), useValue: mockTournamentsRepo },
         { provide: BracketsService, useValue: mockBracketsService },
+        { provide: MatchAssignmentsService, useValue: mockMatchAssignments },
       ],
     }).compile();
 
@@ -122,7 +136,12 @@ describe('OperatorService', () => {
     });
 
     it('returns only active brackets with pending matches', async () => {
-      mockOperatorsRepo.findOne.mockResolvedValue({ tournamentId: 't-1', operatorId: 'op-1' });
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: null,
+      });
+      mockMatchAssignments.getActiveByTournament.mockResolvedValue([]);
       mockBracketsService.findByTournament.mockResolvedValue([
         {
           id: 'b-active-with-pending',
@@ -167,7 +186,12 @@ describe('OperatorService', () => {
     });
 
     it('exposes the isLocked flag so UI can disable controls', async () => {
-      mockOperatorsRepo.findOne.mockResolvedValue({ tournamentId: 't-1', operatorId: 'op-1' });
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: null,
+      });
+      mockMatchAssignments.getActiveByTournament.mockResolvedValue([]);
       mockBracketsService.findByTournament.mockResolvedValue([
         {
           id: 'b-1',
@@ -183,6 +207,132 @@ describe('OperatorService', () => {
 
       const result = await service.getPendingMatches('t-1', 'op-1');
       expect(result[0].isLocked).toBe(true);
+    });
+
+    it('hides matches claimed to a different table when operator is pinned', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: 'table-1',
+      });
+      mockMatchAssignments.getActiveByTournament.mockResolvedValue([
+        { matchId: 'wb_1_0', tableId: 'table-2', finishedAt: null },
+      ]);
+      mockBracketsService.findByTournament.mockResolvedValue([
+        { id: 'b-1', name: 'Cat A', status: 'active', isLocked: false, bracketData: {} },
+      ]);
+      mockBracketsService.getPendingMatches.mockReturnValueOnce([
+        { matchId: 'wb_1_0', player1: {}, player2: {}, section: 'winners' },
+        { matchId: 'wb_1_1', player1: {}, player2: {}, section: 'winners' },
+      ]);
+
+      const result = await service.getPendingMatches('t-1', 'op-1');
+      expect(result[0].pendingMatches).toHaveLength(1);
+      expect(result[0].pendingMatches[0].matchId).toBe('wb_1_1');
+    });
+
+    it('marks matches claimed to the operator\'s own table as assignedToMe', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: 'table-1',
+      });
+      mockMatchAssignments.getActiveByTournament.mockResolvedValue([
+        { matchId: 'wb_1_0', tableId: 'table-1', finishedAt: null },
+      ]);
+      mockBracketsService.findByTournament.mockResolvedValue([
+        { id: 'b-1', name: 'Cat A', status: 'active', isLocked: false, bracketData: {} },
+      ]);
+      mockBracketsService.getPendingMatches.mockReturnValueOnce([
+        { matchId: 'wb_1_0', player1: {}, player2: {}, section: 'winners' },
+      ]);
+
+      const result = await service.getPendingMatches('t-1', 'op-1');
+      expect(result[0].pendingMatches[0].assignedToMe).toBe(true);
+      expect(result[0].pendingMatches[0].assignedToOther).toBe(false);
+    });
+
+    it('roaming operator (tableId=null) sees all pending matches with assignedToOther flag', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: null,
+      });
+      mockMatchAssignments.getActiveByTournament.mockResolvedValue([
+        { matchId: 'wb_1_0', tableId: 'table-1', finishedAt: null },
+      ]);
+      mockBracketsService.findByTournament.mockResolvedValue([
+        { id: 'b-1', name: 'Cat A', status: 'active', isLocked: false, bracketData: {} },
+      ]);
+      mockBracketsService.getPendingMatches.mockReturnValueOnce([
+        { matchId: 'wb_1_0', player1: {}, player2: {}, section: 'winners' },
+        { matchId: 'wb_1_1', player1: {}, player2: {}, section: 'winners' },
+      ]);
+
+      const result = await service.getPendingMatches('t-1', 'op-1');
+      expect(result[0].pendingMatches).toHaveLength(2);
+      const claimed = result[0].pendingMatches.find((m: any) => m.matchId === 'wb_1_0');
+      expect(claimed.assignedToOther).toBe(true);
+      expect(claimed.assignedToMe).toBe(false);
+    });
+  });
+
+  describe('getMyTable', () => {
+    it('returns null when operator is not pinned to a table', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: null,
+      });
+      const result = await service.getMyTable('t-1', 'op-1');
+      expect(result).toBeNull();
+    });
+
+    it('returns table + active assignment when pinned', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: 'table-1',
+      });
+      const table = { id: 'table-1', tournamentId: 't-1', number: 3, status: 'busy' };
+      const assignment = { id: 'a-1', matchId: 'wb_1_0', tableId: 'table-1' };
+      mockTablesRepo.findOne.mockResolvedValue(table);
+      mockMatchAssignments.getActiveByTable.mockResolvedValue(assignment);
+
+      const result = await service.getMyTable('t-1', 'op-1');
+      expect(result).toEqual({ table, activeAssignment: assignment });
+    });
+
+    it('throws ForbiddenException if operator is not assigned', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue(null);
+      await expect(service.getMyTable('t-1', 'op-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('claimNextMatch', () => {
+    it('delegates to MatchAssignmentsService after verifying operator access', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: 'table-1',
+      });
+      mockMatchAssignments.claimNextForTable.mockResolvedValue({ id: 'a-1' });
+
+      const result = await service.claimNextMatch('t-1', 'table-1', 'op-1');
+      expect(mockMatchAssignments.claimNextForTable).toHaveBeenCalledWith(
+        't-1',
+        'table-1',
+        'op-1',
+        { isOrganizer: false, isAdmin: false },
+      );
+      expect(result).toEqual({ id: 'a-1' });
+    });
+
+    it('throws ForbiddenException if operator is not assigned', async () => {
+      mockOperatorsRepo.findOne.mockResolvedValue(null);
+      await expect(service.claimNextMatch('t-1', 'table-1', 'op-1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

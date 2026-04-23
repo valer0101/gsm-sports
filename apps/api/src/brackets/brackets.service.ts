@@ -32,6 +32,7 @@ import { GenerateBracketDto } from './dto/generate-bracket.dto';
 import { RecordResultDto } from './dto/record-result.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
 import { EventsGateway } from '../events/events.gateway';
+import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
 
 // Standard arm wrestling weight buckets (kg)
 const WEIGHT_BUCKETS = [
@@ -131,6 +132,7 @@ export class BracketsService {
     private readonly tournamentsService: TournamentsService,
     private readonly entriesService: EntriesService,
     private readonly eventsGateway: EventsGateway,
+    private readonly matchAssignmentsService: MatchAssignmentsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -569,6 +571,12 @@ export class BracketsService {
       this.logger.log(`Bracket ${bracketId} completed. Champion: ${updated.champion}`);
     }
 
+    // Close any active match→table assignment and free the surface. Safe to
+    // call unconditionally — it's a no-op when the match wasn't on a table
+    // (e.g. result recorded directly by the organizer before the operator
+    // flow existed).
+    await this.matchAssignmentsService.finishForMatch(bracket.tournamentId, dto.matchId);
+
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
     return this.findById(bracketId);
@@ -781,6 +789,10 @@ export class BracketsService {
         em,
       );
     });
+
+    // Withdraw awards the match to the opponent — if the match was on a
+    // table, free it.
+    await this.matchAssignmentsService.finishForMatch(bracket.tournamentId, matchId);
 
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
     return this.findById(bracketId);

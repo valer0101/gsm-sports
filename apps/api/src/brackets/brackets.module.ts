@@ -8,6 +8,7 @@ import { TournamentsModule } from '../tournaments/tournaments.module';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { EntriesModule } from '../entries/entries.module';
 import { EventsModule } from '../events/events.module';
+import { MatchAssignmentsModule } from '../match-assignments/match-assignments.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { EventsModule } from '../events/events.module';
     forwardRef(() => TournamentsModule),
     EntriesModule,
     EventsModule,
+    MatchAssignmentsModule,
   ],
   controllers: [BracketsController],
   providers: [BracketsService],

@@ -9,6 +9,7 @@ import { TournamentOperator } from '../tournaments/entities/tournament-operator.
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
 import { EventsGateway } from '../events/events.gateway';
+import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
 
 vi.mock('@gsm/bracket-engine', () => ({
   generateDoubleElimination: vi.fn(() => ({
@@ -124,6 +125,10 @@ describe('BracketsService', () => {
         { provide: TournamentsService, useFactory: mockTournamentsService },
         { provide: EntriesService, useFactory: mockEntriesService },
         { provide: EventsGateway, useValue: { emitBracketUpdate: vi.fn() } },
+        {
+          provide: MatchAssignmentsService,
+          useValue: { finishForMatch: vi.fn().mockResolvedValue(undefined) },
+        },
         {
           provide: getDataSourceToken(),
           useValue: {
