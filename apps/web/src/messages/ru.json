@@ -100,7 +100,15 @@
     "bracket_type_bracket": "СЕТКА",
     "fee_free_label": "Бесплатная регистрация",
     "fee_amount_label": "Взнос: {amount} AMD",
-    "fee_paid_label": "Платный взнос"
+    "fee_paid_label": "Платный взнос",
+    "my_registration_label": "Ваша регистрация",
+    "my_registration_entry_fallback": "Регистрация",
+    "checkin_qr_hint": "Покажите этот QR-код на стойке регистрации в день турнира.",
+    "checkin_status_pending": "Ожидает подтверждения организатором",
+    "checkin_status_confirmed": "Подтверждена — check-in не пройден",
+    "checkin_status_checked_in": "Check-in пройден ✓",
+    "checkin_status_withdrawn": "Снята",
+    "checkin_status_rejected": "Отклонена"
   },
   "athletes": {
     "title": "Атлеты",

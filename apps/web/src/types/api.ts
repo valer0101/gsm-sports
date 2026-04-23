@@ -110,9 +110,11 @@ export interface TournamentEntry {
   ageGroup: AgeGroup | null;
   hand: 'left' | 'right' | null;
   weightKg: number | null;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'checked_in' | 'rejected' | 'withdrawn';
   notes: string | null;
   createdAt: string;
+  checkedInAt?: string | null;
+  checkedInBy?: string | null;
   user?: {
     id: string;
     firstName: string;

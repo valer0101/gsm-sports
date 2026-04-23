@@ -100,7 +100,15 @@
     "bracket_type_bracket": "ՑԱՆՑ",
     "fee_free_label": "Անվճար գրանցում",
     "fee_amount_label": "Մասնակցավճար՝ {amount} AMD",
-    "fee_paid_label": "Վճարովի գրանցում"
+    "fee_paid_label": "Վճարովի գրանցում",
+    "my_registration_label": "Ձեր գրանցումը",
+    "my_registration_entry_fallback": "Գրանցում",
+    "checkin_qr_hint": "Ցույց տվեք այս QR կոդը գրանցման սեղանին մրցաշարի օրը։",
+    "checkin_status_pending": "Սպասում է կազմակերպչի հաստատմանը",
+    "checkin_status_confirmed": "Հաստատված — check-in դեռ չի արվել",
+    "checkin_status_checked_in": "Check-in արվել է ✓",
+    "checkin_status_withdrawn": "Հեռացված է",
+    "checkin_status_rejected": "Մերժված է"
   },
   "athletes": {
     "title": "Մարզիկներ",

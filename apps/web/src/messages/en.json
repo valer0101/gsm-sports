@@ -100,7 +100,15 @@
     "bracket_type_bracket": "BRACKET",
     "fee_free_label": "Free registration",
     "fee_amount_label": "Entry fee: {amount} AMD",
-    "fee_paid_label": "Paid entry"
+    "fee_paid_label": "Paid entry",
+    "my_registration_label": "Your registration",
+    "my_registration_entry_fallback": "Registration",
+    "checkin_qr_hint": "Show this QR at the check-in desk on event day.",
+    "checkin_status_pending": "Pending organizer approval",
+    "checkin_status_confirmed": "Confirmed — not yet checked in",
+    "checkin_status_checked_in": "Checked in ✓",
+    "checkin_status_withdrawn": "Withdrawn",
+    "checkin_status_rejected": "Rejected"
   },
   "athletes": {
     "title": "Athletes",
