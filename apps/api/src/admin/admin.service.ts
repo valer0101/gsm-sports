@@ -231,6 +231,7 @@ export class AdminService {
     userId: string,
     userRoles: string[],
     reason?: string,
+    result?: Record<string, unknown> | null,
   ) {
     const trimmed = reason?.trim() ?? '';
     // Align with CorrectResultDto @MinLength(3): defend against non-HTTP callers
@@ -242,7 +243,7 @@ export class AdminService {
     }
     return this.bracketsService.recordResult(
       bracketId,
-      { matchId, winnerId, notes: trimmed, forceCorrect: true },
+      { matchId, winnerId, notes: trimmed, forceCorrect: true, result },
       userId,
       userRoles,
     );

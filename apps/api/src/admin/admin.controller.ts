@@ -135,6 +135,7 @@ export class AdminController {
       req.user.sub,
       req.user.roles,
       dto.reason,
+      dto.result,
     );
   }
 
