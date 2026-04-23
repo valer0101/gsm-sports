@@ -146,4 +146,73 @@ describe('TelegramService', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('setWebhook', () => {
+    let service: TelegramService;
+
+    beforeEach(async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          TelegramService,
+          {
+            provide: ConfigService,
+            useValue: makeConfig({
+              TELEGRAM_BOT_TOKEN: '123456789:AABBCCDDEEFFGGHHIIJJKK',
+            }),
+          },
+        ],
+      }).compile();
+      service = module.get(TelegramService);
+    });
+
+    it('POSTs setWebhook with url + secret_token + allowed_updates', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      } as any);
+
+      await service.setWebhook(
+        'https://api.example.com/v1/telegram/webhook',
+        'super-secret',
+      );
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(
+        'https://api.telegram.org/bot123456789:AABBCCDDEEFFGGHHIIJJKK/setWebhook',
+      );
+      const body = JSON.parse(init.body as string);
+      expect(body).toEqual({
+        url: 'https://api.example.com/v1/telegram/webhook',
+        secret_token: 'super-secret',
+        allowed_updates: ['message'],
+        drop_pending_updates: true,
+      });
+    });
+
+    it('throws when stub-mode (no token)', async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          TelegramService,
+          { provide: ConfigService, useValue: makeConfig({}) },
+        ],
+      }).compile();
+      const stub = module.get(TelegramService);
+
+      await expect(
+        stub.setWebhook('https://x/v1/telegram/webhook', 's'),
+      ).rejects.toThrow(/TELEGRAM_BOT_TOKEN/);
+    });
+
+    it('throws on Telegram rejection', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: false, description: 'invalid url' }),
+      } as any);
+
+      await expect(
+        service.setWebhook('https://x/v1/telegram/webhook', 's'),
+      ).rejects.toThrow(/invalid url/);
+    });
+  });
 });
