@@ -88,8 +88,14 @@ export class MatchReminderTask {
     if (due.length === 0) return;
 
     // Preload the brackets + tables + entries we'll need to resolve
-    // matchIds → athlete user ids + human names.
-    const brackets = await this.bracketsRepository.find({ where: { tournamentId } });
+    // matchIds → athlete user ids + human names. `weightCategory` is
+    // eager-joined so reminder messages include the category label
+    // ("Men · 80kg · right"); without it the message falls back to a
+    // bare `bracket.name` which is usually null.
+    const brackets = await this.bracketsRepository.find({
+      where: { tournamentId },
+      relations: ['weightCategory'],
+    });
     const bracketById = new Map(brackets.map((b) => [b.id, b]));
 
     const tables = await this.tablesRepository.find({ where: { tournamentId } });
