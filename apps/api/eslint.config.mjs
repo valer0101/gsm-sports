@@ -18,6 +18,14 @@ const nodeGlobals = {
   clearImmediate: 'readonly',
   Express: 'readonly',
   NodeJS: 'readonly',
+  // Node 18+ / undici globals used by TelegramService (plain HTTP client).
+  fetch: 'readonly',
+  Request: 'readonly',
+  Response: 'readonly',
+  Headers: 'readonly',
+  RequestInit: 'readonly',
+  URL: 'readonly',
+  URLSearchParams: 'readonly',
 };
 
 const testGlobals = {
