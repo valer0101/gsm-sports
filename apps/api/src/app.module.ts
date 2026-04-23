@@ -18,6 +18,7 @@ import { UploadModule } from './upload/upload.module';
 import { NewsModule } from './news/news.module';
 import { MatchAssignmentsModule } from './match-assignments/match-assignments.module';
 import { ScheduleModule } from './schedule/schedule.module';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { ScheduleModule } from './schedule/schedule.module';
     NewsModule,
     MatchAssignmentsModule,
     ScheduleModule,
+    TelegramModule,
   ],
   providers: [
     // Global JWT guard — routes are protected by default; mark exceptions with @Public()
