@@ -207,12 +207,18 @@ export function buildSchedule(input: SchedulerInput): SchedulerOutput {
     });
   }
 
-  // Global ordering by start time, then stable by tableId for ties.
+  // Global ordering by start time, then stable by tableId for ties. Use
+  // raw `<`/`>` (code-point order) rather than `localeCompare` so the
+  // output is identical across Node builds and locales — `localeCompare`
+  // without an explicit locale is host-dependent and would break the
+  // determinism contract the API relies on.
   const ordered = [...scheduled].sort((a, b) => {
     if (a.estimatedStartAt !== b.estimatedStartAt) {
       return a.estimatedStartAt - b.estimatedStartAt;
     }
-    return a.tableId.localeCompare(b.tableId);
+    if (a.tableId < b.tableId) return -1;
+    if (a.tableId > b.tableId) return 1;
+    return 0;
   });
   ordered.forEach((m, i) => {
     m.order = i + 1;
