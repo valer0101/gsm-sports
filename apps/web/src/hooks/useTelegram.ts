@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useCurrentUser } from './useCurrentUser';
 
 export interface TelegramLinkStatus {
   id: string;
@@ -20,14 +21,25 @@ export interface TelegramLinkToken {
 /**
  * Current Telegram link for the logged-in user. `null` when unlinked.
  * Used to drive the profile-page section between "connect" and "connected"
- * states. `staleTime: 0` — after the user finishes the deep-link flow on
- * their phone the hook must re-query to pick up the new chatId on the
- * next window focus.
+ * states.
+ *
+ * `queryKey` includes the current user's id so the cache doesn't leak
+ * across accounts: if user A logs out and user B logs in in the same
+ * tab, React Query won't serve A's "connected to …1234" badge to B
+ * while the new fetch is in flight. `enabled` also guards against
+ * anonymous fires — no point asking `/telegram/link` without a token.
+ *
+ * Refetches on window focus so the status flips to "connected"
+ * automatically after the athlete completes the deep-link flow on
+ * their phone.
  */
 export function useTelegramLink() {
+  const { data: user } = useCurrentUser();
+  const userId = user?.id ?? null;
   return useQuery<TelegramLinkStatus | null>({
-    queryKey: ['telegram', 'link'],
+    queryKey: ['telegram', 'link', userId],
     queryFn: () => api.get('/telegram/link').then((r: any) => r.data),
+    enabled: !!userId,
     refetchOnWindowFocus: true,
   });
 }
@@ -50,6 +62,8 @@ export function useUnlinkTelegram() {
   return useMutation({
     mutationFn: () => api.delete('/telegram/link').then((r: any) => r.data),
     onSuccess: () => {
+      // Invalidate the full `['telegram', 'link', *]` prefix so the hit
+      // fires regardless of which user-scoped key currently lives in cache.
       qc.invalidateQueries({ queryKey: ['telegram', 'link'] });
     },
   });
