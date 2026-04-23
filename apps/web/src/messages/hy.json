@@ -490,6 +490,19 @@
     "eta_minutes": "~{n} րոպե",
     "eta_hours": "~{n} ժ"
   },
+  "arena": {
+    "label": "ԱՐԵՆԱ",
+    "live": "ԵԹԵՐ",
+    "table_number": "Սեղան №{n}",
+    "table_idle": "Ազատ է",
+    "table_busy": "Ընթանում է հանդիպում",
+    "table_offline": "Անջատված է",
+    "waiting": "Սպասում է հանդիպման",
+    "vs": "VS",
+    "upcoming_title": "Հաջորդ հերթում",
+    "no_upcoming": "Հերթը դատարկ է",
+    "no_tables": "Սեղաններ կարգավորված չեն"
+  },
   "register_modal": {
     "age_juniors": "Джуниорнер (18-ы мутк)",
     "age_adults": "Мецахасакнер",

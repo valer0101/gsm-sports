@@ -342,6 +342,19 @@
     "eta_minutes": "~{n} min",
     "eta_hours": "~{n} h"
   },
+  "arena": {
+    "label": "ARENA",
+    "live": "LIVE",
+    "table_number": "Table #{n}",
+    "table_idle": "Idle",
+    "table_busy": "Match in progress",
+    "table_offline": "Offline",
+    "waiting": "Awaiting match",
+    "vs": "VS",
+    "upcoming_title": "Up next",
+    "no_upcoming": "Queue is empty",
+    "no_tables": "No tables configured"
+  },
   "register_modal": {
     "age_juniors": "Juniors (under 18)",
     "age_adults": "Adults",
