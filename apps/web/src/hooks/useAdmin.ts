@@ -186,6 +186,37 @@ export function useAdminLockBracket(bracketId: string, tournamentId: string) {
   });
 }
 
+/**
+ * Starts a category on a bracket — the backend auto-forfeits any entry not
+ * in `checked_in` (PR #20). Used by the admin bracket manager UI after
+ * on-site check-in is complete.
+ */
+export interface StartCategoryResult {
+  requireCheckIn: boolean;
+  withdrawn: string[];
+  skipped: string[];
+  doubleNoShow: string[];
+  errors: Array<{ matchId: string; error: string }>;
+}
+
+export function useAdminStartCategory(bracketId: string, tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation<StartCategoryResult>({
+    mutationFn: () =>
+      api.patch(`/brackets/${bracketId}/start-category`).then((r: any) => r.data),
+    onSuccess: () => {
+      // Forfeits mutate bracketData + audit log — invalidate everything the
+      // bracket manager / operator UI might display.
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'bracket-audit', bracketId] });
+      qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['schedule', tournamentId] });
+    },
+  });
+}
+
 export function useAdminBracketAuditLog(bracketId: string) {
   return useQuery<BracketAuditLog[]>({
     queryKey: ['admin', 'bracket-audit', bracketId],

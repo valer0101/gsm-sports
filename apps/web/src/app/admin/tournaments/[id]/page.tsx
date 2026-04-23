@@ -13,6 +13,7 @@ import {
   useAdminBrackets,
   useAdminResetMatch,
   useAdminLockBracket,
+  useAdminStartCategory,
   useAdminBracketAuditLog,
   useAdminCorrectResult,
   useAdminReplacePlayer,
@@ -538,6 +539,7 @@ function BracketManager({
 }) {
   const locale = useLocale();
   const lockMutation = useAdminLockBracket(bracketId, tournamentId);
+  const startCategory = useAdminStartCategory(bracketId, tournamentId);
   const resetMatch = useAdminResetMatch(bracketId, tournamentId);
   const correctResult = useAdminCorrectResult(bracketId, tournamentId);
   const replacePlayer = useAdminReplacePlayer(bracketId, tournamentId);
@@ -546,6 +548,12 @@ function BracketManager({
   const confirmedEntries = confirmedEntriesRes?.data ?? [];
   const { data: auditLog } = useAdminBracketAuditLog(bracketId);
 
+  // Once the user has clicked "Start category" + confirmed, we surface the
+  // returned forfeit summary in a small banner below the status bar.
+  const [startResult, setStartResult] = useState<ReturnType<
+    typeof useAdminStartCategory
+  >['data'] | null>(null);
+  const [confirmStart, setConfirmStart] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [resetState, setResetState] = useState<{
     matchId: string;
@@ -669,11 +677,24 @@ function BracketManager({
           </span>
         )}
 
+        {/* Start category — auto-forfeit no-shows */}
+        <button
+          onClick={() => setConfirmStart(true)}
+          disabled={startCategory.isPending || bracket.isLocked}
+          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
+          style={{
+            borderColor: 'rgba(16,185,129,0.4)',
+            color: '#10b981',
+          }}
+        >
+          {startCategory.isPending ? '...' : t('start_category_btn')}
+        </button>
+
         {/* Lock / Unlock */}
         <button
           onClick={() => lockMutation.mutate(!bracket.isLocked)}
           disabled={lockMutation.isPending}
-          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
           style={{
             borderColor: bracket.isLocked ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)',
             color: bracket.isLocked ? '#fbbf24' : 'var(--color-text-secondary)',
@@ -691,6 +712,86 @@ function BracketManager({
           {showAudit ? t('audit_hide') : t('audit_show')}
         </button>
       </div>
+
+      {/* Start-category confirm + result */}
+      {confirmStart && !startResult && (
+        <div className="rounded-xl p-3 border border-emerald-500/30 bg-emerald-500/5">
+          <p className="text-sm text-emerald-200 mb-2">{t('start_category_confirm')}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                startCategory.mutate(undefined, {
+                  onSuccess: (data) => {
+                    setStartResult(data);
+                    setConfirmStart(false);
+                  },
+                })
+              }
+              disabled={startCategory.isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-200 disabled:opacity-50"
+            >
+              {startCategory.isPending ? '...' : t('start_category_go')}
+            </button>
+            <button
+              onClick={() => setConfirmStart(false)}
+              className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5 transition-colors"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {t('cancel')}
+            </button>
+          </div>
+          {startCategory.error && (
+            <p className="mt-2 text-xs text-red-400">
+              {(startCategory.error as any)?.response?.data?.message ?? t('error')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {startResult && (
+        <div
+          className="rounded-xl p-3 border text-sm space-y-1"
+          style={{
+            borderColor: startResult.errors.length
+              ? 'rgba(239,68,68,0.4)'
+              : 'rgba(16,185,129,0.3)',
+            backgroundColor: startResult.errors.length
+              ? 'rgba(239,68,68,0.05)'
+              : 'rgba(16,185,129,0.05)',
+          }}
+        >
+          {!startResult.requireCheckIn ? (
+            <p style={{ color: 'var(--color-text-secondary)' }}>
+              {t('start_category_not_required')}
+            </p>
+          ) : (
+            <>
+              <p className="font-semibold text-white">
+                {t('start_category_result', { n: startResult.withdrawn.length })}
+              </p>
+              {startResult.doubleNoShow.length > 0 && (
+                <p style={{ color: '#fbbf24' }}>
+                  ⚠ {t('start_category_double_no_show', {
+                    n: startResult.doubleNoShow.length,
+                  })}
+                </p>
+              )}
+              {startResult.errors.length > 0 && (
+                <p className="text-red-400">
+                  ✗ {t('start_category_errors', { n: startResult.errors.length })}
+                </p>
+              )}
+            </>
+          )}
+          <button
+            onClick={() => setStartResult(null)}
+            className="text-xs underline"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {t('dismiss')}
+          </button>
+        </div>
+      )}
 
       {/* Audit log */}
       {showAudit && auditLog && <AuditLogTable logs={auditLog} getPlayerName={getPlayerName} />}
