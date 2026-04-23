@@ -143,7 +143,23 @@ export class MatchAssignmentsService {
         startedAt: now,
         finishedAt: null,
       });
-      const saved = await assignRepo.save(record);
+
+      // The UNIQUE partial index (tournament_id, match_id) WHERE finished_at
+      // IS NULL is the ultimate guard against concurrent claims picking the
+      // same match — translate the Postgres error into a friendly 409 for
+      // the loser of the race.
+      let saved: MatchTableAssignment;
+      try {
+        saved = await assignRepo.save(record);
+      } catch (err) {
+        const code = (err as { code?: string } | null)?.code;
+        if (code === '23505') {
+          throw new ConflictException(
+            'Match was just claimed by another table — try again',
+          );
+        }
+        throw err;
+      }
 
       await tableRepo.update(tableId, { status: 'busy' });
 

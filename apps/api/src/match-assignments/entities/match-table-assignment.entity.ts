@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { TournamentTable } from '../../tournaments/entities/tournament-table.entity';
@@ -65,4 +66,7 @@ export class MatchTableAssignment {
 
   @Column({ name: 'finished_at', type: 'timestamptz', nullable: true })
   finishedAt: Date | null;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 }

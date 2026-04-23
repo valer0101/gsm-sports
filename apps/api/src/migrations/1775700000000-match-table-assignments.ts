@@ -6,9 +6,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * operator queue (Phase 2.1 continuation) and the upcoming auto-scheduler
  * + arena display features.
  *
- * At-most-one active assignment per match is enforced in the service layer
- * (not with a partial index) so a match can be re-assigned cleanly after a
- * reset / result correction without requiring migration-level changes.
+ * At-most-one active assignment per (tournament, match) is enforced by a
+ * UNIQUE partial index on `(tournament_id, match_id) WHERE finished_at IS
+ * NULL` — without this, two concurrent `claimNextForTable` calls on
+ * different idle tables could both pick the same pending match. A finished
+ * match frees the slot naturally (it drops out of the partial index).
  */
 export class MatchTableAssignments1775700000000 implements MigrationInterface {
   name = 'MatchTableAssignments1775700000000';
@@ -25,6 +27,7 @@ export class MatchTableAssignments1775700000000 implements MigrationInterface {
         "assigned_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "started_at" TIMESTAMP WITH TIME ZONE NULL,
         "finished_at" TIMESTAMP WITH TIME ZONE NULL,
+        "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         CONSTRAINT "PK_match_table_assignments_id" PRIMARY KEY ("id"),
         CONSTRAINT "FK_match_table_assignments_tournament" FOREIGN KEY ("tournament_id")
           REFERENCES "tournaments"("id") ON DELETE CASCADE,
@@ -53,9 +56,12 @@ export class MatchTableAssignments1775700000000 implements MigrationInterface {
       `CREATE INDEX IF NOT EXISTS "IDX_mta_table_id"
         ON "match_table_assignments" ("table_id")`,
     );
-    // Fast lookup for the "active assignment for this match" guard.
+    // UNIQUE partial index: enforces at-most-one active assignment per
+    // (tournament, match) at the database layer. Two concurrent claims on
+    // the same match now fail loudly with a constraint violation instead of
+    // silently double-booking.
     await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "IDX_mta_tournament_match_active"
+      `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_mta_tournament_match_active"
         ON "match_table_assignments" ("tournament_id", "match_id")
         WHERE "finished_at" IS NULL`,
     );
@@ -69,7 +75,7 @@ export class MatchTableAssignments1775700000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_mta_table_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_mta_tournament_match_active"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_mta_tournament_match_active"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_mta_table_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_mta_match_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_mta_bracket_id"`);

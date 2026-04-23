@@ -292,6 +292,26 @@ describe('MatchAssignmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('translates the 23505 unique-violation into ConflictException (race loser)', async () => {
+      operatorsRepo.findOne.mockResolvedValue({
+        tournamentId: 't-1',
+        operatorId: 'op-1',
+        tableId: null,
+      });
+      tablesRepo.findOne.mockResolvedValue({ id: 'table-1', number: 1, status: 'idle' });
+      assignmentsRepo.findOne.mockResolvedValue(null);
+      assignmentsRepo.find.mockResolvedValue([]);
+      bracketsRepo.find.mockResolvedValue([
+        { id: 'b-1', status: 'active', isLocked: false, bracketData: makeBracketData('wb_1_0') },
+      ]);
+      const pgError = Object.assign(new Error('unique violation'), { code: '23505' });
+      assignmentsRepo.save.mockRejectedValueOnce(pgError);
+
+      await expect(
+        service.claimNextForTable('t-1', 'table-1', 'op-1'),
+      ).rejects.toThrow(ConflictException);
+    });
+
     it('ignores TBD/BYE slots', async () => {
       operatorsRepo.findOne.mockResolvedValue({
         tournamentId: 't-1',
