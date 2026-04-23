@@ -11,6 +11,7 @@ import { ParticipantsList } from '@/components/tournaments/ParticipantsList';
 import { BracketView } from '@/components/tournaments/BracketView';
 import { RegisterModal } from '@/components/tournaments/RegisterModal';
 import { useMyEntries, useCheckinQr } from '@/hooks/useEntries';
+import { useWeighInByEntry } from '@/hooks/useWeighIns';
 
 type Tab = 'participants' | 'bracket';
 
@@ -189,6 +190,12 @@ function MyRegistrationCard({ entry }: { entry: TournamentEntry }) {
   // for already-checked-in / withdrawn / rejected entries.
   const qrNeeded = !isCheckedIn && entry.status !== 'withdrawn' && entry.status !== 'rejected';
   const { data: qr } = useCheckinQr(qrNeeded ? entry.id : null);
+  // If a weigh-in was recorded for this entry, surface it as a chip next
+  // to the status badge. The endpoint returns `null` for entries without a
+  // row (and the service rejects recording for sports that don't require
+  // weigh-ins), so presence of data is itself the gate — no extra
+  // sport-config lookup needed on the client.
+  const { data: weighIn } = useWeighInByEntry(entry.id);
 
   const statusLabel =
     isCheckedIn ? t('checkin_status_checked_in')
@@ -229,6 +236,14 @@ function MyRegistrationCard({ entry }: { entry: TournamentEntry }) {
         >
           {statusLabel}
         </span>
+        {weighIn && (
+          <span
+            className="ml-2 inline-block px-2.5 py-1 rounded-full text-xs font-bold"
+            style={{ color: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' }}
+          >
+            ⚖ {t('weigh_in_badge', { kg: Number(weighIn.officialWeightKg) })}
+          </span>
+        )}
 
         {qrNeeded && (
           <p className="text-xs mt-3" style={{ color: 'var(--color-text-secondary)' }}>

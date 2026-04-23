@@ -101,6 +101,22 @@ export interface Tournament {
   sportConfig: Record<string, any> | null;
 }
 
+/**
+ * Official on-site weigh-in (Phase 3.1). One row per `TournamentEntry`;
+ * an upsert overwrites the previous measurement so the UI can assume
+ * "one weigh-in per entry at most".
+ */
+export interface WeighInResponse {
+  id: string;
+  entryId: string;
+  tournamentId: string;
+  officialWeightKg: number;
+  verifiedBy: string;
+  verifiedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type AgeGroup = 'juniors' | 'adults' | 'veterans';
 
 export interface TournamentEntry {
