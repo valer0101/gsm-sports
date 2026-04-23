@@ -192,6 +192,70 @@ describe('ScheduleService', () => {
     expect(out.scheduled).toEqual([]);
   });
 
+  it('does NOT double-book an athlete who is currently playing on another table', async () => {
+    // Scenario that originally failed review on PR #17: A is in an active
+    // assignment on t1 (started 30s ago; avg 180s → busy until +150s). A also
+    // has a pending match in LB. Without seeding activeByTable into
+    // athleteLastFinishAt, the scheduler would place that pending match NOW
+    // on t2.
+    const startedAt = new Date(Date.now() - 30_000);
+    tournamentsRepo.findOne.mockResolvedValue(makeTournament());
+    tablesRepo.find.mockResolvedValue([
+      { id: 't1', status: 'busy', number: 1 },
+      { id: 't2', status: 'idle', number: 2 },
+    ]);
+    bracketsRepo.find.mockResolvedValue([
+      {
+        id: 'b1',
+        status: 'active',
+        isLocked: false,
+        createdAt: new Date('2026-05-01'),
+        bracketData: {
+          players: [],
+          bracketSize: 4,
+          wbRounds: 2,
+          winnersBracket: [
+            [
+              // A is playing this one on t1 right now.
+              { id: 'running', winner: null, player1: { id: 'a' }, player2: { id: 'b' } },
+            ],
+          ],
+          losersBracket: [
+            [
+              // A's next match — should wait for t1 + rest.
+              { id: 'a-next', winner: null, player1: { id: 'a' }, player2: { id: 'c' } },
+            ],
+          ],
+          grandFinal: { id: 'gf', winner: null, player1: { id: 'tbd' }, player2: { id: 'tbd' } },
+          superFinal: { id: 'sf', needed: false },
+        },
+      },
+    ]);
+    assignmentsRepo.find.mockResolvedValue([
+      {
+        id: 'a-running',
+        tournamentId: 'tournament-1',
+        bracketId: 'b1',
+        matchId: 'running',
+        tableId: 't1',
+        startedAt,
+        assignedAt: startedAt,
+        finishedAt: null,
+      },
+    ]);
+
+    const out = await service.getForTournament('tournament-1');
+
+    expect(out.scheduled).toHaveLength(1);
+    const aNext = out.scheduled[0];
+    expect(aNext.matchId).toBe('a-next');
+    // ETA floor: startedAt + avgDuration(180s) + minRest(600s) = +750s
+    // from startedAt. Must be AT LEAST that.
+    const projectedEnd = startedAt.getTime() + 180 * 1000;
+    const expectedEarliest = projectedEnd + 600 * 1000;
+    expect(aNext.estimatedStartAt).toBeGreaterThanOrEqual(expectedEarliest - 1);
+  });
+
   it('seeds athleteLastFinishAt from finished assignments so rest applies across runs', async () => {
     const finishedAt = new Date(Date.now() - 60_000); // athlete A finished 60s ago
     tournamentsRepo.findOne.mockResolvedValue(makeTournament());

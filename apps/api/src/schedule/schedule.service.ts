@@ -78,7 +78,7 @@ export class ScheduleService {
     const activeByTable = new Map<string, MatchTableAssignment>();
     const finished: MatchTableAssignment[] = [];
     for (const a of allAssignments) {
-      if (a.finishedAt === null) activeByTable.set(a.tableId, a);
+      if (!a.finishedAt) activeByTable.set(a.tableId, a);
       else finished.push(a);
     }
 
@@ -147,29 +147,56 @@ export class ScheduleService {
       if (data.superFinal?.needed) pushIfPlayable(data.superFinal);
     }
 
-    // Build athleteLastFinishAt from closed assignments. For each finished
-    // assignment we dig into the bracket data to get the match's athlete IDs,
-    // then keep the max `finishedAt` per athlete.
+    // Build athleteLastFinishAt so the scheduler respects min-rest across
+    // the whole tournament, not just matches batched together. Two inputs:
+    //   - finished assignments: use the real `finishedAt`,
+    //   - active assignments: project the estimated end (`startedAt + avg`)
+    //     so an athlete currently playing on one table isn't double-booked
+    //     onto another idle table starting "now".
     const bracketById = new Map(brackets.map((b) => [b.id, b]));
     const athleteLastFinishAt: Record<string, string> = {};
 
-    for (const a of finished) {
-      if (!a.finishedAt) continue;
+    const recordAthleteFinish = (athleteId: string | undefined, whenIso: string) => {
+      if (!athleteId || athleteId === 'tbd' || athleteId === 'bye') return;
+      const prior = athleteLastFinishAt[athleteId];
+      if (!prior || Date.parse(whenIso) > Date.parse(prior)) {
+        athleteLastFinishAt[athleteId] = whenIso;
+      }
+    };
+
+    const athletesOfAssignment = (
+      a: MatchTableAssignment,
+    ): { player1?: { id?: string }; player2?: { id?: string } } | null => {
       const bracket = bracketById.get(a.bracketId);
-      if (!bracket?.bracketData) continue;
-      const match = this.findMatchInBracket(
+      if (!bracket?.bracketData) return null;
+      return this.findMatchInBracket(
         bracket.bracketData as unknown as BracketData,
         a.matchId,
       );
+    };
+
+    for (const a of finished) {
+      if (!a.finishedAt) continue;
+      const match = athletesOfAssignment(a);
       if (!match) continue;
-      const finishedIso = new Date(a.finishedAt).toISOString();
-      for (const athleteId of [match.player1?.id, match.player2?.id]) {
-        if (!athleteId || athleteId === 'tbd' || athleteId === 'bye') continue;
-        const prior = athleteLastFinishAt[athleteId];
-        if (!prior || Date.parse(finishedIso) > Date.parse(prior)) {
-          athleteLastFinishAt[athleteId] = finishedIso;
-        }
-      }
+      const whenIso = new Date(a.finishedAt).toISOString();
+      recordAthleteFinish(match.player1?.id, whenIso);
+      recordAthleteFinish(match.player2?.id, whenIso);
+    }
+
+    for (const a of activeByTable.values()) {
+      const match = athletesOfAssignment(a);
+      if (!match) continue;
+      const startedMs = a.startedAt
+        ? new Date(a.startedAt).getTime()
+        : a.assignedAt
+          ? new Date(a.assignedAt).getTime()
+          : nowMs;
+      // Project the ETA so a pending match for the same athlete gets pushed
+      // past `startedAt + avg + minRest` on the next call to buildSchedule.
+      const projectedEndIso = new Date(startedMs + avgDurationMs).toISOString();
+      recordAthleteFinish(match.player1?.id, projectedEndIso);
+      recordAthleteFinish(match.player2?.id, projectedEndIso);
     }
 
     return buildSchedule({
