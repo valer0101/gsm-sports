@@ -4,9 +4,12 @@ import {
   IsArray,
   IsBoolean,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -92,4 +95,28 @@ export class SportConfigDto {
   @ValidateNested()
   @Type(() => TermPairDto)
   participantTerm?: TermPairDto;
+
+  @ApiProperty({
+    required: false,
+    minimum: 30,
+    maximum: 36000,
+    description: 'Typical match duration in seconds (scheduler input)',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(36000)
+  avgMatchDurationSec?: number;
+
+  @ApiProperty({
+    required: false,
+    minimum: 0,
+    maximum: 86400,
+    description: "Minimum rest between an athlete's own matches, in seconds",
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(86400)
+  minRestBetweenMatchesSec?: number;
 }
