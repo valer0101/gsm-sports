@@ -2,7 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Tournament, Bracket, PendingMatchesByBracket } from '@/types/api';
+import type {
+  Tournament,
+  Bracket,
+  PendingMatchesByBracket,
+  OperatorMyTable,
+  MatchTableAssignment,
+} from '@/types/api';
 
 export function useOperatorTournaments() {
   return useQuery<Tournament[]>({
@@ -38,7 +44,33 @@ export function useOperatorWithdrawPlayer(bracketId: string, tournamentId: strin
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'my-table', tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
+    },
+  });
+}
+
+export function useOperatorMyTable(tournamentId: string) {
+  return useQuery<OperatorMyTable | null>({
+    queryKey: ['operator', 'my-table', tournamentId],
+    queryFn: () =>
+      api.get(`/operator/tournaments/${tournamentId}/my-table`).then((r: any) => r.data),
+    enabled: !!tournamentId,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useOperatorClaimNext(tournamentId: string, tableId: string) {
+  const qc = useQueryClient();
+  return useMutation<MatchTableAssignment>({
+    mutationFn: () =>
+      api
+        .post(`/operator/tournaments/${tournamentId}/tables/${tableId}/claim-next`)
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['operator', 'my-table', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
     },
   });
 }
@@ -61,6 +93,7 @@ export function useRecordResult(bracketId: string) {
     onSuccess: (data: Bracket) => {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets'] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches'] });
+      qc.invalidateQueries({ queryKey: ['operator', 'my-table', data.tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', data.tournamentId] });
     },
   });

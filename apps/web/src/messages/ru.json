@@ -328,7 +328,16 @@
     "withdraw_confirm": "Снять {player}? Победа присуждается {opponent} (forfeit).",
     "withdraw_reason_placeholder": "Причина (травма, неявка, DQ)",
     "withdraw_confirm_btn": "Подтвердить снятие",
-    "withdraw_result": "{player} снят. Победа: {opponent}"
+    "withdraw_result": "{player} снят. Победа: {opponent}",
+    "your_table_label": "Ваш стол",
+    "table_number": "Стол №{n}",
+    "table_status_idle": "Свободен — можно брать матч",
+    "table_status_busy": "Занят — идёт матч",
+    "table_status_offline": "Отключён",
+    "claim_next_btn": "Взять следующий матч",
+    "running_now": "Сейчас идёт:",
+    "match_id_label": "Матч {id}",
+    "running_on_my_table": "На вашем столе"
   },
   "register_modal": {
     "age_juniors": "Юниоры (до 18)",

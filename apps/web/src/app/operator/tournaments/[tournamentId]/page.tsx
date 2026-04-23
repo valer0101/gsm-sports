@@ -7,6 +7,8 @@ import {
   useOperatorBrackets,
   useRecordResult,
   useOperatorWithdrawPlayer,
+  useOperatorMyTable,
+  useOperatorClaimNext,
 } from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
@@ -63,6 +65,8 @@ export default function OperatorTournamentPage({
 
       <h1 className="text-xl font-black text-white mb-4">{t('title')}</h1>
 
+      <MyTableBanner tournamentId={tournamentId} />
+
       {/* Category tabs */}
       {brackets.length > 1 && (
         <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
@@ -96,7 +100,7 @@ export default function OperatorTournamentPage({
       )}
 
       {bracket.bracketData ? (
-        <MatchList bracket={bracket} />
+        <MatchList bracket={bracket} tournamentId={tournamentId} />
       ) : (
         <p className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
           {t('no_bracket')}
@@ -106,7 +110,81 @@ export default function OperatorTournamentPage({
   );
 }
 
-function MatchList({ bracket }: { bracket: Bracket }) {
+function MyTableBanner({ tournamentId }: { tournamentId: string }) {
+  const t = useTranslations('operator_tournament');
+  const { data: myTable, isLoading } = useOperatorMyTable(tournamentId);
+  const claim = useOperatorClaimNext(tournamentId, myTable?.table?.id ?? '');
+
+  if (isLoading) {
+    return <Skeleton className="h-20 w-full rounded-xl mb-5" />;
+  }
+
+  // Operator is roaming (not pinned) — skip the banner entirely. Claim flow
+  // for roaming operators is out of scope for this PR (they'd need to pick a
+  // table first). They still see the full pending-match list below.
+  if (!myTable) return null;
+
+  const { table, activeAssignment } = myTable;
+  const busy = table.status === 'busy' && activeAssignment;
+
+  return (
+    <div
+      className="mb-5 rounded-2xl border p-4"
+      style={{
+        backgroundColor: 'var(--color-secondary)',
+        borderColor: busy ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('your_table_label')}
+          </p>
+          <p className="font-black text-white text-lg">
+            {t('table_number', { n: table.number })}
+            {table.name ? ` · ${table.name}` : ''}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+            {t(`table_status_${table.status}`)}
+          </p>
+        </div>
+
+        {!busy && (
+          <button
+            disabled={claim.isPending || table.status === 'offline'}
+            onClick={() => claim.mutate()}
+            className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+          >
+            {claim.isPending ? '...' : t('claim_next_btn')}
+          </button>
+        )}
+      </div>
+
+      {claim.error && (
+        <p className="mt-2 text-xs text-red-400">
+          {(claim.error as any)?.response?.data?.message ?? t('error')}
+        </p>
+      )}
+
+      {busy && activeAssignment && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('running_now')}
+          </p>
+          <p className="text-sm text-white font-semibold mt-0.5">
+            {t('match_id_label', { id: activeAssignment.matchId })}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: string }) {
+  const { data: myTable } = useOperatorMyTable(tournamentId);
+  const myTableId = myTable?.table?.id ?? null;
+  const activeAssignmentMatchId = myTable?.activeAssignment?.matchId ?? null;
   const t = useTranslations('operator_tournament');
   const record = useRecordResult(bracket.id);
   const withdraw = useOperatorWithdrawPlayer(bracket.id, bracket.tournamentId);
@@ -207,6 +285,7 @@ function MatchList({ bracket }: { bracket: Bracket }) {
       {pendingMatches.map((match) => {
         const isConfirming = confirm?.matchId === match.id;
         const isRecording = record.isPending && isConfirming;
+        const isRunningOnMyTable = myTableId !== null && activeAssignmentMatchId === match.id;
 
         return (
           <div
@@ -214,15 +293,30 @@ function MatchList({ bracket }: { bracket: Bracket }) {
             className="rounded-2xl border overflow-hidden transition-colors"
             style={{
               backgroundColor: 'var(--color-secondary)',
-              borderColor: isConfirming ? 'var(--color-accent)' : 'rgba(255,255,255,0.08)',
+              borderColor: isConfirming
+                ? 'var(--color-accent)'
+                : isRunningOnMyTable
+                  ? 'var(--color-accent)'
+                  : 'rgba(255,255,255,0.08)',
             }}
           >
             {/* Round label */}
             <div
-              className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b border-white/5"
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b border-white/5 flex items-center justify-between gap-2"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              {match.sectionLabel}
+              <span>{match.sectionLabel}</span>
+              {isRunningOnMyTable && (
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                  style={{
+                    color: 'var(--color-accent)',
+                    backgroundColor: 'var(--color-accent-dim)',
+                  }}
+                >
+                  ▶ {t('running_on_my_table')}
+                </span>
+              )}
             </div>
 
             <div className="p-4 grid grid-cols-2 gap-3">
