@@ -226,23 +226,14 @@ export interface OperatorMyTable {
   activeAssignment: MatchTableAssignment | null;
 }
 
-/** One entry from the tournament schedule endpoint. */
-export interface ScheduledMatch {
-  matchId: string;
-  bracketId: string;
-  tableId: string;
-  /** Epoch ms. */
-  estimatedStartAt: number;
-  /** Epoch ms. */
-  estimatedEndAt: number;
-  /** 1-based queue position across all tables. */
-  order: number;
-}
-
-export interface TournamentSchedule {
-  scheduled: ScheduledMatch[];
-  unscheduled: Array<{ matchId: string; bracketId: string; athleteIds: [string, string] }>;
-}
+// Scheduler-shaped types come straight from `@gsm/scheduler` so we don't
+// drift from the backend / package contract. Re-exported for convenience
+// so consumers import from `@/types/api` alongside everything else.
+export type {
+  ScheduledMatch,
+  SchedulerOutput as TournamentSchedule,
+  SchedulerMatch,
+} from '@gsm/scheduler';
 
 export interface PendingMatch {
   matchId: string;

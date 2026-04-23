@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gsm/scheduler": "*",
     "@gsm/shared-types": "*",
     "@hookform/resolvers": "^4.1.0",
     "@tanstack/react-query": "^5.74.0",
