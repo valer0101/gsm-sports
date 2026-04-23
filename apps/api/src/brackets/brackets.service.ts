@@ -36,6 +36,7 @@ import { MatchAssignmentsService } from '../match-assignments/match-assignments.
 import { resolveSportConfig } from '../sports/sport-config';
 import type { SportConfig } from '@gsm/shared-types';
 import { TelegramNotificationsService } from '../telegram/telegram-notifications.service';
+import { validateMatchResult } from './match-result.validator';
 
 // Standard arm wrestling weight buckets (kg)
 const WEIGHT_BUCKETS = [
@@ -509,6 +510,28 @@ export class BracketsService {
     const existingMatch = findMatch(data, dto.matchId);
     const isCorrection = !!existingMatch?.winner;
 
+    // Validate the optional sport-specific result detail against the
+    // tournament's `matchResultSchema`. `null` is always allowed (explicit
+    // clear); `undefined` means "preserve whatever's there", handled
+    // by the engine when we pass it through below.
+    if (dto.result !== undefined && dto.result !== null) {
+      if (!existingMatch) {
+        throw new BadRequestException(`Match ${dto.matchId} not found in bracket`);
+      }
+      const cfg = resolveSportConfig(
+        bracket.tournament.sport?.slug ?? '',
+        bracket.tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
+      );
+      const resultErrors = validateMatchResult(dto.result, cfg.matchResultSchema, existingMatch);
+      if (resultErrors.length > 0) {
+        throw new BadRequestException({
+          code: 'INVALID_MATCH_RESULT',
+          message: `Invalid result payload for ${cfg.matchResultSchema}: ${resultErrors.join('; ')}`,
+          errors: resultErrors,
+        });
+      }
+    }
+
     if (isCorrection) {
       const isAdmin = userRoles.includes('admin');
       const isOrganizer = bracket.tournament.organizerId === userId;
@@ -529,7 +552,7 @@ export class BracketsService {
     const oldMatchSnapshot = existingMatch ? { ...existingMatch } : null;
 
     // Apply result
-    const updated = selectWinner(data, dto.matchId, dto.winnerId, userId);
+    const updated = selectWinner(data, dto.matchId, dto.winnerId, userId, dto.result);
     const newStatus: BracketStatus = updated.status === 'completed' ? 'completed' : 'active';
     const expectedVersion = bracket.modificationCount ?? 0;
 

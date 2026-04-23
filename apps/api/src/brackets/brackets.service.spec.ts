@@ -315,6 +315,152 @@ describe('BracketsService', () => {
       await service.recordResult('bracket-1', { matchId: 'm1', winnerId: 'p1' }, 'org-1', []);
       expect(auditRepo.save).toHaveBeenCalled();
     });
+
+    // ─── Phase 3.2: sport-specific result detail ─────────────
+    describe('result detail validation', () => {
+      const armwrestlingBracket = () =>
+        makeBracket({
+          tournament: {
+            id: 'tournament-1',
+            organizerId: 'org-1',
+            sport: { slug: 'armwrestling', config: {} },
+          },
+        });
+
+      it('rejects a result payload whose schema mismatches the sport', async () => {
+        const { findMatch } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValueOnce({
+          id: 'm1',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        repo.findOne.mockResolvedValue(armwrestlingBracket());
+
+        await expect(
+          service.recordResult(
+            'bracket-1',
+            {
+              matchId: 'm1',
+              winnerId: 'p1',
+              result: { schema: 'points', cards: [] },
+            },
+            'org-1',
+            [],
+          ),
+        ).rejects.toMatchObject({
+          response: expect.objectContaining({ code: 'INVALID_MATCH_RESULT' }),
+        });
+      });
+
+      it('rejects a structurally-invalid armwrestling payload', async () => {
+        const { findMatch } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValueOnce({
+          id: 'm1',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        repo.findOne.mockResolvedValue(armwrestlingBracket());
+
+        await expect(
+          service.recordResult(
+            'bracket-1',
+            {
+              matchId: 'm1',
+              winnerId: 'p1',
+              result: { schema: 'armwrestling', victoryType: 'tko' },
+            },
+            'org-1',
+            [],
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('accepts a valid armwrestling payload and threads it into selectWinner', async () => {
+        const { findMatch, selectWinner } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValue({
+          id: 'm1',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        repo.findOne.mockResolvedValue(armwrestlingBracket());
+
+        const payload = {
+          schema: 'armwrestling' as const,
+          victoryType: 'pin' as const,
+          fouls: { p1: 0, p2: 1 },
+        };
+
+        await service.recordResult(
+          'bracket-1',
+          { matchId: 'm1', winnerId: 'p1', result: payload },
+          'org-1',
+          [],
+        );
+
+        expect(selectWinner).toHaveBeenCalledWith(
+          expect.anything(),
+          'm1',
+          'p1',
+          'org-1',
+          payload,
+        );
+      });
+
+      it('omitting result leaves selectWinner receiving undefined (preserve semantics)', async () => {
+        const { findMatch, selectWinner } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValue({
+          id: 'm1',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        repo.findOne.mockResolvedValue(armwrestlingBracket());
+
+        await service.recordResult(
+          'bracket-1',
+          { matchId: 'm1', winnerId: 'p1' },
+          'org-1',
+          [],
+        );
+
+        expect(selectWinner).toHaveBeenCalledWith(
+          expect.anything(),
+          'm1',
+          'p1',
+          'org-1',
+          undefined,
+        );
+      });
+
+      it('explicit null is forwarded so the engine clears the prior payload', async () => {
+        const { findMatch, selectWinner } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValue({
+          id: 'm1',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        repo.findOne.mockResolvedValue(armwrestlingBracket());
+
+        await service.recordResult(
+          'bracket-1',
+          { matchId: 'm1', winnerId: 'p1', result: null },
+          'org-1',
+          [],
+        );
+
+        expect(selectWinner).toHaveBeenCalledWith(
+          expect.anything(),
+          'm1',
+          'p1',
+          'org-1',
+          null,
+        );
+      });
+    });
   });
 
   describe('resetSingleMatch', () => {
