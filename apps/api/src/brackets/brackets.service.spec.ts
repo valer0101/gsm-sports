@@ -197,6 +197,18 @@ describe('BracketsService', () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
     });
+
+    it('loads the tournament.sport relation (regression — startCategory relies on it)', async () => {
+      repo.findOne.mockResolvedValue(makeBracket());
+      await service.findById('bracket-1');
+
+      expect(repo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bracket-1' },
+          relations: expect.arrayContaining(['tournament.sport']),
+        }),
+      );
+    });
   });
 
   describe('recordResult', () => {
@@ -840,6 +852,109 @@ describe('BracketsService', () => {
 
       expect(spy).not.toHaveBeenCalled();
       expect(result.withdrawn).toEqual([]);
+    });
+
+    it("does not forfeit 'rejected' entries (organizer already denied them)", async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'rejected' },
+        { id: 'ent-b', status: 'checked_in' },
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(result.withdrawn).toEqual([]);
+    });
+
+    it('skips first-round matches that the bracket generator pre-resolved (BYE-paired)', async () => {
+      // bracketData where match m1 already has a winner — engine-generated
+      // bye. startCategory must NOT try to withdraw into it (the engine
+      // would reject with "already recorded", aborting the whole loop).
+      const bracket = makeBracket({
+        tournament: makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+        }),
+        bracketData: {
+          players: [],
+          bracketSize: 4,
+          wbRounds: 1,
+          winnersBracket: [
+            [
+              {
+                id: 'm1',
+                winner: 'ent-a', // pre-resolved bye
+                player1: { id: 'ent-a' },
+                player2: { id: 'bye' },
+              },
+              {
+                id: 'm2',
+                winner: null,
+                player1: { id: 'ent-c' },
+                player2: { id: 'ent-d' },
+              },
+            ],
+          ],
+          losersBracket: [],
+          grandFinal: { id: 'gf' },
+          superFinal: { id: 'sf', needed: false },
+        },
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'confirmed' }, // would be no-show, but pre-resolved
+        { id: 'ent-c', status: 'pending' }, // real no-show
+        { id: 'ent-d', status: 'checked_in' },
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      // Only m2's no-show (ent-c) should trigger a withdraw — m1 is
+      // skipped because it already has a winner.
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith(
+        'bracket-1',
+        'm2',
+        expect.objectContaining({ position: 1 }),
+        'org-1',
+        [],
+      );
+      expect(result.withdrawn).toEqual(['ent-c']);
+    });
+
+    it('collects per-match errors and keeps going instead of aborting the loop', async () => {
+      const bracket = withFirstRound([
+        { id: 'm1', p1: 'ent-a', p2: 'ent-b' },
+        { id: 'm2', p1: 'ent-c', p2: 'ent-d' },
+      ]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'pending' }, // no-show
+        { id: 'ent-b', status: 'checked_in' },
+        { id: 'ent-c', status: 'pending' }, // no-show
+        { id: 'ent-d', status: 'checked_in' },
+      ]);
+      // First call rejects (simulate concurrent edit / engine refusal),
+      // second call succeeds — the loop must not abort.
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockRejectedValueOnce(new Error('concurrent edit'))
+        .mockResolvedValueOnce(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(result.errors).toEqual([
+        { matchId: 'm1', error: 'concurrent edit' },
+      ]);
+      expect(result.withdrawn).toEqual(['ent-c']);
     });
 
     it('ignores TBD / BYE slots', async () => {

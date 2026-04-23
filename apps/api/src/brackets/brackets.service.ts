@@ -395,9 +395,14 @@ export class BracketsService {
   // ─── Read ─────────────────────────────────────────────────
 
   async findById(id: string): Promise<Bracket> {
+    // `tournament.sport` is needed to resolve SportConfig during
+    // `startCategory` (requireCheckIn) and other sport-specific branches;
+    // include it here so every code path that has a bracket also has the
+    // sport without a second query. Missing it silently fell back to
+    // SPORT_CONFIG_DEFAULTS and dropped check-in enforcement.
     const bracket = await this.bracketsRepository.findOne({
       where: { id },
-      relations: ['tournament', 'weightCategory'],
+      relations: ['tournament', 'tournament.sport', 'weightCategory'],
     });
     if (!bracket) throw new NotFoundException(`Bracket #${id} not found`);
     return bracket;
@@ -823,6 +828,7 @@ export class BracketsService {
     withdrawn: string[];
     skipped: string[];
     doubleNoShow: string[];
+    errors: Array<{ matchId: string; error: string }>;
   }> {
     const bracket = await this.findById(bracketId);
     // Operators can't start categories — that's an organizer/admin decision
@@ -846,7 +852,13 @@ export class BracketsService {
     const requireCheckIn = tOverride.requireCheckIn ?? sportConfig.requireCheckIn;
 
     if (!requireCheckIn) {
-      return { requireCheckIn: false, withdrawn: [], skipped: [], doubleNoShow: [] };
+      return {
+        requireCheckIn: false,
+        withdrawn: [],
+        skipped: [],
+        doubleNoShow: [],
+        errors: [],
+      };
     }
 
     // Snapshot first-round matches BEFORE we start mutating the bracket.
@@ -859,11 +871,16 @@ export class BracketsService {
       matchId: string;
       p1Id: string | null;
       p2Id: string | null;
+      // A first-round match can already carry a `winner` when the bracket
+      // generator pre-resolved a BYE-paired slot — we must not try to
+      // withdraw into it, the engine rejects that path.
+      preResolved: boolean;
     };
     const slots: Slot[] = firstRound.map((m) => ({
       matchId: m.id,
       p1Id: this.realPlayerId(m.player1?.id),
       p2Id: this.realPlayerId(m.player2?.id),
+      preResolved: !!m.winner,
     }));
 
     const entryIds = Array.from(
@@ -876,15 +893,27 @@ export class BracketsService {
       if (!entryId) return false;
       const e = entryById.get(entryId);
       if (!e) return false;
-      // `withdrawn` is already handled elsewhere — don't forfeit twice.
-      return e.status !== 'checked_in' && e.status !== 'withdrawn';
+      // Entries already in a "handled" terminal state — withdrawn (explicit
+      // drop) or rejected (organizer denied the registration) — are not
+      // forfeited again. Only `pending`/`confirmed`/anything else counts as
+      // a no-show.
+      return e.status !== 'checked_in' && e.status !== 'withdrawn' && e.status !== 'rejected';
     };
 
     const withdrawn: string[] = [];
     const skipped: string[] = [];
     const doubleNoShow: string[] = [];
+    const errors: Array<{ matchId: string; error: string }> = [];
 
     for (const slot of slots) {
+      // Byes / already-forfeited slots arrive here with a winner already set.
+      // We still record what we found so the UI can show "nothing to do".
+      if (slot.preResolved) {
+        if (slot.p1Id) skipped.push(slot.p1Id);
+        if (slot.p2Id) skipped.push(slot.p2Id);
+        continue;
+      }
+
       const p1NoShow = isNoShow(slot.p1Id);
       const p2NoShow = isNoShow(slot.p2Id);
 
@@ -892,36 +921,48 @@ export class BracketsService {
         doubleNoShow.push(slot.matchId);
         continue;
       }
-      if (p1NoShow && slot.p1Id) {
-        await this.withdrawPlayer(
-          bracketId,
-          slot.matchId,
-          { position: 1, reason: 'no-show (auto-forfeit at category start)' },
-          userId,
-          userRoles,
-        );
-        withdrawn.push(slot.p1Id);
-      } else if (p2NoShow && slot.p2Id) {
-        await this.withdrawPlayer(
-          bracketId,
-          slot.matchId,
-          { position: 2, reason: 'no-show (auto-forfeit at category start)' },
-          userId,
-          userRoles,
-        );
-        withdrawn.push(slot.p2Id);
-      } else {
-        if (slot.p1Id) skipped.push(slot.p1Id);
-        if (slot.p2Id) skipped.push(slot.p2Id);
+
+      // Each forfeit runs its own transaction (inside withdrawPlayer). Catch
+      // per-match failures (concurrent edit, engine rejection, etc.) and
+      // keep going — partially applied forfeits are still better than
+      // aborting the whole category start mid-loop.
+      try {
+        if (p1NoShow && slot.p1Id) {
+          await this.withdrawPlayer(
+            bracketId,
+            slot.matchId,
+            { position: 1, reason: 'no-show (auto-forfeit at category start)' },
+            userId,
+            userRoles,
+          );
+          withdrawn.push(slot.p1Id);
+        } else if (p2NoShow && slot.p2Id) {
+          await this.withdrawPlayer(
+            bracketId,
+            slot.matchId,
+            { position: 2, reason: 'no-show (auto-forfeit at category start)' },
+            userId,
+            userRoles,
+          );
+          withdrawn.push(slot.p2Id);
+        } else {
+          if (slot.p1Id) skipped.push(slot.p1Id);
+          if (slot.p2Id) skipped.push(slot.p2Id);
+        }
+      } catch (err) {
+        const message = (err as Error)?.message ?? 'unknown error';
+        this.logger.warn(`start-category: match ${slot.matchId} forfeit failed: ${message}`);
+        errors.push({ matchId: slot.matchId, error: message });
       }
     }
 
     this.logger.log(
       `Bracket ${bracketId} start-category: withdrew ${withdrawn.length} no-shows, ` +
-        `${doubleNoShow.length} double-no-show matches skipped for manual review`,
+        `${doubleNoShow.length} double-no-show matches skipped for manual review, ` +
+        `${errors.length} errors`,
     );
 
-    return { requireCheckIn: true, withdrawn, skipped, doubleNoShow };
+    return { requireCheckIn: true, withdrawn, skipped, doubleNoShow, errors };
   }
 
   /** Convert bracket player id → real entry id (null for `tbd` / `bye`). */
