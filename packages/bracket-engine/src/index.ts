@@ -3,6 +3,8 @@ export {
   selectWinner,
   propagateResults,
   findMatch,
+  walkBracketMatches,
+  isPlayableMatch,
   getPlayerObj,
   resetMatch,
   canRecordResult,
@@ -18,4 +20,5 @@ export type {
   BracketData,
   ValidationResult,
 } from './types';
+export type { BracketSection, BracketMatchVisitor } from './bracket-logic';
 export { TBD_PLAYER, BYE_PLAYER } from './types';

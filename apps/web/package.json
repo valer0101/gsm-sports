@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gsm/bracket-engine": "*",
     "@gsm/scheduler": "*",
     "@gsm/shared-types": "*",
     "@hookform/resolvers": "^4.1.0",

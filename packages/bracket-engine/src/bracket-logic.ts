@@ -57,6 +57,61 @@ export function findMatch(data: BracketData, matchId: string): Match | GrandFina
   return null;
 }
 
+// ─── Bracket-tree traversal ────────────────────────────────
+
+/** Which part of the double-elim tree a match lives in. */
+export type BracketSection = 'winners' | 'losers' | 'grand_final' | 'super_final';
+
+/** Callback shape for `walkBracketMatches`. Return `false` to stop early. */
+export type BracketMatchVisitor = (
+  match: Match | GrandFinalMatch | SuperFinalMatch,
+  section: BracketSection,
+) => void | boolean;
+
+/**
+ * Iterate every match in a bracket in deterministic order:
+ *   winners rounds (by round index, then by match index) →
+ *   losers rounds (same) → grand final → super final (only when `needed`).
+ *
+ * Callback may return `false` to stop iteration early (cheap "find first"
+ * queries). Any other return value (including `undefined`) continues.
+ *
+ * Extracted so services / UI don't each hand-roll the same nested `for
+ * (round) for (match)` loop — a shape that would need edits in four
+ * places every time we add a new bracket section (e.g. consolation
+ * final in a future format).
+ */
+export function walkBracketMatches(data: BracketData, visit: BracketMatchVisitor): void {
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      if (visit(m, 'winners') === false) return;
+    }
+  }
+  for (const round of data.losersBracket) {
+    for (const m of round) {
+      if (visit(m, 'losers') === false) return;
+    }
+  }
+  if (visit(data.grandFinal, 'grand_final') === false) return;
+  if (data.superFinal.needed) {
+    visit(data.superFinal, 'super_final');
+  }
+}
+
+/**
+ * True iff both athletes in a slot are real (not TBD / BYE) and no winner
+ * has been recorded. The "can a result be entered for this match right
+ * now?" predicate — used by the operator pending-list and the scheduler.
+ */
+export function isPlayableMatch(
+  match: Match | GrandFinalMatch | SuperFinalMatch,
+): boolean {
+  if (match.winner) return false;
+  const p1 = match.player1?.id;
+  const p2 = match.player2?.id;
+  return !!(p1 && p2 && isReal(p1) && isReal(p2));
+}
+
 // ─── Generate bracket ───────────────────────────────────────
 
 function getWinnerPlayer(match: Match, allPlayers: Player[]): Player {

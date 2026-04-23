@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
+import { walkBracketMatches, isPlayableMatch } from '@gsm/bracket-engine';
 import type { BracketData } from '@gsm/bracket-engine';
 import { MatchTableAssignment } from './entities/match-table-assignment.entity';
 import { TournamentTable } from '../tournaments/entities/tournament-table.entity';
@@ -208,41 +209,14 @@ export class MatchAssignmentsService {
       if (!b.bracketData || b.status !== 'active' || b.isLocked) continue;
       const data = b.bracketData as unknown as BracketData;
 
-      const scan = (m: unknown, _section: string): boolean => {
-        const match = m as {
-          id?: string;
-          winner?: unknown;
-          player1?: { id?: string };
-          player2?: { id?: string };
-        };
-        if (!match?.id) return false;
-        if (match.winner) return false;
-        const p1 = match.player1?.id;
-        const p2 = match.player2?.id;
-        const playable =
-          p1 && p2 && p1 !== 'tbd' && p1 !== 'bye' && p2 !== 'tbd' && p2 !== 'bye';
-        if (!playable) return false;
-        return !takenMatchIds.has(match.id);
-      };
-
-      const visitRounds = (rounds: unknown[][], section: string): string | null => {
-        for (const round of rounds) {
-          for (const m of round) {
-            if (scan(m, section)) return (m as { id: string }).id;
-          }
-        }
-        return null;
-      };
-
-      const found =
-        visitRounds(data.winnersBracket as unknown as unknown[][], 'winners') ??
-        visitRounds(data.losersBracket as unknown as unknown[][], 'losers') ??
-        (scan(data.grandFinal, 'grand_final')
-          ? (data.grandFinal as { id: string }).id
-          : null) ??
-        (data.superFinal?.needed && scan(data.superFinal, 'super_final')
-          ? (data.superFinal as unknown as { id: string }).id
-          : null);
+      let found: string | null = null;
+      walkBracketMatches(data, (match) => {
+        if (!isPlayableMatch(match)) return;
+        if (takenMatchIds.has(match.id)) return;
+        found = match.id;
+        // Return `false` — first claimable match is the answer, stop walking.
+        return false;
+      });
 
       if (found) return { bracketId: b.id, matchId: found };
     }

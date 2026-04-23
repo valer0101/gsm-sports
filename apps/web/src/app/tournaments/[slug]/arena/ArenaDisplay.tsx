@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { walkBracketMatches } from '@gsm/bracket-engine';
 import { useTournamentSchedule, useTournamentTables } from '@/hooks/useSchedule';
 import { useBrackets } from '@/hooks/useTournaments';
 import type {
@@ -29,14 +30,10 @@ function indexMatches(brackets: Bracket[] | undefined): Map<string, ResolvedMatc
 
   for (const b of brackets) {
     if (!b.bracketData) continue;
-    const add = (m: BracketMatch | undefined) => {
-      if (!m?.id) return;
-      map.set(m.id, { match: m, bracketName: b.weightCategory?.name ?? b.name ?? null });
-    };
-    b.bracketData.winnersBracket.forEach((round) => round.forEach(add));
-    b.bracketData.losersBracket.forEach((round) => round.forEach(add));
-    add(b.bracketData.grandFinal);
-    if (b.bracketData.superFinal?.needed) add(b.bracketData.superFinal);
+    const bracketName = b.weightCategory?.name ?? b.name ?? null;
+    walkBracketMatches(b.bracketData, (match) => {
+      map.set(match.id, { match: match as BracketMatch, bracketName });
+    });
   }
   return map;
 }

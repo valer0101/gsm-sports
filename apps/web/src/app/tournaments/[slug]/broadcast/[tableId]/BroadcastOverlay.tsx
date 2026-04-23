@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { findMatch } from '@gsm/bracket-engine';
 import { useTournamentSchedule, useTournamentTables } from '@/hooks/useSchedule';
 import { useBrackets } from '@/hooks/useTournaments';
 import { Avatar } from '@/components/Avatar';
@@ -195,6 +196,12 @@ interface ResolvedMatch {
   bracketName: string | null;
 }
 
+/**
+ * Find a single match by id across every bracket. Delegates to
+ * `@gsm/bracket-engine`'s `findMatch` per bracket and tags the hit with
+ * the bracket's human label. Used by the overlay once per active
+ * assignment — cheap enough without an intermediate Map.
+ */
 function findMatchAcross(
   brackets: Bracket[] | undefined,
   matchId: string,
@@ -202,29 +209,12 @@ function findMatchAcross(
   if (!brackets) return null;
   for (const b of brackets) {
     if (!b.bracketData) continue;
-    const label = b.weightCategory?.name ?? b.name ?? null;
-    const scan = (m: BracketMatch | undefined): ResolvedMatch | null => {
-      if (!m) return null;
-      return m.id === matchId ? { match: m, bracketName: label } : null;
-    };
-
-    for (const round of b.bracketData.winnersBracket) {
-      for (const m of round) {
-        const hit = scan(m);
-        if (hit) return hit;
-      }
-    }
-    for (const round of b.bracketData.losersBracket) {
-      for (const m of round) {
-        const hit = scan(m);
-        if (hit) return hit;
-      }
-    }
-    const gf = scan(b.bracketData.grandFinal);
-    if (gf) return gf;
-    if (b.bracketData.superFinal?.needed) {
-      const sf = scan(b.bracketData.superFinal);
-      if (sf) return sf;
+    const match = findMatch(b.bracketData, matchId);
+    if (match) {
+      return {
+        match: match as BracketMatch,
+        bracketName: b.weightCategory?.name ?? b.name ?? null,
+      };
     }
   }
   return null;
