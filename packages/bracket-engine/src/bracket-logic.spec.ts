@@ -3,6 +3,8 @@ import {
   generateDoubleElimination,
   selectWinner,
   findMatch,
+  walkBracketMatches,
+  isPlayableMatch,
   getPlayerObj,
   resetMatch,
   validateResult,
@@ -575,5 +577,95 @@ describe('withdrawPlayerFromSlot', () => {
     const data = generateDoubleElimination(makePlayers(4));
     const res = withdrawPlayerFromSlot(data, 'nope', 1);
     expect(res.ok).toBe(false);
+  });
+});
+
+describe('walkBracketMatches', () => {
+  it('visits every match in winners then losers then grand, skips super when not needed', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const seen: Array<{ id: string; section: string }> = [];
+    walkBracketMatches(data, (m, section) => {
+      seen.push({ id: m.id, section });
+    });
+
+    // 4 players = 2 WB round 1 + 1 WB round 2 = 3 WB matches,
+    // LB has 1 round 1 + 1 round 2 = 2 matches, + GF. SF not needed.
+    const wb = seen.filter((s) => s.section === 'winners');
+    const lb = seen.filter((s) => s.section === 'losers');
+    const gf = seen.filter((s) => s.section === 'grand_final');
+    const sf = seen.filter((s) => s.section === 'super_final');
+
+    expect(wb.length).toBeGreaterThan(0);
+    expect(lb.length).toBeGreaterThan(0);
+    expect(gf.length).toBe(1);
+    expect(sf.length).toBe(0);
+  });
+
+  it('visits super_final only when `needed` is true', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    data.superFinal.needed = true;
+    const sections: string[] = [];
+    walkBracketMatches(data, (_m, section) => {
+      sections.push(section);
+    });
+    expect(sections).toContain('super_final');
+  });
+
+  it('stops iteration when the visitor returns false', () => {
+    const data = generateDoubleElimination(makePlayers(8));
+    const visited: string[] = [];
+    walkBracketMatches(data, (m) => {
+      visited.push(m.id);
+      if (visited.length >= 2) return false;
+    });
+    expect(visited.length).toBe(2);
+  });
+
+  it('visits matches in deterministic round/index order', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const wbIds: string[] = [];
+    walkBracketMatches(data, (m, section) => {
+      if (section === 'winners') wbIds.push(m.id);
+    });
+    // Round 1 first, then round 2.
+    const expected = [
+      ...data.winnersBracket[0].map((m) => m.id),
+      ...(data.winnersBracket[1]?.map((m) => m.id) ?? []),
+    ];
+    expect(wbIds).toEqual(expected);
+  });
+});
+
+describe('isPlayableMatch', () => {
+  it('is true for a fresh match with two real players', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const firstRound = data.winnersBracket[0][0];
+    expect(isPlayableMatch(firstRound)).toBe(true);
+  });
+
+  it('is false once a winner is recorded', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const firstRound = data.winnersBracket[0][0];
+    const updated = selectWinner(data, firstRound.id, firstRound.player1.id);
+    const again = updated.winnersBracket[0][0];
+    expect(isPlayableMatch(again)).toBe(false);
+  });
+
+  it('is false when a slot is still TBD', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    // Round 2 of a 4-player bracket has TBD players until round 1 resolves.
+    const round2 = data.winnersBracket[1]?.[0];
+    if (!round2) throw new Error('test setup: expected round 2 match');
+    expect(isPlayableMatch(round2)).toBe(false);
+  });
+
+  it('is false when a slot is BYE (auto-forfeited)', () => {
+    const data = generateDoubleElimination(makePlayers(3));
+    const byeMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    );
+    if (!byeMatch) throw new Error('test setup: expected a BYE match for 3 players');
+    // A BYE match gets a winner at generation → not playable either way.
+    expect(isPlayableMatch(byeMatch)).toBe(false);
   });
 });

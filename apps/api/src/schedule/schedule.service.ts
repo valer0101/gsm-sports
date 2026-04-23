@@ -1,8 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { buildSchedule } from '@gsm/scheduler';
 import type { SchedulerMatch, SchedulerTable } from '@gsm/scheduler';
+import {
+  findMatch,
+  isPlayableMatch,
+  walkBracketMatches,
+} from '@gsm/bracket-engine';
 import type { BracketData } from '@gsm/bracket-engine';
 import type {
   ScheduleActiveMatch,
@@ -118,33 +123,17 @@ export class ScheduleService {
       if (!b.bracketData || b.status !== 'active' || b.isLocked) continue;
       const data = b.bracketData as unknown as BracketData;
 
-      const pushIfPlayable = (m: unknown) => {
-        const mm = m as {
-          id?: string;
-          winner?: unknown;
-          player1?: { id?: string };
-          player2?: { id?: string };
-        };
-        if (!mm?.id || mm.winner) return;
-        const p1 = mm.player1?.id;
-        const p2 = mm.player2?.id;
-        if (!p1 || !p2 || p1 === 'tbd' || p1 === 'bye' || p2 === 'tbd' || p2 === 'bye') return;
-        if (takenMatchIds.has(mm.id)) return;
+      walkBracketMatches(data, (match) => {
+        if (!isPlayableMatch(match)) return;
+        if (takenMatchIds.has(match.id)) return;
+        const p1 = match.player1.id;
+        const p2 = match.player2.id;
         schedulerMatches.push({
-          matchId: mm.id,
+          matchId: match.id,
           bracketId: b.id,
           athleteIds: [p1, p2],
         });
-      };
-
-      const visitRounds = (rounds: unknown[][]) => {
-        for (const round of rounds) for (const m of round) pushIfPlayable(m);
-      };
-
-      visitRounds(data.winnersBracket as unknown as unknown[][]);
-      visitRounds(data.losersBracket as unknown as unknown[][]);
-      pushIfPlayable(data.grandFinal);
-      if (data.superFinal?.needed) pushIfPlayable(data.superFinal);
+      });
     }
 
     // Build athleteLastFinishAt so the scheduler respects min-rest across
@@ -169,10 +158,7 @@ export class ScheduleService {
     ): { player1?: { id?: string }; player2?: { id?: string } } | null => {
       const bracket = bracketById.get(a.bracketId);
       if (!bracket?.bracketData) return null;
-      return this.findMatchInBracket(
-        bracket.bracketData as unknown as BracketData,
-        a.matchId,
-      );
+      return findMatch(bracket.bracketData as unknown as BracketData, a.matchId);
     };
 
     for (const a of finished) {
@@ -230,24 +216,5 @@ export class ScheduleService {
     );
 
     return { ...schedulerOutput, active };
-  }
-
-  /** Locate a match by id across every section of a BracketData blob. */
-  private findMatchInBracket(
-    data: BracketData,
-    matchId: string,
-  ): { player1?: { id?: string }; player2?: { id?: string } } | null {
-    const scan = (m: unknown): boolean => {
-      return (m as { id?: string } | null)?.id === matchId;
-    };
-    for (const round of data.winnersBracket) {
-      for (const m of round) if (scan(m)) return m as never;
-    }
-    for (const round of data.losersBracket) {
-      for (const m of round) if (scan(m)) return m as never;
-    }
-    if (scan(data.grandFinal)) return data.grandFinal as never;
-    if (data.superFinal?.needed && scan(data.superFinal)) return data.superFinal as never;
-    return null;
   }
 }
