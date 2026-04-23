@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule as NestScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SportsModule } from './sports/sports.module';
@@ -43,6 +44,9 @@ import { TelegramModule } from './telegram/telegram.module';
         logging: config.get<string>('NODE_ENV') === 'development',
       }),
     }),
+
+    // Cron / periodic tasks (MatchReminderTask in TelegramModule).
+    NestScheduleModule.forRoot(),
 
     // Feature modules
     AuthModule,

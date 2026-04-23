@@ -35,6 +35,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
 import { resolveSportConfig } from '../sports/sport-config';
 import type { SportConfig } from '@gsm/shared-types';
+import { TelegramNotificationsService } from '../telegram/telegram-notifications.service';
 
 // Standard arm wrestling weight buckets (kg)
 const WEIGHT_BUCKETS = [
@@ -135,6 +136,7 @@ export class BracketsService {
     private readonly entriesService: EntriesService,
     private readonly eventsGateway: EventsGateway,
     private readonly matchAssignmentsService: MatchAssignmentsService,
+    private readonly notifications: TelegramNotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -800,6 +802,31 @@ export class BracketsService {
     // Withdraw awards the match to the opponent — if the match was on a
     // table, free it.
     await this.matchAssignmentsService.finishForMatch(bracket.tournamentId, matchId);
+
+    // Telegram "your opponent withdrew, you advance" notification to the
+    // winner (if they linked). Fails silently on bot outage / unlinked
+    // athlete — never blocks the forfeit from returning.
+    try {
+      const withdrawnPlayer = dto.position === 1 ? match.player1 : match.player2;
+      const withdrawnName =
+        `${withdrawnPlayer.firstName ?? ''} ${withdrawnPlayer.lastName ?? ''}`.trim() || 'Opponent';
+      const winnerEntry = result.forfeitTo
+        ? await this.entriesService.findById(result.forfeitTo).catch(() => null)
+        : null;
+      if (winnerEntry?.userId) {
+        await this.notifications.notifyOpponentWithdrew({
+          tournamentId: bracket.tournamentId,
+          matchId,
+          winnerUserId: winnerEntry.userId,
+          withdrawnPlayerName: withdrawnName,
+          categoryLabel: bracket.weightCategory?.name ?? bracket.name ?? null,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `opponent-withdrew notification failed for match ${matchId}: ${(err as Error)?.message ?? 'unknown'}`,
+      );
+    }
 
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
     return this.findById(bracketId);

@@ -9,6 +9,7 @@ import { TournamentOperator } from '../tournaments/entities/tournament-operator.
 import { EntriesModule } from '../entries/entries.module';
 import { EventsModule } from '../events/events.module';
 import { MatchAssignmentsModule } from '../match-assignments/match-assignments.module';
+import { TelegramModule } from '../telegram/telegram.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MatchAssignmentsModule } from '../match-assignments/match-assignments.m
     EntriesModule,
     EventsModule,
     MatchAssignmentsModule,
+    TelegramModule,
   ],
   controllers: [BracketsController],
   providers: [BracketsService],

@@ -9,6 +9,7 @@ import { TournamentOperator } from './tournaments/entities/tournament-operator.e
 import { TournamentTable } from './tournaments/entities/tournament-table.entity';
 import { MatchTableAssignment } from './match-assignments/entities/match-table-assignment.entity';
 import { TelegramLink } from './telegram/entities/telegram-link.entity';
+import { MatchNotification } from './telegram/entities/match-notification.entity';
 import { TournamentEntry } from './entries/entities/tournament-entry.entity';
 import { Bracket } from './brackets/entities/bracket.entity';
 import { Athlete } from './athletes/entities/athlete.entity';
@@ -36,6 +37,7 @@ export const AppDataSource = new DataSource({
     RankingEntry,
     News,
     TelegramLink,
+    MatchNotification,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
