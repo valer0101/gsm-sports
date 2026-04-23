@@ -252,6 +252,7 @@ describe('SportsService', () => {
           weighInRequired: true,
           avgMatchDurationSec: 180,
           minRestBetweenMatchesSec: 600,
+          requireCheckIn: true,
           surfaceTerm: {
             singular: { ru: 'стол', en: 'table', hy: 'սեղան' },
             plural: { ru: 'столы', en: 'tables', hy: 'սեղաններ' },

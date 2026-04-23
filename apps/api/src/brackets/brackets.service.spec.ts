@@ -62,7 +62,11 @@ const mockOperatorsRepo = () => ({ count: vi.fn().mockResolvedValue(0) });
 const mockAuditRepo = () => ({ create: vi.fn((x) => x), save: vi.fn(), find: vi.fn() });
 
 const mockTournamentsService = () => ({ findById: vi.fn() });
-const mockEntriesService = () => ({ findByTournament: vi.fn(), findByGroup: vi.fn() });
+const mockEntriesService = () => ({
+  findByTournament: vi.fn(),
+  findByGroup: vi.fn(),
+  findByIds: vi.fn(),
+});
 
 const makeTournament = (overrides = {}) => ({
   id: 'tournament-1',
@@ -693,6 +697,188 @@ describe('BracketsService', () => {
           [],
         ),
       ).rejects.toThrow(/real player/);
+    });
+  });
+
+  describe('startCategory', () => {
+    const withFirstRound = (matches: Array<{ id: string; p1: string; p2: string }>) =>
+      makeBracket({
+        tournament: makeTournament({
+          sportConfig: null,
+          sport: {
+            slug: 'armwrestling',
+            config: {
+              // resolveSportConfig fills in defaults including
+              // requireCheckIn: true for armwrestling.
+            },
+          },
+        }),
+        bracketData: {
+          players: [],
+          bracketSize: matches.length * 2,
+          wbRounds: 1,
+          winnersBracket: [
+            matches.map((m) => ({
+              id: m.id,
+              winner: null,
+              player1: { id: m.p1 },
+              player2: { id: m.p2 },
+            })),
+          ],
+          losersBracket: [],
+          grandFinal: { id: 'gf' },
+          superFinal: { id: 'sf', needed: false },
+        },
+      });
+
+    it('no-ops when requireCheckIn is false (e.g. chess tournament)', async () => {
+      const chessBracket = makeBracket({
+        tournament: makeTournament({
+          sport: { slug: 'chess', config: {} },
+        }),
+        bracketData: {
+          players: [],
+          bracketSize: 2,
+          wbRounds: 1,
+          winnersBracket: [
+            [{ id: 'm1', winner: null, player1: { id: 'a' }, player2: { id: 'b' } }],
+          ],
+          losersBracket: [],
+          grandFinal: { id: 'gf' },
+          superFinal: { id: 'sf', needed: false },
+        },
+      });
+      repo.findOne.mockResolvedValue(chessBracket);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(result.requireCheckIn).toBe(false);
+      expect(result.withdrawn).toEqual([]);
+      expect(entriesService.findByIds).not.toHaveBeenCalled();
+    });
+
+    it('forfeits the uncheck-in player and skips the other', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'confirmed' }, // no-show
+        { id: 'ent-b', status: 'checked_in' }, // present
+      ]);
+      // Spy on withdrawPlayer so we don't re-run its whole transaction path.
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(result.requireCheckIn).toBe(true);
+      expect(result.withdrawn).toEqual(['ent-a']);
+      expect(result.skipped).toEqual([]);
+      expect(result.doubleNoShow).toEqual([]);
+      expect(spy).toHaveBeenCalledWith(
+        'bracket-1',
+        'm1',
+        expect.objectContaining({ position: 1, reason: expect.stringContaining('no-show') }),
+        'org-1',
+        [],
+      );
+    });
+
+    it('forfeits player 2 when only player 2 is a no-show', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'checked_in' },
+        { id: 'ent-b', status: 'pending' }, // no-show
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(result.withdrawn).toEqual(['ent-b']);
+      expect(spy).toHaveBeenCalledWith(
+        'bracket-1',
+        'm1',
+        expect.objectContaining({ position: 2 }),
+        'org-1',
+        [],
+      );
+    });
+
+    it('records both-no-show matches to doubleNoShow without forfeiting', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'confirmed' },
+        { id: 'ent-b', status: 'pending' },
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(result.withdrawn).toEqual([]);
+      expect(result.doubleNoShow).toEqual(['m1']);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('skips already-withdrawn entries (no double-forfeit)', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-a', status: 'withdrawn' },
+        { id: 'ent-b', status: 'checked_in' },
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(result.withdrawn).toEqual([]);
+    });
+
+    it('ignores TBD / BYE slots', async () => {
+      const bracket = withFirstRound([
+        { id: 'm1', p1: 'tbd', p2: 'ent-b' },
+        { id: 'm2', p1: 'ent-c', p2: 'bye' },
+      ]);
+      repo.findOne.mockResolvedValue(bracket);
+      entriesService.findByIds.mockResolvedValue([
+        { id: 'ent-b', status: 'checked_in' },
+        { id: 'ent-c', status: 'checked_in' },
+      ]);
+      const spy = vi
+        .spyOn(service as any, 'withdrawPlayer')
+        .mockResolvedValue(bracket as any);
+
+      const result = await service.startCategory('bracket-1', 'org-1', []);
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(result.withdrawn).toEqual([]);
+    });
+
+    it('requires organizer/admin — rejects a random user', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      repo.findOne.mockResolvedValue(bracket);
+
+      await expect(service.startCategory('bracket-1', 'not-organizer', [])).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects locked brackets', async () => {
+      const bracket = withFirstRound([{ id: 'm1', p1: 'ent-a', p2: 'ent-b' }]);
+      bracket.isLocked = true;
+      repo.findOne.mockResolvedValue(bracket);
+
+      await expect(service.startCategory('bracket-1', 'org-1', [])).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

@@ -65,6 +65,17 @@ export class BracketsController {
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary:
+      'Start this category — auto-forfeit any entry not checked in (organizer/admin only)',
+  })
+  @Patch(':id/start-category')
+  startCategory(@Param('id') id: string, @Request() req: any) {
+    return this.bracketsService.startCategory(id, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Reset a single match result (organizer/admin only)' })
   @Patch(':id/match-reset')
   resetMatch(@Param('id') id: string, @Body() dto: ResetMatchDto, @Request() req: any) {

@@ -119,4 +119,13 @@ export class SportConfigDto {
   @Min(0)
   @Max(86400)
   minRestBetweenMatchesSec?: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'If true, entries must be `checked_in` when the category starts — no-shows are auto-forfeited',
+  })
+  @IsOptional()
+  @IsBoolean()
+  requireCheckIn?: boolean;
 }
