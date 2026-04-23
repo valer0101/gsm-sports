@@ -337,7 +337,10 @@
     "claim_next_btn": "Взять следующий матч",
     "running_now": "Сейчас идёт:",
     "match_id_label": "Матч {id}",
-    "running_on_my_table": "На вашем столе"
+    "running_on_my_table": "На вашем столе",
+    "eta_now": "сейчас",
+    "eta_minutes": "~{n} мин",
+    "eta_hours": "~{n} ч"
   },
   "register_modal": {
     "age_juniors": "Юниоры (до 18)",

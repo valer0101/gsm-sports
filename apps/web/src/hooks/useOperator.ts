@@ -45,6 +45,7 @@ export function useOperatorWithdrawPlayer(bracketId: string, tournamentId: strin
       qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'my-table', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['schedule', tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', tournamentId] });
     },
   });
@@ -71,6 +72,7 @@ export function useOperatorClaimNext(tournamentId: string, tableId: string) {
       qc.invalidateQueries({ queryKey: ['operator', 'my-table', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches', tournamentId] });
       qc.invalidateQueries({ queryKey: ['operator', 'brackets', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['schedule', tournamentId] });
     },
   });
 }
@@ -94,6 +96,7 @@ export function useRecordResult(bracketId: string) {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets'] });
       qc.invalidateQueries({ queryKey: ['operator', 'pending-matches'] });
       qc.invalidateQueries({ queryKey: ['operator', 'my-table', data.tournamentId] });
+      qc.invalidateQueries({ queryKey: ['schedule', data.tournamentId] });
       qc.invalidateQueries({ queryKey: ['brackets', data.tournamentId] });
     },
   });

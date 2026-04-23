@@ -485,7 +485,10 @@
     "claim_next_btn": "Վերցնել հաջորդ հանդիպումը",
     "running_now": "Այժմ ընթանում է․",
     "match_id_label": "Հանդիպում {id}",
-    "running_on_my_table": "Ձեր սեղանին"
+    "running_on_my_table": "Ձեր սեղանին",
+    "eta_now": "հիմա",
+    "eta_minutes": "~{n} րոպե",
+    "eta_hours": "~{n} ժ"
   },
   "register_modal": {
     "age_juniors": "Джуниорнер (18-ы мутк)",
