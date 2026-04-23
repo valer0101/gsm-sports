@@ -262,7 +262,18 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
 
       {/* Registrations management — only available before bracket is generated */}
       {!tournament.bracketGenerated && (
-        <Section title={t('registrations_title')}>
+        <Section
+          title={t('registrations_title')}
+          action={
+            <Link
+              href={`/admin/tournaments/${id}/check-in`}
+              className="text-xs px-3 py-1.5 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
+              style={{ color: '#10b981' }}
+            >
+              {t('scan_checkin_qr')}
+            </Link>
+          }
+        >
           <RegistrationsManager tournamentId={id} weightCategories={tournament.weightCategories ?? []} t={t} />
         </Section>
       )}
@@ -331,13 +342,24 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div
       className="rounded-2xl border border-white/10 p-6"
       style={{ backgroundColor: 'var(--color-secondary)' }}
     >
-      <h2 className="font-bold text-white mb-4">{title}</h2>
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+        <h2 className="font-bold text-white">{title}</h2>
+        {action}
+      </div>
       {children}
     </div>
   );

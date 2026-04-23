@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Tournament, Bracket, BracketAuditLog } from '@/types/api';
+import type { Tournament, Bracket, BracketAuditLog, TournamentEntry } from '@/types/api';
 
 /* ─── Tournaments ─── */
 
@@ -227,6 +227,24 @@ export function useAdminCheckInEntry(tournamentId: string) {
   return useMutation({
     mutationFn: (entryId: string) =>
       api.post(`/entries/${entryId}/check-in`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['entries', 'my'] });
+    },
+  });
+}
+
+/**
+ * Check in by scanning the athlete's QR. Server decodes and verifies the
+ * signed JWT; UI just posts the raw token string. Returns the updated
+ * entry on success (or throws on expired / wrong-purpose / cross-
+ * tournament stale token).
+ */
+export function useAdminCheckInByQr(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation<TournamentEntry, unknown, string>({
+    mutationFn: (token: string) =>
+      api.post('/entries/check-in-by-qr', { token }).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
       qc.invalidateQueries({ queryKey: ['entries', 'my'] });
