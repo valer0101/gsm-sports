@@ -9,7 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { TournamentEntry, EntryStatus } from './entities/tournament-entry.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
@@ -82,6 +82,17 @@ export class EntriesService {
     });
     if (!entry) throw new NotFoundException(`Entry #${id} not found`);
     return entry;
+  }
+
+  /**
+   * Bulk fetch entries by id. Does NOT throw if some ids are missing —
+   * callers can diff against the returned array. Used by the start-category
+   * / auto-forfeit flow to check `status === 'checked_in'` in a single round
+   * trip instead of a query per slot.
+   */
+  async findByIds(ids: string[]): Promise<TournamentEntry[]> {
+    if (ids.length === 0) return [];
+    return this.entriesRepository.find({ where: { id: In(ids) } });
   }
 
   async findByTournament(

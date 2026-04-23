@@ -81,6 +81,13 @@ export interface SportConfig {
    * rule-of-thumb, overridable per tournament.
    */
   minRestBetweenMatchesSec: number;
+  /**
+   * If true, the organizer is expected to check athletes in on site before
+   * their category starts. The "start category" action auto-forfeits any
+   * entry that isn't `checked_in` at that moment. Combat sports default to
+   * true (medical / no-show handling), chess-type sports default to false.
+   */
+  requireCheckIn: boolean;
 }
 
 // ─── Tournaments ────────────────────────────────────────────

@@ -33,6 +33,8 @@ import { RecordResultDto } from './dto/record-result.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
+import { resolveSportConfig } from '../sports/sport-config';
+import type { SportConfig } from '@gsm/shared-types';
 
 // Standard arm wrestling weight buckets (kg)
 const WEIGHT_BUCKETS = [
@@ -393,9 +395,14 @@ export class BracketsService {
   // ─── Read ─────────────────────────────────────────────────
 
   async findById(id: string): Promise<Bracket> {
+    // `tournament.sport` is needed to resolve SportConfig during
+    // `startCategory` (requireCheckIn) and other sport-specific branches;
+    // include it here so every code path that has a bracket also has the
+    // sport without a second query. Missing it silently fell back to
+    // SPORT_CONFIG_DEFAULTS and dropped check-in enforcement.
     const bracket = await this.bracketsRepository.findOne({
       where: { id },
-      relations: ['tournament', 'weightCategory'],
+      relations: ['tournament', 'tournament.sport', 'weightCategory'],
     });
     if (!bracket) throw new NotFoundException(`Bracket #${id} not found`);
     return bracket;
@@ -796,6 +803,172 @@ export class BracketsService {
 
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
     return this.findById(bracketId);
+  }
+
+  // ─── Start category — auto-forfeit no-shows ───────────────
+
+  /**
+   * Begin play on this bracket's category. If the sport (or tournament
+   * override) has `requireCheckIn = true`, every first-round slot whose
+   * entry isn't in `checked_in` is forfeited to its opponent via the
+   * existing withdraw-player flow (so propagation + audit come for free).
+   *
+   * Both-no-show matches are NOT auto-resolved — we return their ids in
+   * `doubleNoShow` and let the organizer decide (disqualify both, reseed,
+   * or delay). Expect these to be rare in practice.
+   *
+   * Access: admin or tournament organizer.
+   */
+  async startCategory(
+    bracketId: string,
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<{
+    requireCheckIn: boolean;
+    withdrawn: string[];
+    skipped: string[];
+    doubleNoShow: string[];
+    errors: Array<{ matchId: string; error: string }>;
+  }> {
+    const bracket = await this.findById(bracketId);
+    // Operators can't start categories — that's an organizer/admin decision
+    // because it commits no-show forfeits across the bracket.
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: false });
+
+    if (bracket.isLocked) {
+      throw new BadRequestException('Bracket is locked');
+    }
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data — generate it first');
+    }
+
+    // Resolve the effective timing/check-in config: sport base + tournament override.
+    const sport = bracket.tournament.sport;
+    const sportConfig: SportConfig = resolveSportConfig(
+      sport?.slug ?? '',
+      (sport?.config ?? {}) as Partial<SportConfig>,
+    );
+    const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
+    const requireCheckIn = tOverride.requireCheckIn ?? sportConfig.requireCheckIn;
+
+    if (!requireCheckIn) {
+      return {
+        requireCheckIn: false,
+        withdrawn: [],
+        skipped: [],
+        doubleNoShow: [],
+        errors: [],
+      };
+    }
+
+    // Snapshot first-round matches BEFORE we start mutating the bracket.
+    // Deeper rounds have TBD/bye slots that resolve from earlier matches —
+    // they don't need their own check-in scan.
+    const data = bracket.bracketData as unknown as BracketData;
+    const firstRound = data.winnersBracket[0] ?? [];
+
+    type Slot = {
+      matchId: string;
+      p1Id: string | null;
+      p2Id: string | null;
+      // A first-round match can already carry a `winner` when the bracket
+      // generator pre-resolved a BYE-paired slot — we must not try to
+      // withdraw into it, the engine rejects that path.
+      preResolved: boolean;
+    };
+    const slots: Slot[] = firstRound.map((m) => ({
+      matchId: m.id,
+      p1Id: this.realPlayerId(m.player1?.id),
+      p2Id: this.realPlayerId(m.player2?.id),
+      preResolved: !!m.winner,
+    }));
+
+    const entryIds = Array.from(
+      new Set(slots.flatMap((s) => [s.p1Id, s.p2Id]).filter((id): id is string => !!id)),
+    );
+    const entries = await this.entriesService.findByIds(entryIds);
+    const entryById = new Map(entries.map((e) => [e.id, e]));
+
+    const isNoShow = (entryId: string | null): boolean => {
+      if (!entryId) return false;
+      const e = entryById.get(entryId);
+      if (!e) return false;
+      // Entries already in a "handled" terminal state — withdrawn (explicit
+      // drop) or rejected (organizer denied the registration) — are not
+      // forfeited again. Only `pending`/`confirmed`/anything else counts as
+      // a no-show.
+      return e.status !== 'checked_in' && e.status !== 'withdrawn' && e.status !== 'rejected';
+    };
+
+    const withdrawn: string[] = [];
+    const skipped: string[] = [];
+    const doubleNoShow: string[] = [];
+    const errors: Array<{ matchId: string; error: string }> = [];
+
+    for (const slot of slots) {
+      // Byes / already-forfeited slots arrive here with a winner already set.
+      // We still record what we found so the UI can show "nothing to do".
+      if (slot.preResolved) {
+        if (slot.p1Id) skipped.push(slot.p1Id);
+        if (slot.p2Id) skipped.push(slot.p2Id);
+        continue;
+      }
+
+      const p1NoShow = isNoShow(slot.p1Id);
+      const p2NoShow = isNoShow(slot.p2Id);
+
+      if (p1NoShow && p2NoShow) {
+        doubleNoShow.push(slot.matchId);
+        continue;
+      }
+
+      // Each forfeit runs its own transaction (inside withdrawPlayer). Catch
+      // per-match failures (concurrent edit, engine rejection, etc.) and
+      // keep going — partially applied forfeits are still better than
+      // aborting the whole category start mid-loop.
+      try {
+        if (p1NoShow && slot.p1Id) {
+          await this.withdrawPlayer(
+            bracketId,
+            slot.matchId,
+            { position: 1, reason: 'no-show (auto-forfeit at category start)' },
+            userId,
+            userRoles,
+          );
+          withdrawn.push(slot.p1Id);
+        } else if (p2NoShow && slot.p2Id) {
+          await this.withdrawPlayer(
+            bracketId,
+            slot.matchId,
+            { position: 2, reason: 'no-show (auto-forfeit at category start)' },
+            userId,
+            userRoles,
+          );
+          withdrawn.push(slot.p2Id);
+        } else {
+          if (slot.p1Id) skipped.push(slot.p1Id);
+          if (slot.p2Id) skipped.push(slot.p2Id);
+        }
+      } catch (err) {
+        const message = (err as Error)?.message ?? 'unknown error';
+        this.logger.warn(`start-category: match ${slot.matchId} forfeit failed: ${message}`);
+        errors.push({ matchId: slot.matchId, error: message });
+      }
+    }
+
+    this.logger.log(
+      `Bracket ${bracketId} start-category: withdrew ${withdrawn.length} no-shows, ` +
+        `${doubleNoShow.length} double-no-show matches skipped for manual review, ` +
+        `${errors.length} errors`,
+    );
+
+    return { requireCheckIn: true, withdrawn, skipped, doubleNoShow, errors };
+  }
+
+  /** Convert bracket player id → real entry id (null for `tbd` / `bye`). */
+  private realPlayerId(id: string | undefined): string | null {
+    if (!id || id === 'tbd' || id === 'bye') return null;
+    return id;
   }
 
   // ─── Reset single match ───────────────────────────────────

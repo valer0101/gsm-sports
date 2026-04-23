@@ -26,6 +26,7 @@ export const SPORT_CONFIG_DEFAULTS: SportConfig = {
   // override per event anyway.
   avgMatchDurationSec: 300,
   minRestBetweenMatchesSec: 900,
+  requireCheckIn: false,
 };
 
 type LocalizedPair = {
@@ -58,6 +59,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     // + result entry ~3 min is realistic.
     avgMatchDurationSec: 180,
     minRestBetweenMatchesSec: 600, // 10 min — per WAF guidance
+    requireCheckIn: true,
     surfaceTerm: {
       singular: { ru: 'стол', en: 'table', hy: 'սեղան' },
       plural: { ru: 'столы', en: 'tables', hy: 'սեղաններ' },
@@ -72,6 +74,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     // 3 rounds × 3 min + 2 breaks × 1 min + walk-in + judging ≈ 15 min.
     avgMatchDurationSec: 900,
     minRestBetweenMatchesSec: 1800, // 30 min — medical minimum
+    requireCheckIn: true,
     surfaceTerm: {
       singular: { ru: 'ринг', en: 'ring', hy: 'ռինգ' },
       plural: { ru: 'ринги', en: 'rings', hy: 'ռինգներ' },
@@ -85,6 +88,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     weighInRequired: true,
     avgMatchDurationSec: 900,
     minRestBetweenMatchesSec: 2700, // 45 min — recovery + medical
+    requireCheckIn: true,
     surfaceTerm: {
       singular: { ru: 'клетка', en: 'cage', hy: 'վանդակ' },
       plural: { ru: 'клетки', en: 'cages', hy: 'վանդակներ' },
@@ -98,6 +102,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     weighInRequired: true,
     avgMatchDurationSec: 420, // 6–7 min match + transitions
     minRestBetweenMatchesSec: 900,
+    requireCheckIn: true,
   },
   chess: {
     categoriesType: 'skill',
@@ -107,6 +112,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
     weighInRequired: false,
     avgMatchDurationSec: 3600, // 60 min rapid
     minRestBetweenMatchesSec: 600,
+    requireCheckIn: false,
   },
 };
 
