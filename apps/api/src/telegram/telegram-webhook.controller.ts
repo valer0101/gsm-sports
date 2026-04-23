@@ -9,8 +9,17 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'node:crypto';
 import { Public } from '../auth/public.decorator';
 import { TelegramUpdateService, type TelegramUpdate } from './telegram-update.service';
+
+/** Constant-time string compare. Returns false for any length mismatch. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 /**
  * The single entry point for incoming Telegram updates.
@@ -48,7 +57,10 @@ export class TelegramWebhookController {
     if (!expected) {
       throw new UnauthorizedException('Webhook not configured');
     }
-    if (receivedSecret !== expected) {
+    // Constant-time compare so a remote attacker can't byte-walk the
+    // secret through response-timing side channels. Generic 401
+    // message on any mismatch keeps the error shape uniform.
+    if (typeof receivedSecret !== 'string' || !safeEqual(receivedSecret, expected)) {
       throw new UnauthorizedException('Invalid webhook secret');
     }
 

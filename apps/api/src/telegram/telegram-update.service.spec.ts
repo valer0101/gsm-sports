@@ -103,4 +103,20 @@ describe('TelegramUpdateService', () => {
     });
     expect(mockLinkService.completeLink).toHaveBeenCalledWith('xyz', 42);
   });
+
+  it('does NOT throw when `text` is not a string (spoofed / bad update shape)', async () => {
+    await expect(
+      service.handleUpdate({
+        update_id: 9,
+        message: {
+          message_id: 1,
+          chat: { id: 42 },
+          // Breaks the type contract — simulates a malformed update that
+          // would otherwise throw when we call `.trim()` on it.
+          text: 123 as unknown as string,
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockLinkService.completeLink).not.toHaveBeenCalled();
+  });
 });

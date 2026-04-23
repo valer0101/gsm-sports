@@ -71,7 +71,9 @@ export class TelegramController {
         'TELEGRAM_WEBHOOK_SECRET is not configured — set it in .env before registering the webhook',
       );
     }
-    await this.telegramService.setWebhook(dto.url, secret);
+    await this.telegramService.setWebhook(dto.url, secret, {
+      dropPendingUpdates: dto.dropPendingUpdates ?? false,
+    });
     return { registered: true, url: dto.url };
   }
 }

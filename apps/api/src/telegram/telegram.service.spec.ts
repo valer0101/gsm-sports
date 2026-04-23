@@ -186,8 +186,28 @@ describe('TelegramService', () => {
         url: 'https://api.example.com/v1/telegram/webhook',
         secret_token: 'super-secret',
         allowed_updates: ['message'],
-        drop_pending_updates: true,
+        // Safe default: do NOT drop queued updates. Athletes who tapped
+        // their deep-link during a webhook downtime still get linked.
+        drop_pending_updates: false,
       });
+    });
+
+    it('honours explicit opt-in to drop pending updates', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      } as any);
+
+      await service.setWebhook(
+        'https://api.example.com/v1/telegram/webhook',
+        'super-secret',
+        { dropPendingUpdates: true },
+      );
+
+      const body = JSON.parse(
+        (fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string,
+      );
+      expect(body.drop_pending_updates).toBe(true);
     });
 
     it('throws when stub-mode (no token)', async () => {

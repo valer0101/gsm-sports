@@ -39,39 +39,49 @@ export class TelegramUpdateService {
   constructor(private readonly linkService: TelegramLinkService) {}
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
-    const msg = update.message;
-    if (!msg || !msg.text) return;
+    // Top-level catch to honour the MUST-NOT-throw contract: if the
+    // update shape lies about its types (e.g. `text` isn't actually a
+    // string), any sync operation below could throw and we'd bubble 5xx
+    // to Telegram, triggering its retry loop. Log + swallow instead.
+    try {
+      const message = update.message;
+      if (!message || typeof message.text !== 'string') return;
 
-    const text = msg.text.trim();
-    // Handle the only command we care about for v1: /start <token> issued
-    // when the athlete taps the deep-link from their profile.
-    const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(\S+))?$/);
-    if (startMatch) {
-      const token = startMatch[1];
-      if (!token) {
-        this.logger.debug(`/start without token from chat ${msg.chat.id} — ignoring`);
+      const text = message.text.trim();
+      // Handle the only command we care about for v1: /start <token>
+      // issued when the athlete taps the deep-link from their profile.
+      const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(\S+))?$/);
+      if (startMatch) {
+        const token = startMatch[1];
+        if (!token) {
+          this.logger.debug(`/start without token from chat ${message.chat.id} — ignoring`);
+          return;
+        }
+        try {
+          await this.linkService.completeLink(token, message.chat.id);
+          this.logger.log(`Completed Telegram link for chat ${message.chat.id}`);
+        } catch (err) {
+          // Deep-link expired, wrong purpose, or user already linked with
+          // a different token — log and move on. Telegram is not the
+          // right channel to explain why; the web UI covers that.
+          const errMsg = (err as Error)?.message ?? 'unknown';
+          this.logger.warn(
+            `Telegram link completion failed for chat ${message.chat.id}: ${errMsg}`,
+          );
+        }
         return;
       }
-      try {
-        await this.linkService.completeLink(token, msg.chat.id);
-        this.logger.log(`Completed Telegram link for chat ${msg.chat.id}`);
-      } catch (err) {
-        // Deep-link expired, wrong purpose, or user already linked with a
-        // different token — log and move on. Telegram is not the right
-        // channel to tell the user WHY; the UI on the web app covers that.
-        const msg = (err as Error)?.message ?? 'unknown';
-        this.logger.warn(
-          `Telegram link completion failed for chat ${update.message?.chat.id}: ${msg}`,
-        );
-      }
-      return;
-    }
 
-    // Other text messages are unrecognised for now. Logged at debug so
-    // prod doesn't spam — future commands (e.g. /unlink, /help) get added
-    // here.
-    this.logger.debug(
-      `Unhandled Telegram message from chat ${msg.chat.id}: ${text.slice(0, 80)}`,
-    );
+      // Other text messages are unrecognised for now. Logged at debug so
+      // prod doesn't spam — future commands (e.g. /unlink, /help) get
+      // added here.
+      this.logger.debug(
+        `Unhandled Telegram message from chat ${message.chat.id}: ${text.slice(0, 80)}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Unexpected error while handling Telegram update ${update.update_id}: ${(err as Error)?.message ?? 'unknown'}`,
+      );
+    }
   }
 }

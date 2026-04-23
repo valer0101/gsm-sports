@@ -118,9 +118,17 @@ export class TelegramService {
    * header on every incoming update so the webhook controller can verify
    * authenticity without bearer tokens.
    *
+   * `dropPendingUpdates` defaults to `false` — don't silently discard
+   * queued `/start` deep-links athletes sent while the webhook was down
+   * unless the caller explicitly opts in.
+   *
    * Docs: https://core.telegram.org/bots/api#setwebhook
    */
-  async setWebhook(url: string, secretToken: string): Promise<void> {
+  async setWebhook(
+    url: string,
+    secretToken: string,
+    options: { dropPendingUpdates?: boolean } = {},
+  ): Promise<void> {
     if (!this.botToken) {
       throw new Error('Cannot setWebhook: TELEGRAM_BOT_TOKEN is not configured');
     }
@@ -133,7 +141,7 @@ export class TelegramService {
         // Only subscribe to message updates — fewer webhook invocations,
         // fewer things to ignore in `handleUpdate`.
         allowed_updates: ['message'],
-        drop_pending_updates: true,
+        drop_pending_updates: options.dropPendingUpdates ?? false,
       }),
     });
 
