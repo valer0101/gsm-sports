@@ -108,4 +108,54 @@ export class TelegramService {
       messageId: body.result?.message_id ?? null,
     };
   }
+
+  /**
+   * Register (or re-register) the webhook URL with Telegram. Admin-only
+   * controller wraps this — it's a one-shot operational call when the
+   * public URL changes (new domain, ngrok restart, prod promotion).
+   *
+   * `secretToken` is echoed back in the `X-Telegram-Bot-Api-Secret-Token`
+   * header on every incoming update so the webhook controller can verify
+   * authenticity without bearer tokens.
+   *
+   * `dropPendingUpdates` defaults to `false` — don't silently discard
+   * queued `/start` deep-links athletes sent while the webhook was down
+   * unless the caller explicitly opts in.
+   *
+   * Docs: https://core.telegram.org/bots/api#setwebhook
+   */
+  async setWebhook(
+    url: string,
+    secretToken: string,
+    options: { dropPendingUpdates?: boolean } = {},
+  ): Promise<void> {
+    if (!this.botToken) {
+      throw new Error('Cannot setWebhook: TELEGRAM_BOT_TOKEN is not configured');
+    }
+    const res = await fetch(`${this.apiBase}/setWebhook`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        secret_token: secretToken,
+        // Only subscribe to message updates — fewer webhook invocations,
+        // fewer things to ignore in `handleUpdate`.
+        allowed_updates: ['message'],
+        drop_pending_updates: options.dropPendingUpdates ?? false,
+      }),
+    });
+
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      throw new Error(
+        `Telegram setWebhook failed (${res.status}): ${bodyText.slice(0, 200)}`,
+      );
+    }
+    const body = (await res.json()) as { ok: boolean; description?: string };
+    if (!body.ok) {
+      throw new Error(`Telegram setWebhook rejected: ${body.description ?? 'unknown'}`);
+    }
+
+    this.logger.log(`Telegram webhook registered at ${url}`);
+  }
 }
