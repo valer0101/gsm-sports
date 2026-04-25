@@ -13,7 +13,13 @@ import {
 import { useTournamentSchedule } from '@/hooks/useSchedule';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
-import type { Bracket, BracketMatch } from '@/types/api';
+import { MatchResultForm } from '@/components/tournaments/MatchResultForm';
+import type {
+  Bracket,
+  BracketMatch,
+  MatchResult,
+  MatchResultSchema,
+} from '@/types/api';
 
 export default function OperatorTournamentPage({
   params,
@@ -208,6 +214,27 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   } | null>(null);
   const [withdrawReason, setWithdrawReason] = useState('');
   const [lastResult, setLastResult] = useState<string | null>(null);
+  // Schema-driven result detail captured by <MatchResultForm>. Reset on
+  // confirm / cancel so stale armwrestling data doesn't leak into the
+  // next match's payload.
+  const [resultDetail, setResultDetail] = useState<MatchResult | null | undefined>(
+    undefined,
+  );
+
+  // Sport's `matchResultSchema` — missing on endpoints that don't load
+  // the tournament relation, in which case the form falls back to
+  // `simple_winner` (just the winner click, no extra fields).
+  //
+  // Resolution order matches the API validator (`recordResult` in
+  // BracketsService): per-tournament `sportConfig.matchResultSchema`
+  // override > sport-wide `sport.config.matchResultSchema` >
+  // `simple_winner`. Without the override mirror, an organizer who
+  // sets a per-event schema would see the wrong form here and the
+  // backend would reject the payload with `INVALID_MATCH_RESULT`.
+  const resultSchema: MatchResultSchema =
+    bracket.tournament?.sportConfig?.matchResultSchema ??
+    bracket.tournament?.sport?.config?.matchResultSchema ??
+    'simple_winner';
 
   const bd = bracket.bracketData!;
 
@@ -244,11 +271,23 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   function doRecord() {
     if (!confirm) return;
     record.mutate(
-      { matchId: confirm.matchId, winnerId: confirm.winnerId },
+      {
+        matchId: confirm.matchId,
+        winnerId: confirm.winnerId,
+        // Three-way semantics: `undefined` = preserve prior blob (engine
+        // contract), `null` = clear, object = record. Don't collapse
+        // null→undefined here — the form may legitimately emit `null`
+        // (e.g. an explicit "clear detail" button in a future iteration)
+        // and the engine relies on the distinction. Cast through the
+        // loose record shape the hook accepts (the discriminated union
+        // doesn't have an index signature).
+        result: resultDetail as Record<string, unknown> | null | undefined,
+      },
       {
         onSuccess: () => {
           setLastResult(t('winner_result', { name: confirm.winnerName }));
           setConfirm(null);
+          setResultDetail(undefined);
           setTimeout(() => setLastResult(null), 3000);
         },
       },
@@ -367,6 +406,18 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
               />
             </div>
 
+            {/* Schema-driven result detail form — rendered between winner pick
+                and Confirm so the operator fills victoryType / score / time
+                before committing. `simple_winner` sports short-circuit to
+                `null` inside the component. */}
+            {isConfirming && (
+              <MatchResultForm
+                schema={resultSchema}
+                match={match}
+                onChange={setResultDetail}
+              />
+            )}
+
             {/* Confirm row */}
             {isConfirming && (
               <div className="px-4 pb-4">
@@ -387,7 +438,10 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
                       {isRecording ? '...' : t('confirm')}
                     </button>
                     <button
-                      onClick={() => setConfirm(null)}
+                      onClick={() => {
+                        setConfirm(null);
+                        setResultDetail(undefined);
+                      }}
                       className="px-3 py-1.5 rounded-lg text-sm border border-white/10 hover:bg-white/10 transition-colors"
                       style={{ color: 'var(--color-text-secondary)' }}
                     >

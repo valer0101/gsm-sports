@@ -84,13 +84,25 @@ export function useRecordResult(bracketId: string) {
       matchId,
       winnerId,
       notes,
+      result,
     }: {
       matchId: string;
       winnerId: string;
       notes?: string;
+      /**
+       * Sport-specific result detail (Phase 3.2). Omit to preserve any
+       * prior payload on a correction; send `null` to clear; send an
+       * object matching the tournament's `MatchResultSchema` to record.
+       */
+      result?: Record<string, unknown> | null;
     }) =>
       api
-        .post(`/operator/brackets/${bracketId}/result`, { matchId, winnerId, notes })
+        .post(`/operator/brackets/${bracketId}/result`, {
+          matchId,
+          winnerId,
+          notes,
+          result,
+        })
         .then((r: any) => r.data),
     onSuccess: (data: Bracket) => {
       qc.invalidateQueries({ queryKey: ['operator', 'brackets'] });

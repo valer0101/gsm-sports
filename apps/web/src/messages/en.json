@@ -349,6 +349,23 @@
     "official_kg": "{kg} kg",
     "generic_error": "Failed to record weigh-in."
   },
+  "match_result": {
+    "aw_victory_type": "Victory type",
+    "aw_pin": "Pin",
+    "aw_points": "Points",
+    "aw_fouls": "Fouls",
+    "aw_dq": "DQ",
+    "aw_fouls_short": "Fouls",
+    "aw_summary_with_fouls": "{victory} · {fouls} fouls",
+    "points_hint": "Judge totals — one card covers both players.",
+    "points_summary": "Points {player1}–{player2}",
+    "score_hint": "Final score.",
+    "score_summary": "Score {player1}–{player2}",
+    "time_hint": "Finish time in seconds (e.g. 48.30).",
+    "time_seconds_label": "seconds",
+    "time_summary": "{player1} vs {player2}",
+    "unsupported_schema": "Unsupported result schema: {schema}"
+  },
   "operator_tournament": {
     "no_bracket": "Bracket not generated yet",
     "no_bracket_desc": "Wait for the administrator to generate the bracket",

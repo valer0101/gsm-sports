@@ -511,6 +511,23 @@
     "official_kg": "{kg} կգ",
     "generic_error": "Չստացվեց գրանցել կշռումը։"
   },
+  "match_result": {
+    "aw_victory_type": "Հաղթանակի տեսակը",
+    "aw_pin": "Սեղմում",
+    "aw_points": "Միավորներով",
+    "aw_fouls": "Ֆոլերով",
+    "aw_dq": "Որակազրկում",
+    "aw_fouls_short": "Ֆոլեր",
+    "aw_summary_with_fouls": "{victory} · {fouls} ֆոլ",
+    "points_hint": "Դատավորների միավորների գումար — մեկ քարտ երկու մարզիկի համար։",
+    "points_summary": "Միավորներ {player1}–{player2}",
+    "score_hint": "Վերջնական հաշիվը։",
+    "score_summary": "Հաշիվ {player1}–{player2}",
+    "time_hint": "Ավարտի ժամը վայրկյաններով (օրինակ՝ 48.30)։",
+    "time_seconds_label": "վայրկյան",
+    "time_summary": "{player1} և {player2}",
+    "unsupported_schema": "Չապահովված արդյունքի սխեմա՝ {schema}"
+  },
   "operator_tournament": {
     "no_bracket": "Цанцне дер чи дзеваворвел",
     "no_bracket_desc": "Сапахецек минчев администраторе цанце дзевавори",
