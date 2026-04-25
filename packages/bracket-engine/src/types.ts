@@ -62,8 +62,11 @@ export interface BracketData {
    *   - `round_robin` plays all matches up-front (every player vs every
    *     other), no propagation; champion = unique best W-L record once
    *     every match has a winner.
+   *   - `swiss` plays a fixed N rounds; round R+1 is paired by `propagate`
+   *     once round R completes, sorted by score and avoiding rematches.
+   *     Champion = unique best record after the final round.
    */
-  format?: 'single_elim' | 'double_elim' | 'round_robin';
+  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss';
   players: Player[];
   bracketSize: number;
   wbRounds: number;
