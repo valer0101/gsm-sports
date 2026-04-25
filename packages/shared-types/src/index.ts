@@ -192,6 +192,24 @@ export interface TournamentScheduleResponse {
   active: ScheduleActiveMatch[];
 }
 
+// ─── Weigh-ins ──────────────────────────────────────────────
+/**
+ * Official weigh-in record. One row per `TournamentEntry`. Created by an
+ * admin/organizer on event day for sports whose `SportConfig.weighInRequired`
+ * is true (armwrestling / boxing / mma / jiu_jitsu by default); bracket
+ * generation is blocked until every confirmed entry in the category has one.
+ */
+export interface WeighInResponse {
+  id: string;
+  entryId: string;
+  tournamentId: string;
+  officialWeightKg: number;
+  verifiedBy: string;
+  verifiedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── News ───────────────────────────────────────────────────
 export type NewsStatus = 'draft' | 'published' | 'archived';
 

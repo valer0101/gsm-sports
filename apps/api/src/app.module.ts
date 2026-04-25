@@ -20,6 +20,7 @@ import { NewsModule } from './news/news.module';
 import { MatchAssignmentsModule } from './match-assignments/match-assignments.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { WeighInsModule } from './weigh-ins/weigh-ins.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { TelegramModule } from './telegram/telegram.module';
     MatchAssignmentsModule,
     ScheduleModule,
     TelegramModule,
+    WeighInsModule,
   ],
   providers: [
     // Global JWT guard — routes are protected by default; mark exceptions with @Public()
