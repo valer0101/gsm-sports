@@ -525,7 +525,8 @@
     "score_summary": "Հաշիվ {player1}–{player2}",
     "time_hint": "Ավարտի ժամը վայրկյաններով (օրինակ՝ 48.30)։",
     "time_seconds_label": "վայրկյան",
-    "time_summary": "{player1} և {player2}"
+    "time_summary": "{player1} և {player2}",
+    "unsupported_schema": "Չապահովված արդյունքի սխեմա՝ {schema}"
   },
   "operator_tournament": {
     "no_bracket": "Цанцне дер чи дзеваворвел",

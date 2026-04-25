@@ -208,6 +208,12 @@ export interface Bracket {
   tournament?: {
     id: string;
     sport?: { slug: string; config: SportConfig } | null;
+    /**
+     * Per-tournament override blob — its keys (when present) override the
+     * sport-wide `sport.config` per-event. Mirrors the precedence used by
+     * the API gate (`assertAllWeighedIn`) and the result-detail validator.
+     */
+    sportConfig?: Partial<SportConfig> | null;
   };
   createdAt: string;
   updatedAt: string;

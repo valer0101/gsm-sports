@@ -363,7 +363,8 @@
     "score_summary": "Score {player1}–{player2}",
     "time_hint": "Finish time in seconds (e.g. 48.30).",
     "time_seconds_label": "seconds",
-    "time_summary": "{player1} vs {player2}"
+    "time_summary": "{player1} vs {player2}",
+    "unsupported_schema": "Unsupported result schema: {schema}"
   },
   "operator_tournament": {
     "no_bracket": "Bracket not generated yet",

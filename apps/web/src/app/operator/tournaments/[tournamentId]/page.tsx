@@ -224,8 +224,17 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   // Sport's `matchResultSchema` — missing on endpoints that don't load
   // the tournament relation, in which case the form falls back to
   // `simple_winner` (just the winner click, no extra fields).
+  //
+  // Resolution order matches the API validator (`recordResult` in
+  // BracketsService): per-tournament `sportConfig.matchResultSchema`
+  // override > sport-wide `sport.config.matchResultSchema` >
+  // `simple_winner`. Without the override mirror, an organizer who
+  // sets a per-event schema would see the wrong form here and the
+  // backend would reject the payload with `INVALID_MATCH_RESULT`.
   const resultSchema: MatchResultSchema =
-    bracket.tournament?.sport?.config?.matchResultSchema ?? 'simple_winner';
+    bracket.tournament?.sportConfig?.matchResultSchema ??
+    bracket.tournament?.sport?.config?.matchResultSchema ??
+    'simple_winner';
 
   const bd = bracket.bracketData!;
 
@@ -265,12 +274,14 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
       {
         matchId: confirm.matchId,
         winnerId: confirm.winnerId,
-        // Only forward when the schema form produced something — keeping
-        // `undefined` means "no explicit payload" (engine preserves any
-        // prior blob on a correction). Cast through the loose record
-        // shape the hook accepts (the discriminated union doesn't have
-        // an index signature).
-        result: (resultDetail ?? undefined) as Record<string, unknown> | undefined,
+        // Three-way semantics: `undefined` = preserve prior blob (engine
+        // contract), `null` = clear, object = record. Don't collapse
+        // null→undefined here — the form may legitimately emit `null`
+        // (e.g. an explicit "clear detail" button in a future iteration)
+        // and the engine relies on the distinction. Cast through the
+        // loose record shape the hook accepts (the discriminated union
+        // doesn't have an index signature).
+        result: resultDetail as Record<string, unknown> | null | undefined,
       },
       {
         onSuccess: () => {

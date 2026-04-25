@@ -26,6 +26,7 @@ export function MatchResultForm({
   /** Fires whenever the payload changes. `null` = clear, `undefined` = no explicit payload (keep prior). */
   onChange: (result: MatchResult | null | undefined) => void;
 }) {
+  const t = useTranslations('match_result');
   // `simple_winner` sports don't need any input at all — short-circuit
   // so the parent can render nothing and jump straight to Confirm.
   if (schema === 'simple_winner') {
@@ -43,9 +44,14 @@ export function MatchResultForm({
       return <TimeFields match={match} onChange={onChange} />;
     default: {
       const _exhaustive: never = schema;
+      // Defensive UI for the case where a new `MatchResultSchema` is
+      // added in shared-types but not wired into this form. The TS
+      // `never` assignment fails the build first, so end users should
+      // never see this — but if they do, the message is i18n'd so it
+      // doesn't break the locale UI.
       return (
         <p className="text-xs text-red-400">
-          Unsupported result schema: {String(_exhaustive)}
+          {t('unsupported_schema', { schema: String(_exhaustive) })}
         </p>
       );
     }

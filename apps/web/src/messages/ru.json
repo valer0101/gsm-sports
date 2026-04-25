@@ -363,7 +363,8 @@
     "score_summary": "Счёт {player1}–{player2}",
     "time_hint": "Время финиша в секундах (например, 48.30).",
     "time_seconds_label": "секунд",
-    "time_summary": "{player1} и {player2}"
+    "time_summary": "{player1} и {player2}",
+    "unsupported_schema": "Неподдерживаемая схема результата: {schema}"
   },
   "operator_tournament": {
     "no_bracket": "Сетка ещё не сформирована",
