@@ -74,6 +74,8 @@
     "grand_final": "Гранд-финал",
     "super_final": "Супер-финал",
     "champion": "Чемпион",
+    "rr_schedule": "Расписание",
+    "rr_round": "Тур {n}",
     "participants_count": "Всего участников: {count}",
     "participants_error": "Не удалось загрузить список участников",
     "participants_empty": "Участников пока нет",
@@ -314,6 +316,7 @@
     "action_player_withdrawn": "Игрок снят (forfeit)",
     "wb_round": "WB Раунд {n}",
     "lb_round": "LB Раунд {n}",
+    "rr_round": "Тур {n}",
     "grand_final": "Гранд-финал",
     "super_final": "Супер-финал",
     "corrected_badge": "✎ исправлен",
@@ -351,6 +354,7 @@
     "category": "Категория {n}",
     "wb_round": "WB Раунд {n}",
     "lb_round": "LB Раунд {n}",
+    "rr_round": "Тур {n}",
     "grand_final": "Гранд-финал",
     "super_final": "Супер-финал",
     "winner_btn": "Победил",
@@ -691,5 +695,13 @@
     "submit": "Создать турнир",
     "cancel": "Отмена",
     "error_create": "Ошибка создания турнира"
+  },
+  "round_robin": {
+    "title": "Турнирная таблица",
+    "col_position": "#",
+    "col_athlete": "Атлет",
+    "col_played": "И",
+    "col_wins": "В",
+    "col_losses": "П"
   }
 }
