@@ -143,24 +143,31 @@ export class BracketsService {
   ) {}
 
   /**
-   * Block bracket generation when the sport's `SportConfig.weighInRequired`
+   * Block bracket generation when the resolved `SportConfig.weighInRequired`
    * is true and any of the given entries has no `WeighIn` row. Throws a
    * `BadRequestException` carrying the unweighed entry ids so the admin UI
    * can surface which athletes still need to be weighed.
    *
-   * No-op for sports that don't require weigh-ins (e.g. chess) and no-op
-   * when every entry in the set is already weighed.
+   * Resolution order (matches `startCategory`'s precedence):
+   *   1. `tournament.sportConfig` — per-event override blob
+   *   2. `tournament.sport.config` — sport-wide config
+   *   3. `SPORT_CONFIG_DEFAULTS` — built-in defaults
+   *
+   * So an organizer who sets `tournament.sportConfig.weighInRequired = false`
+   * on an armwrestling event disables the gate for THAT event without
+   * touching the global sport config.
    */
   private async assertAllWeighedIn(
     entries: { id: string }[],
-    sportSlug: string,
-    sportConfigRaw: unknown,
+    tournament: { sport?: { slug?: string; config?: unknown } | null; sportConfig?: unknown | null },
   ): Promise<void> {
-    const cfg = resolveSportConfig(
-      sportSlug,
-      sportConfigRaw as Parameters<typeof resolveSportConfig>[1],
+    const sportCfg = resolveSportConfig(
+      tournament.sport?.slug ?? '',
+      tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
-    if (!cfg.weighInRequired) return;
+    const tOverride = (tournament.sportConfig ?? {}) as Partial<SportConfig>;
+    const weighInRequired = tOverride.weighInRequired ?? sportCfg.weighInRequired;
+    if (!weighInRequired) return;
 
     const missing = await this.weighInsService.findMissingForEntries(
       entries.map((e) => e.id),
@@ -252,11 +259,7 @@ export class BracketsService {
       );
     }
 
-    await this.assertAllWeighedIn(
-      entries,
-      tournament.sport?.slug ?? '',
-      tournament.sport?.config,
-    );
+    await this.assertAllWeighedIn(entries, tournament);
 
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
@@ -308,11 +311,7 @@ export class BracketsService {
     // `generateWithWeightBuckets` is called from the close-registration flow,
     // so entries here are the canonical "confirmed" set for the tournament.
     const tournament = await this.tournamentsService.findById(tournamentId);
-    await this.assertAllWeighedIn(
-      entries,
-      tournament.sport?.slug ?? '',
-      tournament.sport?.config,
-    );
+    await this.assertAllWeighedIn(entries, tournament);
 
     const groups = new Map<
       string,
@@ -414,11 +413,7 @@ export class BracketsService {
       );
     }
 
-    await this.assertAllWeighedIn(
-      entries,
-      tournament.sport?.slug ?? '',
-      tournament.sport?.config,
-    );
+    await this.assertAllWeighedIn(entries, tournament);
 
     const seedMap = new Map((dto.playerSeeds ?? []).map(({ entryId, seed }) => [entryId, seed]));
 

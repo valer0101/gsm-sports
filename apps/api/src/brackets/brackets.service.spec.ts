@@ -260,7 +260,8 @@ describe('BracketsService', () => {
       expect(weighInsService.findMissingForEntries).not.toHaveBeenCalled();
     });
 
-    it('generate: tournament-level override (weighInRequired=false) disables the gate', async () => {
+    it('generate: sport-wide config (weighInRequired=false) disables the gate', async () => {
+      // Sport-wide config: every event of this sport skips weigh-in.
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'armwrestling', config: { weighInRequired: false } },
@@ -275,6 +276,48 @@ describe('BracketsService', () => {
 
       await expect(service.generate({ tournamentId: 't1' }, 'org-1')).resolves.toBeDefined();
       expect(weighInsService.findMissingForEntries).not.toHaveBeenCalled();
+    });
+
+    it('generate: per-tournament sportConfig override (weighInRequired=false) disables the gate', async () => {
+      // Per-event override: armwrestling sport-wide STILL requires weigh-in,
+      // but THIS tournament opts out via `tournament.sportConfig`. Mirrors
+      // the precedence used by `startCategory` for `requireCheckIn`.
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} }, // sport-wide: weighInRequired=true
+          sportConfig: { weighInRequired: false }, // event-level override
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      const created = makeBracket();
+      repo.create.mockReturnValue(created);
+      repo.save.mockResolvedValue(created);
+
+      await expect(service.generate({ tournamentId: 't1' }, 'org-1')).resolves.toBeDefined();
+      expect(weighInsService.findMissingForEntries).not.toHaveBeenCalled();
+    });
+
+    it('generate: per-tournament sportConfig override (weighInRequired=true) enables the gate for chess', async () => {
+      // Reverse direction: chess sport-wide doesn't require weigh-in, but
+      // a particular event opts IN via `tournament.sportConfig`.
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'chess', config: {} }, // sport-wide: weighInRequired=false
+          sportConfig: { weighInRequired: true }, // event-level override
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3')],
+      });
+      weighInsService.findMissingForEntries.mockResolvedValue(['entry-u2']);
+
+      await expect(
+        service.generate({ tournamentId: 't1' }, 'org-1'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'WEIGH_IN_REQUIRED' }),
+      });
     });
 
     it('generateForGroup: blocks on unweighed entries', async () => {
