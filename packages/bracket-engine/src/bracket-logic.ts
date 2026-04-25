@@ -5,6 +5,7 @@ import {
   SuperFinalMatch,
   BracketData,
   ValidationResult,
+  Standing,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -450,6 +451,228 @@ function finalizeSingleElim(data: BracketData): void {
   data.status = 'completed';
 }
 
+// ─── Round-robin ────────────────────────────────────────────
+
+/**
+ * Build a round-robin schedule using the standard "circle method" —
+ * every player meets every other player exactly once. For N players
+ * the schedule is N-1 rounds (N even) or N rounds with one bye per
+ * round (N odd, one player rests each round).
+ *
+ * Same `BracketData` shape as the elimination formats so consumers
+ * (operator UI, scheduler, audit log, …) work without branching:
+ *   - `format: 'round_robin'`
+ *   - `winnersBracket` carries the rounds, each match is `rr_{round}_{idx}`
+ *   - `losersBracket: []`, `grandFinal` / `superFinal` TBD never reached
+ *   - Champion is decided by `getRoundRobinStandings` once every match
+ *     has a winner; ties at #1 leave `champion: null` and require a
+ *     manual tiebreaker (out of scope for this slice).
+ */
+export function generateRoundRobin(players: Player[]): BracketData {
+  const n = players.length;
+  if (n < 2) {
+    throw new Error('At least 2 players are required to generate a bracket');
+  }
+
+  // Circle method needs an even player count. For odd N we add a single
+  // synthetic BYE seat — the player paired with BYE in a given round
+  // simply rests that round (the match is auto-resolved as a bye-win).
+  const work: Player[] = players.slice();
+  const oddPad = work.length % 2 === 1;
+  if (oddPad) work.push(makeBye());
+
+  const m = work.length; // even
+  const numRounds = m - 1;
+
+  // Anchor seat 0 fixed; rotate the rest. Standard circle method.
+  const rotation = work.slice(1);
+
+  const rounds: Match[][] = [];
+  for (let r = 0; r < numRounds; r++) {
+    const roundMatches: Match[] = [];
+
+    // Pair seat 0 with the head of the rotation.
+    const slots: Player[] = [work[0], ...rotation];
+    for (let i = 0; i < m / 2; i++) {
+      const a = slots[i];
+      const b = slots[m - 1 - i];
+
+      const match: Match = {
+        id: `rr_${r + 1}_${i}`,
+        round: r + 1,
+        matchIndex: i,
+        player1: { ...a, seed: i * 2 + 1 },
+        player2: { ...b, seed: i * 2 + 2 },
+        winner: null,
+        loser: null,
+      };
+
+      // Auto-resolve bye matches — no scheduling, no operator click.
+      if (isBye(a.id) && isBye(b.id)) {
+        match.winner = 'bye';
+        match.loser = 'bye';
+      } else if (isBye(a.id)) {
+        match.winner = b.id;
+        match.loser = 'bye';
+      } else if (isBye(b.id)) {
+        match.winner = a.id;
+        match.loser = 'bye';
+      }
+
+      roundMatches.push(match);
+    }
+    rounds.push(roundMatches);
+
+    // Rotate: last → front, others shift up by one.
+    rotation.unshift(rotation.pop()!);
+  }
+
+  const grandFinal: GrandFinalMatch = {
+    id: 'grand_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+  };
+  const superFinal: SuperFinalMatch = {
+    id: 'super_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+    needed: false,
+  };
+
+  const data: BracketData = {
+    format: 'round_robin',
+    players: players.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      number: p.number,
+    })),
+    // bracketSize / wbRounds aren't really meaningful for RR; we keep
+    // them populated so downstream code that reads them (e.g. the
+    // arena UI) doesn't crash. `bracketSize` = real player count;
+    // `wbRounds` = number of round-robin rounds.
+    bracketSize: n,
+    wbRounds: numRounds,
+    winnersBracket: rounds,
+    losersBracket: [],
+    grandFinal,
+    superFinal,
+    champion: null,
+    status: 'active',
+  };
+
+  // If the generation already auto-resolved every match (only possible
+  // for n=2 with no byes — actually impossible, since n>=2 always has
+  // at least one real match — but cheap to call), check for completion.
+  finalizeRoundRobin(data);
+  return data;
+}
+
+/**
+ * Compute the standings table for a round-robin bracket. Pure read —
+ * walks `winnersBracket`, tallies W-L, and ranks. Bye matches are
+ * counted as a win for the real player but don't increment `played`
+ * for the bye seat. Ties share `position` (competition ranking — no
+ * head-to-head tiebreaker yet).
+ *
+ * Returns an empty array if `format !== 'round_robin'` so callers
+ * don't accidentally generate fake standings for an elimination
+ * bracket.
+ */
+export function getRoundRobinStandings(data: BracketData): Standing[] {
+  if (data.format !== 'round_robin') return [];
+
+  const records = new Map<string, { played: number; wins: number; losses: number }>();
+  for (const p of data.players) {
+    records.set(p.id, { played: 0, wins: 0, losses: 0 });
+  }
+
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      if (!m.winner) continue;
+      // Skip auto-resolved bye-vs-bye non-events; bye-vs-real counts
+      // as a played win for the real player.
+      const winnerIsBye = isBye(m.winner);
+      const loserIsBye = m.loser ? isBye(m.loser) : true;
+
+      if (!winnerIsBye && records.has(m.winner)) {
+        const w = records.get(m.winner)!;
+        w.wins += 1;
+        w.played += 1;
+      }
+      if (!loserIsBye && m.loser && records.has(m.loser)) {
+        const l = records.get(m.loser)!;
+        l.losses += 1;
+        l.played += 1;
+      }
+    }
+  }
+
+  const rows = data.players.map((p) => {
+    const r = records.get(p.id) ?? { played: 0, wins: 0, losses: 0 };
+    return {
+      playerId: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      played: r.played,
+      wins: r.wins,
+      losses: r.losses,
+      position: 0, // assigned below
+    };
+  });
+
+  // Sort: more wins first, then fewer losses (so a player with a
+  // pending match doesn't outrank someone with the same wins but a
+  // recorded loss).
+  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+
+  // Competition ranking: tied rows share position; next position skips.
+  let pos = 0;
+  let lastKey = '';
+  rows.forEach((row, idx) => {
+    const key = `${row.wins}|${row.losses}`;
+    if (key !== lastKey) {
+      pos = idx + 1;
+      lastKey = key;
+    }
+    row.position = pos;
+  });
+
+  return rows;
+}
+
+/**
+ * "Are all matches done?" + "is the leader unique?" check. Sets
+ * `champion` only when every match has a winner and exactly one
+ * player sits at position 1 in the standings; ties at #1 leave
+ * `champion: null` and `status: 'active'` so a human can apply a
+ * tiebreaker.
+ */
+function finalizeRoundRobin(data: BracketData): void {
+  if (data.format !== 'round_robin') return;
+
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      if (!m.winner) return; // still matches to play
+    }
+  }
+
+  const standings = getRoundRobinStandings(data);
+  if (standings.length === 0) return;
+  const leaders = standings.filter((s) => s.position === 1);
+  if (leaders.length !== 1) {
+    // All matches done but the leader is tied — leave `status: 'active'`
+    // so the UI can surface the tie and prompt for a manual decision.
+    return;
+  }
+  data.champion = leaders[0].playerId;
+  data.status = 'completed';
+}
+
 // ─── Propagate results ──────────────────────────────────────
 
 function propagateLosers(data: BracketData): void {
@@ -512,6 +735,14 @@ function propagateLosers(data: BracketData): void {
 }
 
 export function propagateResults(data: BracketData): void {
+  // Round-robin: every match is independent (no winners/losers
+  // propagating into next-round seats). Just check whether the
+  // tournament is complete and a unique leader has emerged.
+  if (data.format === 'round_robin') {
+    finalizeRoundRobin(data);
+    return;
+  }
+
   // Single-elim: WB-only path. The WB final IS the championship match,
   // so we propagate within the WB and shortcut out before any LB/GF/SF
   // logic — `losersBracket` is empty and `grandFinal` stays TBD.
@@ -725,6 +956,19 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
   // explicitly passes one, so without this the stale payload would linger
   // after a reset → record-again cycle.)
   match.result = null;
+
+  // Round-robin: every match is independent — no propagation, no
+  // downstream cascade. We just clear `champion` / `status` if the
+  // bracket was previously completed and recompute via the same
+  // finalize check.
+  if (data.format === 'round_robin') {
+    if (data.champion === oldWinner) {
+      data.champion = null;
+      data.status = 'active';
+    }
+    finalizeRoundRobin(data);
+    return data;
+  }
 
   // Cascade: clear all downstream matches that received this winner or loser
   _clearDownstream(data, oldWinner, oldLoser);
