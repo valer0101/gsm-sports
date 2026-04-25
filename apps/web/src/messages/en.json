@@ -108,7 +108,8 @@
     "checkin_status_confirmed": "Confirmed — not yet checked in",
     "checkin_status_checked_in": "Checked in ✓",
     "checkin_status_withdrawn": "Withdrawn",
-    "checkin_status_rejected": "Rejected"
+    "checkin_status_rejected": "Rejected",
+    "weigh_in_badge": "Weighed in · {kg} kg"
   },
   "athletes": {
     "title": "Athletes",
@@ -333,7 +334,20 @@
     "replace_pick_placeholder": "Pick replacement entry...",
     "replace_reason_placeholder": "Reason (min 3 chars)",
     "withdraw_title": "Withdraw {player}? {opponent} gets a forfeit win.",
-    "withdraw_reason_placeholder": "Withdrawal reason"
+    "withdraw_reason_placeholder": "Withdrawal reason",
+    "weigh_ins_title": "Weigh-ins",
+    "weigh_in_required_error": "Weigh-in required — {count} athletes have not been weighed yet."
+  },
+  "admin_weigh_ins": {
+    "no_entries": "No confirmed registrations yet.",
+    "progress_done": "✓ All athletes are weighed-in — bracket can be generated.",
+    "progress_status": "{done} of {total} athletes weighed-in",
+    "progress_gate_hint": "Bracket generation is blocked until every confirmed athlete is measured.",
+    "weight_placeholder": "kg",
+    "record_btn": "Record",
+    "registered_kg": "registered {kg} kg",
+    "official_kg": "{kg} kg",
+    "generic_error": "Failed to record weigh-in."
   },
   "operator_tournament": {
     "no_bracket": "Bracket not generated yet",
