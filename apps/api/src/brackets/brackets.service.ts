@@ -36,6 +36,7 @@ import { MatchAssignmentsService } from '../match-assignments/match-assignments.
 import { resolveSportConfig } from '../sports/sport-config';
 import type { SportConfig } from '@gsm/shared-types';
 import { TelegramNotificationsService } from '../telegram/telegram-notifications.service';
+import { WeighInsService } from '../weigh-ins/weigh-ins.service';
 
 // Standard arm wrestling weight buckets (kg)
 const WEIGHT_BUCKETS = [
@@ -137,8 +138,48 @@ export class BracketsService {
     private readonly eventsGateway: EventsGateway,
     private readonly matchAssignmentsService: MatchAssignmentsService,
     private readonly notifications: TelegramNotificationsService,
+    private readonly weighInsService: WeighInsService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Block bracket generation when the resolved `SportConfig.weighInRequired`
+   * is true and any of the given entries has no `WeighIn` row. Throws a
+   * `BadRequestException` carrying the unweighed entry ids so the admin UI
+   * can surface which athletes still need to be weighed.
+   *
+   * Resolution order (matches `startCategory`'s precedence):
+   *   1. `tournament.sportConfig` — per-event override blob
+   *   2. `tournament.sport.config` — sport-wide config
+   *   3. `SPORT_CONFIG_DEFAULTS` — built-in defaults
+   *
+   * So an organizer who sets `tournament.sportConfig.weighInRequired = false`
+   * on an armwrestling event disables the gate for THAT event without
+   * touching the global sport config.
+   */
+  private async assertAllWeighedIn(
+    entries: { id: string }[],
+    tournament: { sport?: { slug?: string; config?: unknown } | null; sportConfig?: unknown | null },
+  ): Promise<void> {
+    const sportCfg = resolveSportConfig(
+      tournament.sport?.slug ?? '',
+      tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
+    );
+    const tOverride = (tournament.sportConfig ?? {}) as Partial<SportConfig>;
+    const weighInRequired = tOverride.weighInRequired ?? sportCfg.weighInRequired;
+    if (!weighInRequired) return;
+
+    const missing = await this.weighInsService.findMissingForEntries(
+      entries.map((e) => e.id),
+    );
+    if (missing.length === 0) return;
+
+    throw new BadRequestException({
+      code: 'WEIGH_IN_REQUIRED',
+      message: `Weigh-in required before bracket generation — ${missing.length} entries are not yet weighed`,
+      unweighedEntryIds: missing,
+    });
+  }
 
   // ─── Authorization helper ──────────────────────────────────
 
@@ -218,6 +259,8 @@ export class BracketsService {
       );
     }
 
+    await this.assertAllWeighedIn(entries, tournament);
+
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
       firstName: entry.user?.firstName ?? 'Player',
@@ -263,6 +306,12 @@ export class BracketsService {
     if (entries.length < 2) {
       throw new BadRequestException('At least 2 registered participants are required');
     }
+
+    // Load the tournament (and its sport) once to gate on `weighInRequired`.
+    // `generateWithWeightBuckets` is called from the close-registration flow,
+    // so entries here are the canonical "confirmed" set for the tournament.
+    const tournament = await this.tournamentsService.findById(tournamentId);
+    await this.assertAllWeighedIn(entries, tournament);
 
     const groups = new Map<
       string,
@@ -363,6 +412,8 @@ export class BracketsService {
         'At least 2 confirmed entries are required to generate a bracket',
       );
     }
+
+    await this.assertAllWeighedIn(entries, tournament);
 
     const seedMap = new Map((dto.playerSeeds ?? []).map(({ entryId, seed }) => [entryId, seed]));
 
