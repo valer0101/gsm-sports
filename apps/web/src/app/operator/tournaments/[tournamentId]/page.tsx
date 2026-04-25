@@ -218,15 +218,37 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   const pendingMatches: MatchWithLabel[] = [];
 
   // Round labels differ by format: round-robin and swiss use the
-  // neutral "Round N"; elimination keeps "WB R{n}" / "LB R{n}".
+  // neutral "Round N"; elimination keeps "WB R{n}" / "LB R{n}";
+  // groups_playoff uses "Playoff R N" for `winnersBracket` matches and
+  // "Group A · Round N" for the per-group rounds (walked separately).
   const usesNeutralRound = bd.format === 'round_robin' || bd.format === 'swiss';
+  const isGroupsPlayoff = bd.format === 'groups_playoff';
+
+  // Group-stage matches first — they live in `bd.groups`, not in
+  // winnersBracket. Walk them so the operator sees the live group-stage
+  // round before the (still-TBD) playoff section.
+  if (isGroupsPlayoff) {
+    for (const group of bd.groups ?? []) {
+      group.rounds.forEach((round, ri) => {
+        round.forEach((m) => {
+          if (!isPlayable(m)) return;
+          pendingMatches.push({
+            ...m,
+            sectionLabel: t('group_round', { name: group.name, n: ri + 1 }),
+          });
+        });
+      });
+    }
+  }
 
   bd.winnersBracket.forEach((round, ri) => {
     round.forEach((m) => {
       if (!isPlayable(m)) return;
       const label = usesNeutralRound
         ? t('rr_round', { n: ri + 1 })
-        : t('wb_round', { n: ri + 1 });
+        : isGroupsPlayoff
+          ? t('playoff_round', { n: ri + 1 })
+          : t('wb_round', { n: ri + 1 });
       pendingMatches.push({ ...m, sectionLabel: label });
     });
   });
@@ -244,7 +266,8 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   if (
     bd.format !== 'round_robin' &&
     bd.format !== 'single_elim' &&
-    bd.format !== 'swiss'
+    bd.format !== 'swiss' &&
+    bd.format !== 'groups_playoff'
   ) {
     if (isPlayable(bd.grandFinal as BracketMatch)) {
       pendingMatches.push({ ...(bd.grandFinal as BracketMatch), sectionLabel: t('grand_final') });

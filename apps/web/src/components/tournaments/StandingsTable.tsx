@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import {
   getRoundRobinStandings,
   getSwissStandings,
+  getGroupStandings,
   type BracketData as EngineBracketData,
 } from '@gsm/bracket-engine';
 import { Avatar } from '@/components/Avatar';
@@ -16,20 +17,44 @@ import type { BracketData } from '@/types/api';
  * renders a small table sorted by W-L (competition ranking; ties share
  * the same `position`).
  *
- * Returns `null` for elimination brackets and for round_robin / swiss
- * with no players, so callers can drop it in unconditionally.
+ * For `groups_playoff` the caller passes `groupName` to scope the
+ * table to one group; one `<StandingsTable>` per group is rendered by
+ * `BracketView`. For `round_robin` / `swiss` the prop is ignored.
+ *
+ * Returns `null` for elimination brackets, for non-existent groups,
+ * and for empty standings.
  */
-export function StandingsTable({ data }: { data: BracketData }) {
+export function StandingsTable({
+  data,
+  groupName,
+  title,
+}: {
+  data: BracketData;
+  /** When present + format is `groups_playoff`, scope the table to that group. */
+  groupName?: string;
+  /** Override for the table header — defaults to `t('standings.title')`. */
+  title?: string;
+}) {
   const t = useTranslations('standings');
 
   const standings = useMemo(() => {
     const engineData = data as unknown as EngineBracketData;
     if (data.format === 'round_robin') return getRoundRobinStandings(engineData);
     if (data.format === 'swiss') return getSwissStandings(engineData);
+    if (data.format === 'groups_playoff' && groupName) {
+      return getGroupStandings(engineData, groupName);
+    }
     return [];
-  }, [data]);
+  }, [data, groupName]);
 
-  if (data.format !== 'round_robin' && data.format !== 'swiss') return null;
+  if (
+    data.format !== 'round_robin' &&
+    data.format !== 'swiss' &&
+    data.format !== 'groups_playoff'
+  ) {
+    return null;
+  }
+  if (data.format === 'groups_playoff' && !groupName) return null;
   if (standings.length === 0) return null;
 
   // Look up photoUrl from `data.players` for the avatar column. The
@@ -45,7 +70,7 @@ export function StandingsTable({ data }: { data: BracketData }) {
           color: 'var(--color-text-secondary)',
         }}
       >
-        {t('title')}
+        {title ?? t('title')}
       </div>
       <table className="w-full text-sm">
         <thead>

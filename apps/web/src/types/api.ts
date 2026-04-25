@@ -151,15 +151,26 @@ export interface BracketMatch {
   correctedAt?: string | null;
 }
 
+/**
+ * One group in the `groups_playoff` format (Phase 3.3d). Self-contained
+ * mini-round-robin schedule. Match ids `gp_{name}_{round}_{idx}`.
+ */
+export interface BracketGroupStage {
+  name: string;
+  players: BracketPlayer[];
+  rounds: BracketMatch[][];
+}
+
 export interface BracketData {
   /**
-   * Which generator produced this bracket (Phase 3.3a–c). Optional
+   * Which generator produced this bracket (Phase 3.3a–d). Optional
    * for backward compatibility — readers should treat `undefined` as
    * `'double_elim'`. Drives top-level layout in `BracketView`:
    * round-robin and swiss render a standings table + round list,
-   * elimination renders the WB/LB tree.
+   * groups_playoff renders one standings table per group + a playoff
+   * tree, elimination renders the WB/LB tree.
    */
-  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss';
+  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss' | 'groups_playoff';
   players: BracketPlayer[];
   bracketSize: number;
   wbRounds: number;
@@ -167,6 +178,8 @@ export interface BracketData {
   losersBracket: BracketMatch[][];
   grandFinal: BracketMatch;
   superFinal: BracketMatch & { needed: boolean };
+  /** Present iff `format === 'groups_playoff'`. */
+  groups?: BracketGroupStage[];
   champion: string | null;
   status: 'active' | 'completed';
 }
