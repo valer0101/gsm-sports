@@ -673,6 +673,336 @@ function finalizeRoundRobin(data: BracketData): void {
   data.status = 'completed';
 }
 
+// ─── Swiss ──────────────────────────────────────────────────
+
+/**
+ * Build a Swiss-system bracket. Round 1 is paired immediately by
+ * top-half vs bottom-half; rounds 2..N are skeletons whose seats
+ * stay TBD-vs-TBD until `propagateResults` populates them after the
+ * preceding round completes. Same `BracketData` shape as the other
+ * formats — schedule lives in `winnersBracket: Match[][]`.
+ *
+ * `totalRounds` defaults to `ceil(log2(N))` (the standard Swiss
+ * formula — enough rounds to differentiate with high probability).
+ * Callers may override for events that want a longer or shorter run.
+ *
+ * Odd N: one player gets a bye each round. Round 1 byes go to the
+ * lowest seed; subsequent rounds, the engine picks the
+ * lowest-scored player who hasn't yet had a bye.
+ */
+export function generateSwiss(players: Player[], totalRounds?: number): BracketData {
+  const n = players.length;
+  if (n < 2) {
+    throw new Error('At least 2 players are required to generate a bracket');
+  }
+
+  const rounds = totalRounds ?? Math.max(1, Math.ceil(Math.log2(n)));
+  const matchesPerRound = Math.floor(n / 2);
+  const oddPlayer = n % 2 === 1;
+
+  // Round 1: top-half vs bottom-half pairing. For odd N the middle
+  // seed (the highest-numbered seed in the lower half, treated as the
+  // lowest-rated of the field) takes the bye.
+  const half = Math.floor(n / 2);
+  const round1Matches: Match[] = [];
+  for (let i = 0; i < half; i++) {
+    const a = players[i];
+    const b = players[half + i];
+    round1Matches.push({
+      id: `sw_1_${i}`,
+      round: 1,
+      matchIndex: i,
+      player1: { ...a, seed: i + 1 },
+      player2: { ...b, seed: half + i + 1 },
+      winner: null,
+      loser: null,
+    });
+  }
+
+  if (oddPlayer) {
+    // The leftover real player (last seed) gets the round-1 bye.
+    const byePlayer = players[n - 1];
+    round1Matches.push({
+      id: `sw_1_${matchesPerRound}`,
+      round: 1,
+      matchIndex: matchesPerRound,
+      player1: { ...byePlayer, seed: n },
+      player2: makeBye(),
+      winner: byePlayer.id,
+      loser: 'bye',
+    });
+  }
+
+  // Rounds 2..N: empty skeletons, seats TBD until we pair them.
+  const slotsPerRound = oddPlayer ? matchesPerRound + 1 : matchesPerRound;
+  const winnersBracket: Match[][] = [round1Matches];
+  for (let r = 2; r <= rounds; r++) {
+    const round: Match[] = [];
+    for (let i = 0; i < slotsPerRound; i++) {
+      round.push({
+        id: `sw_${r}_${i}`,
+        round: r,
+        matchIndex: i,
+        player1: makeTbd(),
+        player2: makeTbd(),
+        winner: null,
+        loser: null,
+      });
+    }
+    winnersBracket.push(round);
+  }
+
+  const grandFinal: GrandFinalMatch = {
+    id: 'grand_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+  };
+  const superFinal: SuperFinalMatch = {
+    id: 'super_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+    needed: false,
+  };
+
+  const data: BracketData = {
+    format: 'swiss',
+    players: players.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      number: p.number,
+    })),
+    bracketSize: n,
+    wbRounds: rounds,
+    winnersBracket,
+    losersBracket: [],
+    grandFinal,
+    superFinal,
+    champion: null,
+    status: 'active',
+  };
+
+  // For N=1 (rejected above) or pathological cases the round-1 result
+  // might already be enough; finalize defensively.
+  finalizeSwiss(data);
+  return data;
+}
+
+/**
+ * Compute Swiss standings the same way as round-robin (wins desc,
+ * losses asc, competition ranking). MVP — no Buchholz / Sonneborn-
+ * Berger tiebreaker yet; tied rows share a position.
+ */
+export function getSwissStandings(data: BracketData): Standing[] {
+  if (data.format !== 'swiss') return [];
+
+  const records = new Map<string, { played: number; wins: number; losses: number }>();
+  for (const p of data.players) {
+    records.set(p.id, { played: 0, wins: 0, losses: 0 });
+  }
+
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      if (!m.winner) continue;
+      const winnerIsBye = isBye(m.winner);
+      const loserIsBye = m.loser ? isBye(m.loser) : true;
+
+      if (!winnerIsBye && records.has(m.winner)) {
+        const w = records.get(m.winner)!;
+        w.wins += 1;
+        w.played += 1;
+      }
+      if (!loserIsBye && m.loser && records.has(m.loser)) {
+        const l = records.get(m.loser)!;
+        l.losses += 1;
+        l.played += 1;
+      }
+    }
+  }
+
+  const rows = data.players.map((p) => {
+    const r = records.get(p.id) ?? { played: 0, wins: 0, losses: 0 };
+    return {
+      playerId: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      played: r.played,
+      wins: r.wins,
+      losses: r.losses,
+      position: 0,
+    };
+  });
+
+  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+
+  let pos = 0;
+  let lastKey = '';
+  rows.forEach((row, idx) => {
+    const key = `${row.wins}|${row.losses}`;
+    if (key !== lastKey) {
+      pos = idx + 1;
+      lastKey = key;
+    }
+    row.position = pos;
+  });
+
+  return rows;
+}
+
+/** Set of "playerA|playerB" keys for every pair that's already met. */
+function priorPairs(data: BracketData): Set<string> {
+  const pairs = new Set<string>();
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      // Only count rounds with real seats — skeleton TBD rows don't
+      // represent a played pairing.
+      if (isTbd(m.player1.id) || isTbd(m.player2.id)) continue;
+      if (isBye(m.player1.id) || isBye(m.player2.id)) continue;
+      pairs.add(pairKey(m.player1.id, m.player2.id));
+    }
+  }
+  return pairs;
+}
+
+/** IDs of players who have already received a bye in any prior round. */
+function priorByes(data: BracketData): Set<string> {
+  const byes = new Set<string>();
+  for (const round of data.winnersBracket) {
+    for (const m of round) {
+      if (isBye(m.player2.id) && isReal(m.player1.id)) byes.add(m.player1.id);
+      if (isBye(m.player1.id) && isReal(m.player2.id)) byes.add(m.player2.id);
+    }
+  }
+  return byes;
+}
+
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/**
+ * Pair the next Swiss round when the previous one has completed.
+ * Sorts by current score, greedily pairs adjacent, skipping rematches
+ * when possible. Falls back to the first available opponent if the
+ * top of the standings has played everyone left (pathological — only
+ * possible with very small N relative to round count).
+ *
+ * Mutates `data.winnersBracket[roundIdx]` in place.
+ */
+function pairSwissRound(data: BracketData, roundIdx: number): void {
+  const round = data.winnersBracket[roundIdx];
+  if (!round || round.length === 0) return;
+
+  const standings = getSwissStandings(data);
+  const played = priorPairs(data);
+  const byesGiven = priorByes(data);
+
+  // Order: by standings position first; for new players (round 1
+  // tie-bust where no one has played yet), fall back to bracket
+  // seed order which mirrors `data.players`.
+  const seedOrder = new Map(data.players.map((p, i) => [p.id, i]));
+  const sortedIds = standings
+    .slice()
+    .sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (a.losses !== b.losses) return a.losses - b.losses;
+      return (seedOrder.get(a.playerId) ?? 0) - (seedOrder.get(b.playerId) ?? 0);
+    })
+    .map((s) => s.playerId);
+
+  let remaining = sortedIds.slice();
+  const matches: Array<{ p1: string; p2: string }> = [];
+  let byeAssignee: string | null = null;
+
+  // Odd N → bye goes to the lowest-scored player who hasn't yet had
+  // one. If everyone's already had a bye, fall back to the absolute
+  // lowest-scored player.
+  if (remaining.length % 2 === 1) {
+    const candidates = remaining.slice().reverse(); // worst score first
+    byeAssignee = candidates.find((id) => !byesGiven.has(id)) ?? candidates[0];
+    remaining = remaining.filter((id) => id !== byeAssignee);
+  }
+
+  while (remaining.length > 0) {
+    const p1 = remaining.shift()!;
+    let p2Idx = remaining.findIndex((id) => !played.has(pairKey(p1, id)));
+    if (p2Idx === -1) p2Idx = 0; // forced rematch — first available
+    const p2 = remaining.splice(p2Idx, 1)[0];
+    matches.push({ p1, p2 });
+  }
+
+  // Write into the skeleton seats. matchesPerRound real matches first;
+  // bye match (if any) takes the last slot.
+  matches.forEach((m, i) => {
+    const slot = round[i];
+    if (!slot) return;
+    slot.player1 = getPlayerObj(data, m.p1);
+    slot.player2 = getPlayerObj(data, m.p2);
+    slot.winner = null;
+    slot.loser = null;
+  });
+
+  if (byeAssignee !== null) {
+    const slot = round[matches.length];
+    if (slot) {
+      slot.player1 = getPlayerObj(data, byeAssignee);
+      slot.player2 = makeBye();
+      slot.winner = byeAssignee;
+      slot.loser = 'bye';
+    }
+  }
+}
+
+/**
+ * After each `selectWinner`, advance Swiss state:
+ *   - if every round is complete, finalize champion
+ *   - else if the current round just completed, populate the next
+ *     round's skeleton via `pairSwissRound`
+ */
+function finalizeSwiss(data: BracketData): void {
+  if (data.format !== 'swiss') return;
+
+  // Find the lowest-index round that still has open matches.
+  let openRoundIdx = -1;
+  for (let r = 0; r < data.winnersBracket.length; r++) {
+    const round = data.winnersBracket[r];
+    if (round.some((m) => !m.winner)) {
+      openRoundIdx = r;
+      break;
+    }
+  }
+
+  if (openRoundIdx === -1) {
+    // Every round complete — assign champion if uniquely on top.
+    const standings = getSwissStandings(data);
+    if (standings.length === 0) return;
+    const leaders = standings.filter((s) => s.position === 1);
+    if (leaders.length !== 1) return;
+    data.champion = leaders[0].playerId;
+    data.status = 'completed';
+    return;
+  }
+
+  // If the current open round still has TBD seats AND the previous
+  // round is complete, that's our cue to pair this round now.
+  const round = data.winnersBracket[openRoundIdx];
+  const hasTbdSeat = round.some(
+    (m) => isTbd(m.player1.id) && isTbd(m.player2.id),
+  );
+  if (!hasTbdSeat) return; // round already paired, just waiting for winners
+  if (openRoundIdx === 0) return; // round 1 is paired at generation time
+
+  const prev = data.winnersBracket[openRoundIdx - 1];
+  const prevDone = prev.every((m) => m.winner);
+  if (!prevDone) return;
+
+  pairSwissRound(data, openRoundIdx);
+}
+
 // ─── Propagate results ──────────────────────────────────────
 
 function propagateLosers(data: BracketData): void {
@@ -740,6 +1070,14 @@ export function propagateResults(data: BracketData): void {
   // tournament is complete and a unique leader has emerged.
   if (data.format === 'round_robin') {
     finalizeRoundRobin(data);
+    return;
+  }
+
+  // Swiss: when the current round completes, pair the next one based
+  // on standings + prior-pair history. Champion when all rounds done
+  // and a unique leader emerges.
+  if (data.format === 'swiss') {
+    finalizeSwiss(data);
     return;
   }
 
@@ -962,6 +1300,36 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
       data.status = 'active';
     }
     finalizeRoundRobin(data);
+    return data;
+  }
+
+  // Swiss: clearing a result invalidates the pairings of every
+  // subsequent round (they depend on the score going into them). Wipe
+  // those rounds back to TBD skeletons; finalize will re-pair the
+  // current round once the affected match's winner is re-entered.
+  if (data.format === 'swiss') {
+    if (data.champion === oldWinner) {
+      data.champion = null;
+      data.status = 'active';
+    }
+    const resetIdx = data.winnersBracket.findIndex((round) =>
+      round.some((m) => m.id === matchId),
+    );
+    if (resetIdx >= 0) {
+      for (let r = resetIdx + 1; r < data.winnersBracket.length; r++) {
+        for (const slot of data.winnersBracket[r]) {
+          slot.player1 = makeTbd();
+          slot.player2 = makeTbd();
+          slot.winner = null;
+          slot.loser = null;
+          slot.enteredBy = null;
+          slot.enteredAt = null;
+          slot.correctedBy = null;
+          slot.correctedAt = null;
+        }
+      }
+    }
+    finalizeSwiss(data);
     return data;
   }
 
