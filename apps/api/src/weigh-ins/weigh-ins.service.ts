@@ -97,7 +97,19 @@ export class WeighInsService {
         `${officialWeightKg} kg by ${actor.userId}`,
     );
 
-    await this.maybeAutoReassign(entry, officialWeightKg, actor);
+    // Auto-reassign is best-effort — the weigh-in row above is the
+    // source of truth and must persist even if reassignment fails (no
+    // matching category, race with bracket generation, DB blip, …).
+    // Swallow + log so the partial-write inconsistency is visible to
+    // operators rather than rolled back from under them.
+    try {
+      await this.maybeAutoReassign(entry, officialWeightKg, actor);
+    } catch (err) {
+      this.logger.error(
+        `Entry ${entryId}: weigh-in saved but auto-reassign failed — ` +
+          `admin must reassign manually. ${(err as Error).message}`,
+      );
+    }
 
     return saved;
   }
@@ -153,20 +165,51 @@ export class WeighInsService {
       return;
     }
 
+    // We can only confidently auto-reassign when we know the target
+    // category's gender. `WeightCategory` carries a `gender` column, but
+    // it has no `ageGroup` / `hand` columns — yet tournaments routinely
+    // create separate categories per (ageGroup, hand, weight) combo
+    // (e.g. armwrestling). Without those columns we cannot safely
+    // disambiguate when more than one category matches; bail out and
+    // let an admin handle it manually.
+    if (!entry.weightCategory) {
+      this.logger.warn(
+        `Entry ${entry.id}: weigh-in mismatch but entry has no current ` +
+          `weight category — admin must assign one manually`,
+      );
+      return;
+    }
+
     const categories = await this.weightCategoriesRepository.find({
       where: { tournamentId: entry.tournamentId },
     });
-    const currentGender = entry.weightCategory?.gender ?? 'male';
-    const target = categories.find(
-      (c) => c.gender === currentGender && this.fitsCategory(officialWeightKg, c),
+    const candidates = categories.filter(
+      (c) =>
+        c.gender === entry.weightCategory!.gender &&
+        this.fitsCategory(officialWeightKg, c),
     );
-    if (!target) {
+
+    if (candidates.length === 0) {
       this.logger.warn(
         `Entry ${entry.id}: weigh-in ${officialWeightKg}kg has no matching ` +
           `weight category in tournament ${entry.tournamentId} — left on current category`,
       );
       return;
     }
+    if (candidates.length > 1) {
+      // Multiple categories share gender + weight band but differ by
+      // ageGroup / hand (encoded only in `WeightCategory.name` today).
+      // Auto-reassign cannot pick the right one without those columns;
+      // surface to the admin instead of silently misrouting.
+      this.logger.warn(
+        `Entry ${entry.id}: weigh-in ${officialWeightKg}kg matches ` +
+          `${candidates.length} categories (${candidates.map((c) => c.name).join(', ')}) — ` +
+          `cannot disambiguate without ageGroup/hand on WeightCategory; admin must reassign manually`,
+      );
+      return;
+    }
+
+    const target = candidates[0];
     if (target.id === entry.weightCategoryId) return;
 
     await this.entriesService.reassign(

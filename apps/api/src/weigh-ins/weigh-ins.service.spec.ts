@@ -248,6 +248,61 @@ describe('WeighInsService', () => {
       expect(entries.reassign).not.toHaveBeenCalled();
       expect(categoriesRepo.find).not.toHaveBeenCalled();
     });
+
+    it('skips auto-reassign when entry has no current weightCategory (gender unknown)', async () => {
+      // No `weightCategory` ⇒ we have no gender to filter against. Don't
+      // guess (e.g. default to "male"); leave it for an admin to handle.
+      entries.findById.mockResolvedValue(
+        makeEntry({
+          weightCategoryId: null,
+          weightCategory: null,
+        }),
+      );
+      repo.findOne.mockResolvedValue(null);
+      repo.save.mockImplementation(async (x: unknown) => ({ id: 'wi-1', ...(x as object) }));
+
+      await expect(service.record('entry-1', 75, makeAdmin())).resolves.toBeDefined();
+      expect(categoriesRepo.find).not.toHaveBeenCalled();
+      expect(entries.reassign).not.toHaveBeenCalled();
+    });
+
+    it('skips auto-reassign when multiple categories match (cannot disambiguate by ageGroup/hand)', async () => {
+      // Two categories share gender + weight band but represent different
+      // age groups / hands (encoded in `name` only). Without ageGroup/hand
+      // columns on `WeightCategory` we can't pick the right one — surface
+      // to the admin instead of silently misrouting the entry.
+      entries.findById.mockResolvedValue(makeEntry());
+      repo.findOne.mockResolvedValue(null);
+      repo.save.mockImplementation(async (x: unknown) => ({ id: 'wi-1', ...(x as object) }));
+      categoriesRepo.find.mockResolvedValue([
+        { id: 'wc-70', gender: 'male', minWeight: null, maxWeight: 70, name: '70kg' },
+        { id: 'wc-80a', gender: 'male', minWeight: 70, maxWeight: 80, name: 'Adults · 80kg · Right' },
+        { id: 'wc-80b', gender: 'male', minWeight: 70, maxWeight: 80, name: 'Juniors · 80kg · Right' },
+      ]);
+
+      await service.record('entry-1', 75, makeAdmin());
+
+      expect(entries.reassign).not.toHaveBeenCalled();
+    });
+
+    it('weigh-in still saves when reassign throws (best-effort)', async () => {
+      // reassign() can throw on race conditions (bracket flipped to
+      // generated between findById and update, etc.). The weigh-in row
+      // is the source of truth and must persist; reassignment failure
+      // is logged but doesn't surface as a 500 to the operator.
+      entries.findById.mockResolvedValue(makeEntry());
+      repo.findOne.mockResolvedValue(null);
+      repo.save.mockImplementation(async (x: unknown) => ({ id: 'wi-1', ...(x as object) }));
+      categoriesRepo.find.mockResolvedValue([
+        { id: 'wc-70', gender: 'male', minWeight: null, maxWeight: 70, name: '70kg' },
+        { id: 'wc-80', gender: 'male', minWeight: 70, maxWeight: 80, name: '80kg' },
+      ]);
+      entries.reassign.mockRejectedValue(new Error('bracket already generated'));
+
+      await expect(service.record('entry-1', 75, makeAdmin())).resolves.toBeDefined();
+      expect(repo.save).toHaveBeenCalled();
+      expect(entries.reassign).toHaveBeenCalled();
+    });
   });
 
   describe('findByEntryId / findByTournamentId', () => {
