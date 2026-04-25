@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   generateDoubleElimination,
+  generateSingleElimination,
   selectWinner,
   findMatch,
   walkBracketMatches,
@@ -86,6 +87,103 @@ describe('generateDoubleElimination', () => {
     expect(bracket.players).toHaveLength(6);
     expect(bracket.players[0].id).toBe('p1');
     expect(bracket.players[5].id).toBe('p6');
+  });
+});
+
+// ─── Phase 3.3a: single-elimination ──────────────────────
+describe('generateSingleElimination', () => {
+  it('throws for less than 2 players', () => {
+    expect(() => generateSingleElimination(makePlayers(1))).toThrow('At least 2 players');
+  });
+
+  it('builds a 4-player bracket with no LB and TBD finals', () => {
+    const bracket = generateSingleElimination(makePlayers(4));
+    expect(bracket.format).toBe('single_elim');
+    expect(bracket.bracketSize).toBe(4);
+    expect(bracket.wbRounds).toBe(2);
+    expect(bracket.winnersBracket[0]).toHaveLength(2);
+    expect(bracket.winnersBracket[1]).toHaveLength(1);
+    expect(bracket.losersBracket).toEqual([]);
+    expect(bracket.grandFinal.player1.id).toBe('tbd');
+    expect(bracket.grandFinal.player2.id).toBe('tbd');
+    expect(bracket.superFinal.needed).toBe(false);
+  });
+
+  it('handles 8 players (3 rounds, no byes)', () => {
+    const bracket = generateSingleElimination(makePlayers(8));
+    expect(bracket.bracketSize).toBe(8);
+    expect(bracket.wbRounds).toBe(3);
+    expect(bracket.winnersBracket[0]).toHaveLength(4);
+    expect(bracket.winnersBracket[1]).toHaveLength(2);
+    expect(bracket.winnersBracket[2]).toHaveLength(1);
+  });
+
+  it('seeds byes the same way double-elim does (5 players, bracketSize 8)', () => {
+    const single = generateSingleElimination(makePlayers(5));
+    const double = generateDoubleElimination(makePlayers(5));
+    // Round-1 pairings should match — switching format should not
+    // shuffle who plays whom in the first round.
+    const singleR1Ids = single.winnersBracket[0].map((m) => [m.player1.id, m.player2.id]);
+    const doubleR1Ids = double.winnersBracket[0].map((m) => [m.player1.id, m.player2.id]);
+    expect(singleR1Ids).toEqual(doubleR1Ids);
+  });
+
+  it('declares champion when WB final is won', () => {
+    let data = generateSingleElimination(makePlayers(4));
+
+    data = selectWinner(structuredClone(data), 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+
+    // WB final is wb_2_0 — winning it crowns the champion in single_elim.
+    data = selectWinner(data, 'wb_2_0', 'p1');
+
+    expect(data.champion).toBe('p1');
+    expect(data.status).toBe('completed');
+    // Grand final should remain untouched.
+    expect(data.grandFinal.winner).toBeNull();
+    expect(data.superFinal.needed).toBe(false);
+  });
+
+  it('does not propagate losers anywhere (no LB exists)', () => {
+    let data = generateSingleElimination(makePlayers(4));
+    data = selectWinner(structuredClone(data), 'wb_1_0', 'p1');
+    expect(data.losersBracket).toEqual([]);
+    // The loser is recorded on the match itself for audit, but there's
+    // nowhere downstream for them to go.
+    expect(data.winnersBracket[0][0].loser).toBe('p2');
+  });
+
+  it('resets cleanly — clearing wb_2_0 wipes champion + status', () => {
+    let data = generateSingleElimination(makePlayers(4));
+    data = selectWinner(structuredClone(data), 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    data = selectWinner(data, 'wb_2_0', 'p1');
+    expect(data.champion).toBe('p1');
+
+    data = resetMatch(data, 'wb_2_0');
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+  });
+
+  it('walkover: a 1-player request is rejected (n<2)', () => {
+    expect(() => generateSingleElimination(makePlayers(1))).toThrow();
+  });
+
+  it('walkBracketMatches skips empty LB / inactive super_final', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    const sections: string[] = [];
+    walkBracketMatches(data, (_m, section) => {
+      sections.push(section);
+    });
+    // 2 winners R1 + 1 winners R2 + grand_final = 4. No losers, no super_final (needed=false).
+    expect(sections).toEqual(['winners', 'winners', 'winners', 'grand_final']);
+  });
+
+  it('findMatch + canRecordResult work the same way as double-elim', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    expect(findMatch(data, 'wb_1_0')).not.toBeNull();
+    expect(findMatch(data, 'lb_1_0')).toBeNull(); // no LB
+    expect(canRecordResult(data, 'wb_1_0').valid).toBe(true);
   });
 });
 

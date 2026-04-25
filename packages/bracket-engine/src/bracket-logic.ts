@@ -268,6 +268,7 @@ export function generateDoubleElimination(players: Player[]): BracketData {
   };
 
   return {
+    format: 'double_elim',
     players: players.map((p) => ({
       id: p.id,
       firstName: p.firstName,
@@ -283,6 +284,170 @@ export function generateDoubleElimination(players: Player[]): BracketData {
     champion: null,
     status: 'active',
   };
+}
+
+// ─── Single-elimination ─────────────────────────────────────
+
+/**
+ * Build a single-elimination bracket — the same WB shape as
+ * `generateDoubleElimination`, but with no losers' side and no grand /
+ * super final played. Same `BracketData` shape so every helper
+ * (`findMatch`, `walkBracketMatches`, `selectWinner`, `validateResult`,
+ * …) just works: `losersBracket: []` flows through the existing guards
+ * cleanly, and propagation branches on `format` to declare the WB-final
+ * winner the champion.
+ *
+ * Seeding and bye placement mirror the double-elim algorithm so a
+ * tournament organizer who switches formats sees the same first-round
+ * pairings.
+ */
+export function generateSingleElimination(players: Player[]): BracketData {
+  const n = players.length;
+  if (n < 2) {
+    throw new Error('At least 2 players are required to generate a bracket');
+  }
+
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
+  const numByes = bracketSize - n;
+
+  // Bye seeding — same algorithm as `generateDoubleElimination` so that
+  // switching formats doesn't shuffle round-1 pairings under the
+  // organizer.
+  const seeded: Player[] = new Array(bracketSize).fill(null);
+  const byePositions: number[] = [];
+  if (numByes > 0) {
+    for (let i = 0; i < numByes; i++) {
+      let pos = bracketSize - 1 - i * 2;
+      if (pos % 2 === 0) pos--;
+      if (pos < 0) pos = 1 + i * 2;
+      byePositions.push(pos);
+    }
+  }
+  byePositions.forEach((pos) => {
+    seeded[pos] = makeBye();
+  });
+
+  let playerIdx = 0;
+  for (let i = 0; i < bracketSize; i++) {
+    if (!seeded[i] && playerIdx < players.length) {
+      seeded[i] = players[playerIdx++];
+    } else if (!seeded[i]) {
+      seeded[i] = makeBye();
+    }
+  }
+
+  const wbRounds = Math.ceil(Math.log2(bracketSize));
+
+  // Round 1
+  const winnersR1: Match[] = [];
+  for (let i = 0; i < bracketSize / 2; i++) {
+    const match: Match = {
+      id: `wb_1_${i}`,
+      round: 1,
+      matchIndex: i,
+      player1: { ...seeded[i * 2], seed: i * 2 + 1 },
+      player2: { ...seeded[i * 2 + 1], seed: i * 2 + 2 },
+      winner: null,
+      loser: null,
+    };
+
+    if (isBye(match.player1.id) && isBye(match.player2.id)) {
+      match.winner = 'bye';
+      match.loser = 'bye';
+    } else if (isBye(match.player1.id)) {
+      match.winner = match.player2.id;
+      match.loser = 'bye';
+    } else if (isBye(match.player2.id)) {
+      match.winner = match.player1.id;
+      match.loser = 'bye';
+    }
+    winnersR1.push(match);
+  }
+
+  const winnersBracket: Match[][] = [winnersR1];
+  for (let r = 2; r <= wbRounds; r++) {
+    const prevRound = winnersBracket[r - 2];
+    const roundMatches: Match[] = [];
+    for (let i = 0; i < prevRound.length / 2; i++) {
+      const feederMatch1 = prevRound[i * 2];
+      const feederMatch2 = prevRound[i * 2 + 1];
+
+      const p1 = getWinnerPlayer(feederMatch1, seeded);
+      const p2 = getWinnerPlayer(feederMatch2, seeded);
+
+      roundMatches.push({
+        id: `wb_${r}_${i}`,
+        round: r,
+        matchIndex: i,
+        player1: p1,
+        player2: p2,
+        winner: null,
+        loser: null,
+        feeder1: feederMatch1.id,
+        feeder2: feederMatch2.id,
+      });
+    }
+    winnersBracket.push(roundMatches);
+  }
+
+  // Grand / super final stay TBD-vs-TBD for shape stability. They are
+  // never reachable when `format === 'single_elim'` — propagation flips
+  // status/champion off the WB final directly.
+  const grandFinal: GrandFinalMatch = {
+    id: 'grand_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+  };
+
+  const superFinal: SuperFinalMatch = {
+    id: 'super_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+    needed: false,
+  };
+
+  const result: BracketData = {
+    format: 'single_elim',
+    players: players.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      number: p.number,
+    })),
+    bracketSize,
+    wbRounds,
+    winnersBracket,
+    losersBracket: [],
+    grandFinal,
+    superFinal,
+    champion: null,
+    status: 'active',
+  };
+
+  // Walk-over: if an N=2 bracket is generated where one side is a bye
+  // (bracketSize=2, numByes=1), the WB final is auto-resolved so the
+  // single real player is already the champion. Rare but real (e.g. a
+  // category that ended up with one entry).
+  finalizeSingleElim(result);
+
+  return result;
+}
+
+/** Shared single-elim "is the WB final done?" check used by the
+ *  generator (bye walkover) and by `propagateResults` after each
+ *  recordResult. */
+function finalizeSingleElim(data: BracketData): void {
+  if (data.format !== 'single_elim') return;
+  const lastRound = data.winnersBracket[data.winnersBracket.length - 1];
+  const final = lastRound?.[0];
+  if (!final?.winner) return;
+  if (isBye(final.winner)) return;
+  data.champion = final.winner;
+  data.status = 'completed';
 }
 
 // ─── Propagate results ──────────────────────────────────────
@@ -347,6 +512,42 @@ function propagateLosers(data: BracketData): void {
 }
 
 export function propagateResults(data: BracketData): void {
+  // Single-elim: WB-only path. The WB final IS the championship match,
+  // so we propagate within the WB and shortcut out before any LB/GF/SF
+  // logic — `losersBracket` is empty and `grandFinal` stays TBD.
+  if (data.format === 'single_elim') {
+    for (let r = 1; r < data.winnersBracket.length; r++) {
+      const currentRound = data.winnersBracket[r];
+      const prevRound = data.winnersBracket[r - 1];
+
+      currentRound.forEach((match, i) => {
+        const feeder1 = prevRound[i * 2];
+        const feeder2 = prevRound[i * 2 + 1];
+
+        if (feeder1?.winner && !isBye(feeder1.winner)) {
+          match.player1 = getPlayerObj(data, feeder1.winner);
+        } else if (feeder1?.winner === 'bye') {
+          match.player1 = makeBye();
+        }
+        if (feeder2?.winner && !isBye(feeder2.winner)) {
+          match.player2 = getPlayerObj(data, feeder2.winner);
+        } else if (feeder2?.winner === 'bye') {
+          match.player2 = makeBye();
+        }
+
+        if (isBye(match.player1.id) && isReal(match.player2.id)) {
+          match.winner = match.player2.id;
+          match.loser = 'bye';
+        } else if (isBye(match.player2.id) && isReal(match.player1.id)) {
+          match.winner = match.player1.id;
+          match.loser = 'bye';
+        }
+      });
+    }
+    finalizeSingleElim(data);
+    return;
+  }
+
   // Propagate winners bracket
   for (let r = 1; r < data.winnersBracket.length; r++) {
     const currentRound = data.winnersBracket[r];
