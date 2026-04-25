@@ -27,9 +27,9 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import type { Bracket, BracketMatch, BracketAuditLog, SportBracketFormat } from '@/types/api';
 
 /**
- * Bracket-format generators wired through the API. Phase 3.3a shipped
- * single_elim + double_elim; phase 3.3b adds round_robin. Swiss and
- * groups_playoff are still in the union but not yet implemented;
+ * Bracket-format generators wired through the API. 3.3a shipped
+ * single_elim + double_elim; 3.3b added round_robin; 3.3c added swiss.
+ * Only groups_playoff remains in the union without a generator;
  * filtering against this set keeps the dropdown honest (and avoids a
  * 400 on submit).
  */
@@ -37,6 +37,7 @@ const IMPLEMENTED_FORMATS: ReadonlySet<SportBracketFormat> = new Set([
   'single_elim',
   'double_elim',
   'round_robin',
+  'swiss',
 ]);
 
 export default function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {

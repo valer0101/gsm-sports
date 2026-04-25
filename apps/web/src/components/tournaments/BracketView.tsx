@@ -6,7 +6,7 @@ import { useBrackets } from '@/hooks/useTournaments';
 import { useBracketSocket } from '@/hooks/useBracketSocket';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
-import { RoundRobinStandings } from '@/components/tournaments/RoundRobinStandings';
+import { StandingsTable } from '@/components/tournaments/StandingsTable';
 import type { Bracket, BracketMatch } from '@/types/api';
 
 interface Props {
@@ -84,11 +84,14 @@ export function BracketView({ tournamentId }: Props) {
         </div>
       )}
 
-      {/* Round-robin: standings table + per-round schedule. No tree —
-          there's no winners-into-losers propagation to draw. */}
-      {bd.format === 'round_robin' ? (
+      {/* Round-robin / Swiss: standings table + per-round schedule. No
+          tree — there's no winners-into-losers propagation to draw.
+          Swiss rounds 2..N are TBD-skeletons until the prior round
+          completes; we hide entirely-TBD rounds so the page doesn't
+          show a stack of "TBD vs TBD" cards. */}
+      {bd.format === 'round_robin' || bd.format === 'swiss' ? (
         <div className="space-y-4">
-          <RoundRobinStandings data={bd} />
+          <StandingsTable data={bd} />
 
           <div className="overflow-x-auto pb-4">
             <div className="min-w-max">
@@ -98,21 +101,27 @@ export function BracketView({ tournamentId }: Props) {
               >
                 {t('rr_schedule')}
               </p>
-              {bd.winnersBracket.map((round, ri) => (
-                <div key={ri} className="mb-4">
-                  <p
-                    className="text-xs mb-2 font-medium"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    {t('rr_round', { n: ri + 1 })}
-                  </p>
-                  <div className="flex gap-3 flex-wrap">
-                    {round.map((m) => (
-                      <MatchCard key={m.id} match={m} />
-                    ))}
+              {bd.winnersBracket.map((round, ri) => {
+                const allTbd = round.every(
+                  (m) => m.player1.id === 'tbd' && m.player2.id === 'tbd',
+                );
+                if (allTbd) return null;
+                return (
+                  <div key={ri} className="mb-4">
+                    <p
+                      className="text-xs mb-2 font-medium"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      {t('rr_round', { n: ri + 1 })}
+                    </p>
+                    <div className="flex gap-3 flex-wrap">
+                      {round.map((m) => (
+                        <MatchCard key={m.id} match={m} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

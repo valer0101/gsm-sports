@@ -217,14 +217,14 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
   type MatchWithLabel = BracketMatch & { sectionLabel: string };
   const pendingMatches: MatchWithLabel[] = [];
 
-  // Round labels differ by format: round-robin uses neutral "Round N";
-  // elimination keeps "WB R{n}" / "LB R{n}" semantics.
-  const isRR = bd.format === 'round_robin';
+  // Round labels differ by format: round-robin and swiss use the
+  // neutral "Round N"; elimination keeps "WB R{n}" / "LB R{n}".
+  const usesNeutralRound = bd.format === 'round_robin' || bd.format === 'swiss';
 
   bd.winnersBracket.forEach((round, ri) => {
     round.forEach((m) => {
       if (!isPlayable(m)) return;
-      const label = isRR
+      const label = usesNeutralRound
         ? t('rr_round', { n: ri + 1 })
         : t('wb_round', { n: ri + 1 });
       pendingMatches.push({ ...m, sectionLabel: label });
@@ -237,11 +237,15 @@ function MatchList({ bracket, tournamentId }: { bracket: Bracket; tournamentId: 
     });
   });
 
-  // Grand / super final aren't reachable for round-robin or single-elim,
-  // but the existing isPlayable() check already short-circuits TBD-vs-TBD
-  // match cards. Skip them entirely for non-double-elim to keep the
-  // operator's pending list focused.
-  if (bd.format !== 'round_robin' && bd.format !== 'single_elim') {
+  // Grand / super final aren't reachable for non-double-elim formats.
+  // The isPlayable() check already short-circuits TBD-vs-TBD cards, but
+  // skipping them here altogether keeps the operator's pending list
+  // focused on what's actually live.
+  if (
+    bd.format !== 'round_robin' &&
+    bd.format !== 'single_elim' &&
+    bd.format !== 'swiss'
+  ) {
     if (isPlayable(bd.grandFinal as BracketMatch)) {
       pendingMatches.push({ ...(bd.grandFinal as BracketMatch), sectionLabel: t('grand_final') });
     }

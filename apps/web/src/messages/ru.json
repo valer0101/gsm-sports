@@ -696,7 +696,7 @@
     "cancel": "Отмена",
     "error_create": "Ошибка создания турнира"
   },
-  "round_robin": {
+  "standings": {
     "title": "Турнирная таблица",
     "col_position": "#",
     "col_athlete": "Атлет",

@@ -690,7 +690,7 @@
     "cancel": "Cancel",
     "error_create": "Failed to create tournament"
   },
-  "round_robin": {
+  "standings": {
     "title": "Standings",
     "col_position": "#",
     "col_athlete": "Athlete",
