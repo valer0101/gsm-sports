@@ -12,6 +12,7 @@ import { Repository, DataSource, EntityManager } from 'typeorm';
 import {
   generateDoubleElimination,
   generateSingleElimination,
+  generateRoundRobin,
   selectWinner,
   resetMatch as resetMatchInBracket,
   validateResult,
@@ -225,10 +226,14 @@ export class BracketsService {
           `Allowed: ${cfg.bracketFormats.join(', ')}.`,
       );
     }
-    if (chosen !== 'single_elim' && chosen !== 'double_elim') {
+    if (
+      chosen !== 'single_elim' &&
+      chosen !== 'double_elim' &&
+      chosen !== 'round_robin'
+    ) {
       throw new BadRequestException(
         `Bracket format '${chosen}' is not yet implemented. ` +
-          `Currently supported: single_elim, double_elim.`,
+          `Currently supported: single_elim, double_elim, round_robin.`,
       );
     }
     return chosen;
@@ -241,6 +246,7 @@ export class BracketsService {
    */
   private buildBracket(format: BracketFormat, players: Player[]): BracketData {
     if (format === 'single_elim') return generateSingleElimination(players);
+    if (format === 'round_robin') return generateRoundRobin(players);
     return generateDoubleElimination(players);
   }
 
