@@ -90,6 +90,70 @@ export interface SportConfig {
   requireCheckIn: boolean;
 }
 
+// ─── Match result detail (Phase 3.2) ────────────────────────
+/**
+ * Sport-specific details recorded alongside the winnerId on a completed
+ * match. The `schema` discriminator matches `SportConfig.matchResultSchema`
+ * so the operator UI can pick the right form and the public bracket the
+ * right display, from a single codepath.
+ *
+ * `winnerId` always lives on the enclosing `Match` (the bracket engine
+ * needs it to propagate); these payloads are structured *detail* — pin
+ * vs points vs DQ for armwrestling, per-period scores, judge cards, etc.
+ *
+ * The `simple_winner` variant is a no-op shape so the field can be
+ * present uniformly — useful for `notes` without committing to a sport.
+ */
+export interface ArmwrestlingMatchResult {
+  schema: 'armwrestling';
+  /** How the win was decided. `pin` = shoulder to pad; `dq` = disqualification. */
+  victoryType: 'pin' | 'points' | 'fouls' | 'dq';
+  /** One entry per played round. Missing = best-of-one. */
+  rounds?: Array<{ winnerId: string; durationMs?: number }>;
+  /** Fouls accrued per player id. Missing key = 0 fouls. */
+  fouls?: Record<string, number>;
+  notes?: string;
+}
+
+export interface ScoreMatchResult {
+  schema: 'score';
+  /** Per-period scoreline, >=1 entry. `player1`/`player2` mirror `Match.player1/player2`. */
+  periods: Array<{ player1: number; player2: number }>;
+  /** Final totals. Redundant with periods but kept for display. */
+  finalPlayer1: number;
+  finalPlayer2: number;
+  notes?: string;
+}
+
+export interface PointsMatchResult {
+  schema: 'points';
+  /** One entry per judge, >=1 entry. */
+  cards: Array<{ judge?: string; player1: number; player2: number }>;
+  notes?: string;
+}
+
+export interface TimeMatchResult {
+  schema: 'time';
+  /** Finish time per athlete, in milliseconds. */
+  player1Ms: number;
+  player2Ms: number;
+  notes?: string;
+}
+
+/** Fallback shape — holds free-form notes when the sport uses `simple_winner`. */
+export interface SimpleMatchResult {
+  schema: 'simple_winner';
+  notes?: string;
+}
+
+/** Discriminated union; pick by the `schema` field. */
+export type MatchResult =
+  | ArmwrestlingMatchResult
+  | ScoreMatchResult
+  | PointsMatchResult
+  | TimeMatchResult
+  | SimpleMatchResult;
+
 // ─── Tournaments ────────────────────────────────────────────
 export type TournamentStatus =
   | 'draft'

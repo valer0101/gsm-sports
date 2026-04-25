@@ -135,6 +135,98 @@ describe('selectWinner', () => {
     const result = selectWinner(data, 'invalid_match', 'p1');
     expect(result).toBe(data);
   });
+
+  // ─── Phase 3.2: sport-specific result detail ──────────────
+  describe('result detail', () => {
+    it('stores an opaque result blob on the match', () => {
+      const bracket = generateDoubleElimination(makePlayers(4));
+      const data = structuredClone(bracket);
+      const detail = {
+        schema: 'armwrestling',
+        victoryType: 'pin',
+        fouls: { p1: 0, p2: 1 },
+      };
+
+      const updated = selectWinner(data, 'wb_1_0', 'p1', 'op-1', detail);
+      const match = findMatch(updated, 'wb_1_0')!;
+
+      expect(match.winner).toBe('p1');
+      expect(match.result).toEqual(detail);
+    });
+
+    it('preserves a prior result when corrected without a new one', () => {
+      const bracket = generateDoubleElimination(makePlayers(4));
+      let data = structuredClone(bracket);
+      const detail = { schema: 'armwrestling', victoryType: 'pin' };
+
+      // First record — sets winner + detail.
+      data = selectWinner(data, 'wb_1_0', 'p1', 'op-1', detail);
+      // Correction — same-flavored call that flips the winner, no new result.
+      // Engine contract: `result` missing = keep what's there.
+      data = selectWinner(data, 'wb_1_0', 'p2', 'admin-1');
+
+      const match = findMatch(data, 'wb_1_0')!;
+      expect(match.winner).toBe('p2');
+      expect(match.result).toEqual(detail);
+    });
+
+    it('clears the result blob when callers pass null', () => {
+      const bracket = generateDoubleElimination(makePlayers(4));
+      let data = structuredClone(bracket);
+
+      data = selectWinner(data, 'wb_1_0', 'p1', 'op-1', {
+        schema: 'armwrestling',
+        victoryType: 'pin',
+      });
+      data = selectWinner(data, 'wb_1_0', 'p2', 'admin-1', null);
+
+      const match = findMatch(data, 'wb_1_0')!;
+      expect(match.result).toBeNull();
+    });
+
+    it('resetMatch wipes the result blob', () => {
+      const bracket = generateDoubleElimination(makePlayers(4));
+      let data = structuredClone(bracket);
+
+      data = selectWinner(data, 'wb_1_0', 'p1', 'op-1', {
+        schema: 'armwrestling',
+        victoryType: 'pin',
+      });
+      data = resetMatch(data, 'wb_1_0');
+
+      const match = findMatch(data, 'wb_1_0')!;
+      expect(match.winner).toBeNull();
+      expect(match.result).toBeNull();
+    });
+
+    it('cascading reset wipes result on downstream matches too', () => {
+      const bracket = generateDoubleElimination(makePlayers(4));
+      let data = structuredClone(bracket);
+
+      // Play WB R1 with armwrestling detail …
+      data = selectWinner(data, 'wb_1_0', 'p1', 'op-1', {
+        schema: 'armwrestling',
+        victoryType: 'pin',
+      });
+      data = selectWinner(data, 'wb_1_1', 'p3', 'op-1', {
+        schema: 'armwrestling',
+        victoryType: 'pin',
+      });
+      // … then WB R2 with a different schema (for the test — no prod rule
+      // against it; we just need *any* downstream payload).
+      data = selectWinner(data, 'wb_2_0', 'p1', 'op-1', {
+        schema: 'armwrestling',
+        victoryType: 'points',
+      });
+
+      // Resetting wb_1_0 cascades into wb_2_0 (same bracket tree).
+      data = resetMatch(data, 'wb_1_0');
+
+      const wbR2 = findMatch(data, 'wb_2_0')!;
+      expect(wbR2.winner).toBeNull();
+      expect(wbR2.result).toBeNull();
+    });
+  });
 });
 
 describe('full tournament flow (4 players)', () => {

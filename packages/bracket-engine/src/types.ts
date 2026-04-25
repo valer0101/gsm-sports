@@ -23,6 +23,14 @@ export interface Match {
   enteredAt?: string | null;
   correctedBy?: string | null;
   correctedAt?: string | null;
+  /**
+   * Sport-specific result detail (Phase 3.2). Opaque from the engine's
+   * perspective — the API boundary types this as `MatchResult` (from
+   * `@gsm/shared-types`) and validates the shape against the tournament's
+   * `SportConfig.matchResultSchema`. The engine just carries it alongside
+   * `winner` / `loser`. `null` or missing = no detail recorded yet.
+   */
+  result?: Record<string, unknown> | null;
 }
 
 export interface GrandFinalMatch {
@@ -36,6 +44,8 @@ export interface GrandFinalMatch {
   enteredAt?: string | null;
   correctedBy?: string | null;
   correctedAt?: string | null;
+  /** See `Match.result`. */
+  result?: Record<string, unknown> | null;
 }
 
 export interface SuperFinalMatch extends GrandFinalMatch {
