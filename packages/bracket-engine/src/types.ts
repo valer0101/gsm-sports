@@ -53,12 +53,23 @@ export interface SuperFinalMatch extends GrandFinalMatch {
 }
 
 export interface BracketData {
+  /**
+   * Which generator produced this bracket. Optional for backward
+   * compatibility with brackets stored before Phase 3.3 — readers should
+   * treat `undefined` as `'double_elim'`. Drives format-specific
+   * propagation in `propagateResults`: single-elim ends at the WB final
+   * and never plays the grand final / super final.
+   */
+  format?: 'single_elim' | 'double_elim';
   players: Player[];
   bracketSize: number;
   wbRounds: number;
   winnersBracket: Match[][];
+  /** Empty for `single_elim` — there is no losers' side. */
   losersBracket: Match[][];
+  /** Always present for shape stability; never played in single_elim. */
   grandFinal: GrandFinalMatch;
+  /** Always present for shape stability; never played in single_elim. */
   superFinal: SuperFinalMatch;
   champion: string | null;
   status: 'active' | 'completed';

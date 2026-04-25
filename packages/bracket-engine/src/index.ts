@@ -1,5 +1,6 @@
 export {
   generateDoubleElimination,
+  generateSingleElimination,
   selectWinner,
   propagateResults,
   findMatch,
