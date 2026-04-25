@@ -6,6 +6,7 @@ import {
   BracketData,
   ValidationResult,
   Standing,
+  GroupStage,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -53,6 +54,14 @@ export function findMatch(data: BracketData, matchId: string): Match | GrandFina
       if (match.id === matchId) return match;
     }
   }
+  // Phase 3.3d — group-stage matches live outside winnersBracket.
+  for (const group of data.groups ?? []) {
+    for (const round of group.rounds) {
+      for (const match of round) {
+        if (match.id === matchId) return match;
+      }
+    }
+  }
   if (data.grandFinal.id === matchId) return data.grandFinal;
   if (data.superFinal.id === matchId) return data.superFinal;
   return null;
@@ -60,8 +69,17 @@ export function findMatch(data: BracketData, matchId: string): Match | GrandFina
 
 // ─── Bracket-tree traversal ────────────────────────────────
 
-/** Which part of the double-elim tree a match lives in. */
-export type BracketSection = 'winners' | 'losers' | 'grand_final' | 'super_final';
+/**
+ * Which part of the bracket tree a match lives in. `group_stage` was
+ * added in Phase 3.3d for `groups_playoff` — those matches live in
+ * `data.groups[*].rounds`, not in `winnersBracket`.
+ */
+export type BracketSection =
+  | 'winners'
+  | 'losers'
+  | 'grand_final'
+  | 'super_final'
+  | 'group_stage';
 
 /** Callback shape for `walkBracketMatches`. Return `false` to stop early. */
 export type BracketMatchVisitor = (
@@ -83,6 +101,15 @@ export type BracketMatchVisitor = (
  * final in a future format).
  */
 export function walkBracketMatches(data: BracketData, visit: BracketMatchVisitor): void {
+  // Group-stage matches first — they're chronologically before any
+  // playoff matches that share `winnersBracket` for groups_playoff.
+  for (const group of data.groups ?? []) {
+    for (const round of group.rounds) {
+      for (const m of round) {
+        if (visit(m, 'group_stage') === false) return;
+      }
+    }
+  }
   for (const round of data.winnersBracket) {
     for (const m of round) {
       if (visit(m, 'winners') === false) return;
@@ -1029,6 +1056,436 @@ function finalizeSwiss(data: BracketData): void {
   pairSwissRound(data, openRoundIdx);
 }
 
+// ─── Groups + Playoff ──────────────────────────────────────
+
+/**
+ * Snake-seed N players into K groups so every group has comparable
+ * strength. With seeds 1..N, group A gets seeds 1, 2K, 2K+1, 4K, 4K+1, …
+ * — i.e. the standard serpentine pattern used in football and chess
+ * group draws. Returns one bucket per group.
+ */
+function snakeSeedGroups<T>(items: T[], groupCount: number): T[][] {
+  const groups: T[][] = Array.from({ length: groupCount }, () => []);
+  let idx = 0;
+  let direction = 1;
+  for (const it of items) {
+    groups[idx].push(it);
+    if (direction === 1 && idx === groupCount - 1) {
+      direction = -1;
+    } else if (direction === -1 && idx === 0) {
+      direction = 1;
+    } else {
+      idx += direction;
+    }
+  }
+  return groups;
+}
+
+/**
+ * Build the round-robin schedule for a single group. Mirrors
+ * `generateRoundRobin` but with `gp_{name}_*` ids and without the
+ * outer `BracketData` wrapper — the caller owns the wrapper for
+ * `groups_playoff`.
+ */
+function buildGroupRoundRobin(name: string, players: Player[]): Match[][] {
+  if (players.length < 2) {
+    // A 1-player group is a walkover — return a single round with a
+    // single bye match the caller will treat as auto-resolved.
+    return [
+      [
+        {
+          id: `gp_${name}_1_0`,
+          round: 1,
+          matchIndex: 0,
+          player1: { ...players[0], seed: 1 },
+          player2: makeBye(),
+          winner: players[0]?.id ?? null,
+          loser: 'bye',
+        },
+      ],
+    ];
+  }
+
+  const work: Player[] = players.slice();
+  const oddPad = work.length % 2 === 1;
+  if (oddPad) work.push(makeBye());
+
+  const m = work.length;
+  const numRounds = m - 1;
+  const rotation = work.slice(1);
+
+  const rounds: Match[][] = [];
+  for (let r = 0; r < numRounds; r++) {
+    const roundMatches: Match[] = [];
+    const slots: Player[] = [work[0], ...rotation];
+    for (let i = 0; i < m / 2; i++) {
+      const a = slots[i];
+      const b = slots[m - 1 - i];
+
+      const match: Match = {
+        id: `gp_${name}_${r + 1}_${i}`,
+        round: r + 1,
+        matchIndex: i,
+        player1: { ...a, seed: i * 2 + 1 },
+        player2: { ...b, seed: i * 2 + 2 },
+        winner: null,
+        loser: null,
+      };
+
+      if (isBye(a.id) && isBye(b.id)) {
+        match.winner = 'bye';
+        match.loser = 'bye';
+      } else if (isBye(a.id)) {
+        match.winner = b.id;
+        match.loser = 'bye';
+      } else if (isBye(b.id)) {
+        match.winner = a.id;
+        match.loser = 'bye';
+      }
+
+      roundMatches.push(match);
+    }
+    rounds.push(roundMatches);
+    rotation.unshift(rotation.pop()!);
+  }
+  return rounds;
+}
+
+/**
+ * Round-robin standings for one group of a `groups_playoff` bracket.
+ * Same shape as `getRoundRobinStandings` but scoped to a single
+ * `GroupStage`. Returns an empty array when the group can't be
+ * found.
+ */
+export function getGroupStandings(data: BracketData, groupName: string): Standing[] {
+  if (data.format !== 'groups_playoff') return [];
+  const group = (data.groups ?? []).find((g) => g.name === groupName);
+  if (!group) return [];
+
+  const records = new Map<string, { played: number; wins: number; losses: number }>();
+  for (const p of group.players) {
+    records.set(p.id, { played: 0, wins: 0, losses: 0 });
+  }
+
+  for (const round of group.rounds) {
+    for (const m of round) {
+      if (!m.winner) continue;
+      const winnerIsBye = isBye(m.winner);
+      const loserIsBye = m.loser ? isBye(m.loser) : true;
+      if (!winnerIsBye && records.has(m.winner)) {
+        const w = records.get(m.winner)!;
+        w.wins += 1;
+        w.played += 1;
+      }
+      if (!loserIsBye && m.loser && records.has(m.loser)) {
+        const l = records.get(m.loser)!;
+        l.losses += 1;
+        l.played += 1;
+      }
+    }
+  }
+
+  const rows = group.players.map((p) => {
+    const r = records.get(p.id) ?? { played: 0, wins: 0, losses: 0 };
+    return {
+      playerId: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      played: r.played,
+      wins: r.wins,
+      losses: r.losses,
+      position: 0,
+    };
+  });
+
+  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+
+  let pos = 0;
+  let lastKey = '';
+  rows.forEach((row, idx) => {
+    const key = `${row.wins}|${row.losses}`;
+    if (key !== lastKey) {
+      pos = idx + 1;
+      lastKey = key;
+    }
+    row.position = pos;
+  });
+
+  return rows;
+}
+
+/**
+ * Generate a groups + playoff bracket. Two-phase format:
+ *   1. Group stage — players are snake-seeded into `groupCount`
+ *      groups, each runs round-robin internally. Match ids
+ *      `gp_{groupName}_{round}_{idx}`.
+ *   2. Playoff — single-elim seeded with the top-`advanceFromGroup`
+ *      finishers from each group, in standard cross-group order:
+ *      seed 1 of group A vs seed 2 of group B, etc. Match ids
+ *      `wb_*` from the single-elim convention. Seats are TBD until
+ *      `propagateResults` populates them once every group-stage
+ *      match has a winner.
+ *
+ * Defaults: 2 groups, top 2 advance — produces 4-player single-elim
+ * playoff with two semifinals + one final.
+ */
+export function generateGroupsPlayoff(
+  players: Player[],
+  opts?: { groupCount?: number; advanceFromGroup?: number },
+): BracketData {
+  const n = players.length;
+  if (n < 2) {
+    throw new Error('At least 2 players are required to generate a bracket');
+  }
+
+  const groupCount = opts?.groupCount ?? 2;
+  const advanceFromGroup = opts?.advanceFromGroup ?? 2;
+  if (groupCount < 1) {
+    throw new Error('groupCount must be at least 1');
+  }
+  if (advanceFromGroup < 1) {
+    throw new Error('advanceFromGroup must be at least 1');
+  }
+  // Each group needs at least `advanceFromGroup` players (otherwise we
+  // can't fill the playoff seats). Clamp the group count so each group
+  // has enough players.
+  const maxGroups = Math.max(1, Math.floor(n / advanceFromGroup));
+  const effectiveGroups = Math.min(groupCount, maxGroups);
+
+  const groupBuckets = snakeSeedGroups(players, effectiveGroups);
+  const groups: GroupStage[] = groupBuckets.map((groupPlayers, i) => {
+    const name = String.fromCharCode('A'.charCodeAt(0) + i);
+    return {
+      name,
+      players: groupPlayers,
+      rounds: buildGroupRoundRobin(name, groupPlayers),
+    };
+  });
+
+  // Playoff size = effectiveGroups * advanceFromGroup, padded to next
+  // power of two with byes if needed.
+  const advancers = effectiveGroups * advanceFromGroup;
+  const playoffSize = Math.max(2, Math.pow(2, Math.ceil(Math.log2(advancers))));
+  const playoffRounds = Math.ceil(Math.log2(playoffSize));
+
+  // R1 of the playoff: TBD-seat skeleton. `propagateResults` fills the
+  // seats once every group-stage match has a winner.
+  const playoffR1: Match[] = [];
+  for (let i = 0; i < playoffSize / 2; i++) {
+    playoffR1.push({
+      id: `wb_1_${i}`,
+      round: 1,
+      matchIndex: i,
+      player1: makeTbd(),
+      player2: makeTbd(),
+      winner: null,
+      loser: null,
+    });
+  }
+
+  const winnersBracket: Match[][] = [playoffR1];
+  for (let r = 2; r <= playoffRounds; r++) {
+    const round: Match[] = [];
+    const prev = winnersBracket[r - 2];
+    for (let i = 0; i < prev.length / 2; i++) {
+      round.push({
+        id: `wb_${r}_${i}`,
+        round: r,
+        matchIndex: i,
+        player1: makeTbd(),
+        player2: makeTbd(),
+        winner: null,
+        loser: null,
+        feeder1: prev[i * 2].id,
+        feeder2: prev[i * 2 + 1].id,
+      });
+    }
+    winnersBracket.push(round);
+  }
+
+  const grandFinal: GrandFinalMatch = {
+    id: 'grand_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+  };
+  const superFinal: SuperFinalMatch = {
+    id: 'super_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+    needed: false,
+  };
+
+  const data: BracketData = {
+    format: 'groups_playoff',
+    players: players.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      number: p.number,
+    })),
+    bracketSize: playoffSize,
+    wbRounds: playoffRounds,
+    winnersBracket,
+    losersBracket: [],
+    grandFinal,
+    superFinal,
+    groups,
+    champion: null,
+    status: 'active',
+  };
+
+  // If a 1-group + 1-advance walkover happens (n=1 rejected above, but
+  // tiny edge cases) finalize defensively.
+  finalizeGroupsPlayoff(data);
+  return data;
+}
+
+/** True iff every match in every group has a winner. */
+function groupStageComplete(data: BracketData): boolean {
+  for (const group of data.groups ?? []) {
+    for (const round of group.rounds) {
+      for (const m of round) {
+        if (!m.winner) return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Standard cross-group playoff seeding. For 2 groups of top 2:
+ *   playoff slot order = [1A, 2B, 1B, 2A] → R1: 1A vs 2B, 1B vs 2A.
+ * For K groups, top-N: round-robin by group letter then by within-group
+ * position, but reverse the position ordering on every other group so
+ * top seeds don't meet until the final. Pads with byes when the playoff
+ * size is larger than `K*N` (next power of two).
+ */
+function seedPlayoffSlots(data: BracketData, advanceFromGroup: number): (string | 'bye')[] {
+  const groups = data.groups ?? [];
+  const slots: (string | 'bye')[] = [];
+
+  // For each within-group position 1..advanceFromGroup, alternate the
+  // group order so #1 from group A goes opposite #2 from group B etc.
+  for (let pos = 0; pos < advanceFromGroup; pos++) {
+    const groupOrder =
+      pos % 2 === 0 ? groups : groups.slice().reverse();
+    for (const group of groupOrder) {
+      const standings = getGroupStandings(data, group.name);
+      const row = standings[pos];
+      slots.push(row?.playerId ?? 'bye');
+    }
+  }
+
+  // Pad to playoff size with byes.
+  while (slots.length < data.bracketSize) slots.push('bye');
+  return slots;
+}
+
+/**
+ * Run after the group stage completes — fill the playoff R1 seats and
+ * auto-resolve any bye matches. Subsequent rounds populate via the
+ * standard single-elim propagation below.
+ */
+function seedPlayoffR1(data: BracketData): void {
+  // Detect already-seeded — once R1 has any non-TBD seats, we've already
+  // done the work and propagation should not re-seed.
+  const r1 = data.winnersBracket[0];
+  if (!r1 || r1.length === 0) return;
+  if (r1.some((m) => !isTbd(m.player1.id) || !isTbd(m.player2.id))) return;
+
+  const advanceFromGroup = inferAdvanceFromGroup(data);
+  const slots = seedPlayoffSlots(data, advanceFromGroup);
+
+  r1.forEach((match, i) => {
+    const a = slots[i * 2];
+    const b = slots[i * 2 + 1];
+    match.player1 = a === 'bye' ? makeBye() : getPlayerObj(data, a);
+    match.player2 = b === 'bye' ? makeBye() : getPlayerObj(data, b);
+
+    if (isBye(match.player1.id) && isReal(match.player2.id)) {
+      match.winner = match.player2.id;
+      match.loser = 'bye';
+    } else if (isBye(match.player2.id) && isReal(match.player1.id)) {
+      match.winner = match.player1.id;
+      match.loser = 'bye';
+    } else if (isBye(match.player1.id) && isBye(match.player2.id)) {
+      match.winner = 'bye';
+      match.loser = 'bye';
+    }
+  });
+}
+
+/**
+ * Recover the `advanceFromGroup` count from the generated bracket
+ * shape. Stored implicitly as `bracketSize / groupCount` — kept simple
+ * so we don't need a new persisted field.
+ */
+function inferAdvanceFromGroup(data: BracketData): number {
+  const groups = data.groups ?? [];
+  if (groups.length === 0) return 1;
+  return Math.max(1, Math.floor(data.bracketSize / groups.length));
+}
+
+/**
+ * Propagation for `groups_playoff`:
+ *   - Group stage incomplete → no-op (waiting for more results).
+ *   - Group stage just completed → seed playoff R1.
+ *   - Playoff R1 already seeded → standard single-elim propagation
+ *     (seat winners into next round, auto-resolve byes).
+ *   - Playoff complete → champion + status: 'completed'.
+ */
+function finalizeGroupsPlayoff(data: BracketData): void {
+  if (data.format !== 'groups_playoff') return;
+
+  if (!groupStageComplete(data)) return;
+
+  // Seed R1 if we haven't yet.
+  seedPlayoffR1(data);
+
+  // Single-elim propagation for the playoff side. Same logic as
+  // `generateSingleElimination`'s propagation branch.
+  for (let r = 1; r < data.winnersBracket.length; r++) {
+    const currentRound = data.winnersBracket[r];
+    const prevRound = data.winnersBracket[r - 1];
+
+    currentRound.forEach((match, i) => {
+      const feeder1 = prevRound[i * 2];
+      const feeder2 = prevRound[i * 2 + 1];
+
+      if (feeder1?.winner && !isBye(feeder1.winner)) {
+        match.player1 = getPlayerObj(data, feeder1.winner);
+      } else if (feeder1?.winner === 'bye') {
+        match.player1 = makeBye();
+      }
+      if (feeder2?.winner && !isBye(feeder2.winner)) {
+        match.player2 = getPlayerObj(data, feeder2.winner);
+      } else if (feeder2?.winner === 'bye') {
+        match.player2 = makeBye();
+      }
+
+      if (isBye(match.player1.id) && isReal(match.player2.id)) {
+        match.winner = match.player2.id;
+        match.loser = 'bye';
+      } else if (isBye(match.player2.id) && isReal(match.player1.id)) {
+        match.winner = match.player1.id;
+        match.loser = 'bye';
+      }
+    });
+  }
+
+  // Crown champion if the playoff final has a real winner.
+  const lastRound = data.winnersBracket[data.winnersBracket.length - 1];
+  const final = lastRound?.[0];
+  if (final?.winner && !isBye(final.winner)) {
+    data.champion = final.winner;
+    data.status = 'completed';
+  }
+}
+
 // ─── Propagate results ──────────────────────────────────────
 
 function propagateLosers(data: BracketData): void {
@@ -1104,6 +1561,13 @@ export function propagateResults(data: BracketData): void {
   // and a unique leader emerges.
   if (data.format === 'swiss') {
     finalizeSwiss(data);
+    return;
+  }
+
+  // Groups + playoff: handle group-stage finalize → playoff seeding,
+  // then single-elim propagation through the playoff side.
+  if (data.format === 'groups_playoff') {
+    finalizeGroupsPlayoff(data);
     return;
   }
 
@@ -1338,6 +1802,42 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
       data.status = 'active';
     }
     finalizeRoundRobin(data);
+    return data;
+  }
+
+  // Groups + playoff:
+  //   - If a group-stage match is reset, every playoff seat depended
+  //     on the standings going into it. Wipe playoff to TBD skeletons.
+  //   - If a playoff match is reset, do the standard single-elim
+  //     downstream cascade.
+  if (data.format === 'groups_playoff') {
+    if (data.champion === oldWinner) {
+      data.champion = null;
+      data.status = 'active';
+    }
+
+    const isGroupStageMatch = matchId.startsWith('gp_');
+    if (isGroupStageMatch) {
+      // Wipe the entire playoff back to TBD skeletons. Once the
+      // group-stage match is re-recorded, finalize will reseed.
+      for (const round of data.winnersBracket) {
+        for (const slot of round) {
+          slot.player1 = makeTbd();
+          slot.player2 = makeTbd();
+          slot.winner = null;
+          slot.loser = null;
+          slot.enteredBy = null;
+          slot.enteredAt = null;
+          slot.correctedBy = null;
+          slot.correctedAt = null;
+        }
+      }
+    } else {
+      // Playoff match — standard single-elim downstream cascade.
+      _clearDownstream(data, oldWinner, oldLoser);
+    }
+
+    finalizeGroupsPlayoff(data);
     return data;
   }
 
