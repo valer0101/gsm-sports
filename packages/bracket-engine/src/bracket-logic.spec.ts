@@ -4,8 +4,10 @@ import {
   generateSingleElimination,
   generateRoundRobin,
   generateSwiss,
+  generateGroupsPlayoff,
   getRoundRobinStandings,
   getSwissStandings,
+  getGroupStandings,
   selectWinner,
   findMatch,
   walkBracketMatches,
@@ -551,6 +553,188 @@ describe('getSwissStandings', () => {
     const p1 = s.find((row) => row.playerId === 'p1')!;
     expect(p1.wins).toBe(1);
     expect(p1.losses).toBe(0);
+  });
+});
+
+// ─── Phase 3.3d: groups + playoff ─────────────────────────
+describe('generateGroupsPlayoff', () => {
+  it('throws for less than 2 players', () => {
+    expect(() => generateGroupsPlayoff(makePlayers(1))).toThrow('At least 2 players');
+  });
+
+  it('builds 2 groups of 4 from 8 players, top-2 advance, with TBD playoff R1', () => {
+    const data = generateGroupsPlayoff(makePlayers(8));
+    expect(data.format).toBe('groups_playoff');
+    expect(data.groups).toHaveLength(2);
+    expect(data.groups![0].name).toBe('A');
+    expect(data.groups![1].name).toBe('B');
+    expect(data.groups![0].players).toHaveLength(4);
+    expect(data.groups![1].players).toHaveLength(4);
+    // Snake seeding: group A gets seeds 1, 4, 5, 8; group B gets 2, 3, 6, 7.
+    expect(data.groups![0].players.map((p) => p.id)).toEqual(['p1', 'p4', 'p5', 'p8']);
+    expect(data.groups![1].players.map((p) => p.id)).toEqual(['p2', 'p3', 'p6', 'p7']);
+
+    // Each group's RR: 4 players → 3 rounds × 2 matches.
+    expect(data.groups![0].rounds).toHaveLength(3);
+    expect(data.groups![0].rounds.every((r) => r.length === 2)).toBe(true);
+
+    // Playoff: 4 advancers → 2 rounds (semis + final).
+    expect(data.bracketSize).toBe(4);
+    expect(data.wbRounds).toBe(2);
+    expect(data.winnersBracket[0]).toHaveLength(2);
+    expect(data.winnersBracket[1]).toHaveLength(1);
+    // All TBD until group stage completes.
+    expect(data.winnersBracket[0].every((m) => m.player1.id === 'tbd')).toBe(true);
+  });
+
+  it('clamps groupCount when groups would be too small for advance count', () => {
+    // 5 players, 4 groups, top-2 → only 2 groups can have ≥2 players.
+    const data = generateGroupsPlayoff(makePlayers(5), {
+      groupCount: 4,
+      advanceFromGroup: 2,
+    });
+    expect(data.groups!.length).toBeLessThanOrEqual(2);
+  });
+
+  it('seeds playoff R1 once every group-stage match has a winner', () => {
+    let data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+    // 2 groups of 2: each group has 1 R1 match. Top-1 from each group
+    // advances → playoff is just a final.
+    expect(data.bracketSize).toBe(2);
+    expect(data.winnersBracket).toHaveLength(1);
+
+    // Group A: p1 vs p4. Group B: p2 vs p3.
+    const m1 = data.groups![0].rounds[0][0];
+    const m2 = data.groups![1].rounds[0][0];
+    data = selectWinner(structuredClone(data), m1.id, m1.player1.id);
+    data = selectWinner(data, m2.id, m2.player1.id);
+
+    // Playoff R1 (the final) should be seeded now.
+    const final = data.winnersBracket[0][0];
+    expect(final.player1.id).not.toBe('tbd');
+    expect(final.player2.id).not.toBe('tbd');
+  });
+
+  it('crowns champion when playoff completes', () => {
+    let data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+
+    // Win every group-stage match (just one per group with 2 players).
+    for (const group of data.groups!) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (!m.winner) {
+            data = selectWinner(structuredClone(data), m.id, m.player1.id);
+          }
+        }
+      }
+    }
+
+    // Playoff final is now seeded — pick a winner.
+    const final = data.winnersBracket[0][0];
+    data = selectWinner(data, final.id, final.player1.id);
+
+    expect(data.champion).toBe(final.player1.id);
+    expect(data.status).toBe('completed');
+  });
+
+  it('group standings respect the round-robin within each group only', () => {
+    let data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+    // Group A: p1 vs p4. Group B: p2 vs p3. Pick p1 and p3.
+    const a = data.groups![0].rounds[0][0];
+    const b = data.groups![1].rounds[0][0];
+    data = selectWinner(structuredClone(data), a.id, 'p1');
+    data = selectWinner(data, b.id, 'p3');
+
+    const aStandings = getGroupStandings(data, 'A');
+    const bStandings = getGroupStandings(data, 'B');
+    expect(aStandings.find((s) => s.playerId === 'p1')?.position).toBe(1);
+    expect(aStandings.find((s) => s.playerId === 'p4')?.position).toBe(2);
+    expect(bStandings.find((s) => s.playerId === 'p3')?.position).toBe(1);
+    expect(bStandings.find((s) => s.playerId === 'p2')?.position).toBe(2);
+  });
+
+  it('returns empty group standings for missing groups or wrong format', () => {
+    const data = generateGroupsPlayoff(makePlayers(4));
+    expect(getGroupStandings(data, 'Z')).toEqual([]);
+    const single = generateSingleElimination(makePlayers(4));
+    expect(getGroupStandings(single, 'A')).toEqual([]);
+  });
+
+  it('findMatch + walkBracketMatches walk group-stage matches too', () => {
+    const data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+    const groupMatchId = data.groups![0].rounds[0][0].id;
+    expect(groupMatchId.startsWith('gp_A_')).toBe(true);
+    expect(findMatch(data, groupMatchId)).not.toBeNull();
+
+    const sections: string[] = [];
+    walkBracketMatches(data, (_m, section) => {
+      sections.push(section);
+    });
+    expect(sections.includes('group_stage')).toBe(true);
+    expect(sections.includes('winners')).toBe(true);
+    // Group stage matches walked first, then playoff.
+    expect(sections.indexOf('group_stage')).toBeLessThan(sections.indexOf('winners'));
+  });
+
+  it('resetMatch on a group-stage match wipes the entire playoff', () => {
+    let data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+    // Complete group stage.
+    for (const group of data.groups!) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (!m.winner) data = selectWinner(structuredClone(data), m.id, m.player1.id);
+        }
+      }
+    }
+    // Playoff is seeded now.
+    expect(data.winnersBracket[0][0].player1.id).not.toBe('tbd');
+
+    // Reset the first group-stage match — playoff must wipe back to TBD.
+    const firstGroupMatch = data.groups![0].rounds[0][0].id;
+    data = resetMatch(data, firstGroupMatch);
+    expect(data.winnersBracket[0][0].player1.id).toBe('tbd');
+    expect(data.winnersBracket[0][0].player2.id).toBe('tbd');
+  });
+
+  it('resetMatch on a playoff match cascades only within the playoff', () => {
+    let data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 1,
+    });
+    for (const group of data.groups!) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (!m.winner) data = selectWinner(structuredClone(data), m.id, m.player1.id);
+        }
+      }
+    }
+    // 2-advancer setup → only the final match exists in the playoff.
+    // Pick a winner then reset; final goes back to active, group seeds
+    // remain populated.
+    const final = data.winnersBracket[0][0];
+    data = selectWinner(data, final.id, final.player1.id);
+    expect(data.champion).not.toBeNull();
+
+    data = resetMatch(data, final.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+    // Group-stage results untouched.
+    expect(data.groups![0].rounds[0][0].winner).not.toBeNull();
   });
 });
 

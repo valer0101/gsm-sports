@@ -55,8 +55,19 @@ export interface BracketData {
    *   - `swiss` plays a fixed N rounds; round R+1 is paired by `propagate`
    *     once round R completes, sorted by score and avoiding rematches.
    *     Champion = unique best record after the final round.
+   *   - `groups_playoff` runs round-robin inside each group (in `groups`)
+   *     then a single-elim playoff (in `winnersBracket`) seeded with the
+   *     top-N from each group. Champion = playoff winner.
    */
-  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss';
+  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss' | 'groups_playoff';
+
+  /**
+   * Group stage for `groups_playoff` (Phase 3.3d). One entry per group;
+   * each is a self-contained mini-round-robin. Match ids are
+   * `gp_{groupName}_{round}_{idx}` so they don't collide with playoff
+   * `wb_*`. Undefined for every other format.
+   */
+  groups?: GroupStage[];
   players: Player[];
   bracketSize: number;
   wbRounds: number;
@@ -95,6 +106,19 @@ export interface Standing {
   losses: number;
   /** 1-based, ties share the same position. */
   position: number;
+}
+
+/**
+ * One group in the `groups_playoff` format (Phase 3.3d). Self-
+ * contained mini-round-robin — `rounds` matches the
+ * `winnersBracket: Match[][]` shape used elsewhere, with match ids
+ * `gp_{name}_{round}_{idx}` to avoid collision with the playoff
+ * `wb_*` ids that share the same `BracketData.winnersBracket` array.
+ */
+export interface GroupStage {
+  name: string;
+  players: Player[];
+  rounds: Match[][];
 }
 
 export const TBD_PLAYER: Player = Object.freeze({
