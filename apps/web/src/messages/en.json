@@ -74,6 +74,8 @@
     "grand_final": "Grand Final",
     "super_final": "Super Final",
     "champion": "Champion",
+    "rr_schedule": "Schedule",
+    "rr_round": "Round {n}",
     "participants_count": "Total participants: {count}",
     "participants_error": "Failed to load participants",
     "participants_empty": "No participants yet",
@@ -382,6 +384,7 @@
     "category": "Category {n}",
     "wb_round": "WB Round {n}",
     "lb_round": "LB Round {n}",
+    "rr_round": "Round {n}",
     "grand_final": "Grand Final",
     "super_final": "Super Final",
     "winner_btn": "Won",
@@ -717,5 +720,13 @@
     "submit": "Create Tournament",
     "cancel": "Cancel",
     "error_create": "Failed to create tournament"
+  },
+  "round_robin": {
+    "title": "Standings",
+    "col_position": "#",
+    "col_athlete": "Athlete",
+    "col_played": "P",
+    "col_wins": "W",
+    "col_losses": "L"
   }
 }

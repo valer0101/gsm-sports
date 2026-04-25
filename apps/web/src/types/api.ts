@@ -175,6 +175,14 @@ export interface BracketMatch {
 }
 
 export interface BracketData {
+  /**
+   * Which generator produced this bracket (Phase 3.3a/b). Optional for
+   * backward compatibility — readers should treat `undefined` as
+   * `'double_elim'`. Drives top-level layout in `BracketView`:
+   * round-robin renders a standings table + round list, elimination
+   * renders the WB/LB tree.
+   */
+  format?: 'single_elim' | 'double_elim' | 'round_robin';
   players: BracketPlayer[];
   bracketSize: number;
   wbRounds: number;
