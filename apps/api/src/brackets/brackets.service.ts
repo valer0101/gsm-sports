@@ -569,15 +569,22 @@ export class BracketsService {
       if (!existingMatch) {
         throw new BadRequestException(`Match ${dto.matchId} not found in bracket`);
       }
-      const cfg = resolveSportConfig(
+      const sportCfg = resolveSportConfig(
         bracket.tournament.sport?.slug ?? '',
         bracket.tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
       );
-      const resultErrors = validateMatchResult(dto.result, cfg.matchResultSchema, existingMatch);
+      // Honor the per-tournament `sportConfig` override the same way
+      // `weighInRequired` does (see `assertAllWeighedIn`). An organizer
+      // can flip the schema for a special-format event without touching
+      // the global sport config.
+      const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
+      const matchResultSchema =
+        tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
+      const resultErrors = validateMatchResult(dto.result, matchResultSchema, existingMatch);
       if (resultErrors.length > 0) {
         throw new BadRequestException({
           code: 'INVALID_MATCH_RESULT',
-          message: `Invalid result payload for ${cfg.matchResultSchema}: ${resultErrors.join('; ')}`,
+          message: `Invalid result payload for ${matchResultSchema}: ${resultErrors.join('; ')}`,
           errors: resultErrors,
         });
       }
