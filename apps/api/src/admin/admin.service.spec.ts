@@ -191,7 +191,30 @@ describe('AdminService', () => {
         'organizer',
       ]);
       expect(result).toEqual({ bracketsCreated: 3 });
-      expect(mockBracketsService.generateWithWeightBuckets).toHaveBeenCalledWith('tournament-1');
+      // 2nd arg is the optional bracketFormat — `undefined` means
+      // "fall back to sport default" (Phase 3.3a slice 2 + 3).
+      expect(mockBracketsService.generateWithWeightBuckets).toHaveBeenCalledWith(
+        'tournament-1',
+        undefined,
+      );
+    });
+
+    it('forwards bracketFormat from the controller through to BracketsService', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketGenerated: false,
+      });
+      mockBracketsService.generateWithWeightBuckets.mockResolvedValue(2);
+      await service.closeAndGenerateBrackets(
+        'tournament-1',
+        'organizer-1',
+        ['organizer'],
+        'single_elim',
+      );
+      expect(mockBracketsService.generateWithWeightBuckets).toHaveBeenCalledWith(
+        'tournament-1',
+        'single_elim',
+      );
     });
 
     it('throws BadRequestException if bracket already generated', async () => {

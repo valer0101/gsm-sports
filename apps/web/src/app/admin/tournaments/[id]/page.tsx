@@ -26,7 +26,23 @@ import {
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { WeighInsManager } from '@/components/admin/WeighInsManager';
-import type { Bracket, BracketMatch, BracketAuditLog } from '@/types/api';
+import type {
+  Bracket,
+  BracketMatch,
+  BracketAuditLog,
+  SportBracketFormat,
+} from '@/types/api';
+
+/**
+ * Phase 3.3a — bracket-format generators wired through the API.
+ * Round-robin / swiss / groups_playoff are still in the union but not
+ * yet implemented; filtering against this set keeps the dropdown
+ * honest (and avoids a 400 on submit).
+ */
+const IMPLEMENTED_FORMATS: ReadonlySet<SportBracketFormat> = new Set([
+  'single_elim',
+  'double_elim',
+]);
 
 export default function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -45,6 +61,14 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   const [operatorEmail, setOperatorEmail] = useState('');
   const [assignError, setAssignError] = useState('');
   const [selectedBracketId, setSelectedBracketId] = useState<string | null>(null);
+  const [generateFormat, setGenerateFormat] = useState<SportBracketFormat | ''>('');
+
+  // Restrict the dropdown to formats that are BOTH allowed for the
+  // sport AND have a generator landed today. The empty option means
+  // "use the sport's default".
+  const formatOptions: SportBracketFormat[] = (
+    tournament?.sport?.config?.bracketFormats ?? []
+  ).filter((f) => IMPLEMENTED_FORMATS.has(f));
 
   const { data: currentUser } = useCurrentUser();
   const isAdmin = (currentUser?.roles ?? []).includes('admin');
@@ -185,13 +209,51 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
               {t('generate_confirm_desc')}
             </p>
+
+            {/* Format selector — only shown when the sport allows multiple
+                implemented formats. With one option (or zero), there's
+                nothing to choose and the backend's default-fallback wins. */}
+            {formatOptions.length > 1 && (
+              <div className="mb-4">
+                <label
+                  className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {t('format_label')}
+                </label>
+                <select
+                  value={generateFormat}
+                  onChange={(e) =>
+                    setGenerateFormat(e.target.value as SportBracketFormat | '')
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-transparent border border-white/15 text-white text-sm outline-none focus:border-[var(--color-accent)]"
+                >
+                  <option value="" className="bg-black">
+                    {t('format_default', {
+                      name: t(
+                        `format_name_${tournament.sport?.config.defaultBracketFormat ?? 'double_elim'}`,
+                      ),
+                    })}
+                  </option>
+                  {formatOptions.map((f) => (
+                    <option key={f} value={f} className="bg-black">
+                      {t(`format_name_${f}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 disabled={generateBrackets.isPending}
                 onClick={() =>
-                  generateBrackets.mutate(undefined, {
-                    onSuccess: () => setShowGenerateConfirm(false),
-                  })
+                  generateBrackets.mutate(
+                    generateFormat ? { bracketFormat: generateFormat } : undefined,
+                    {
+                      onSuccess: () => setShowGenerateConfirm(false),
+                    },
+                  )
                 }
                 className="px-4 py-2 rounded-xl text-sm font-bold"
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
