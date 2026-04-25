@@ -1,6 +1,8 @@
 export {
   generateDoubleElimination,
   generateSingleElimination,
+  generateRoundRobin,
+  getRoundRobinStandings,
   selectWinner,
   propagateResults,
   findMatch,
@@ -20,6 +22,7 @@ export type {
   SuperFinalMatch,
   BracketData,
   ValidationResult,
+  Standing,
 } from './types';
 export type { BracketSection, BracketMatchVisitor } from './bracket-logic';
 export { TBD_PLAYER, BYE_PLAYER } from './types';

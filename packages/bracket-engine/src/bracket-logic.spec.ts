@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   generateDoubleElimination,
   generateSingleElimination,
+  generateRoundRobin,
+  getRoundRobinStandings,
   selectWinner,
   findMatch,
   walkBracketMatches,
@@ -184,6 +186,193 @@ describe('generateSingleElimination', () => {
     expect(findMatch(data, 'wb_1_0')).not.toBeNull();
     expect(findMatch(data, 'lb_1_0')).toBeNull(); // no LB
     expect(canRecordResult(data, 'wb_1_0').valid).toBe(true);
+  });
+});
+
+// ─── Phase 3.3b: round-robin ─────────────────────────────
+describe('generateRoundRobin', () => {
+  it('throws for less than 2 players', () => {
+    expect(() => generateRoundRobin(makePlayers(1))).toThrow('At least 2 players');
+  });
+
+  it('builds 3 rounds × 2 matches for 4 players (every pair plays once)', () => {
+    const data = generateRoundRobin(makePlayers(4));
+    expect(data.format).toBe('round_robin');
+    expect(data.winnersBracket).toHaveLength(3);
+    expect(data.winnersBracket.every((round) => round.length === 2)).toBe(true);
+    expect(data.losersBracket).toEqual([]);
+    expect(data.bracketSize).toBe(4);
+    expect(data.wbRounds).toBe(3);
+
+    // Each ordered pair appears exactly once across all rounds.
+    const pairs = new Set<string>();
+    for (const round of data.winnersBracket) {
+      for (const m of round) {
+        const key = [m.player1.id, m.player2.id].sort().join('|');
+        expect(pairs.has(key)).toBe(false);
+        pairs.add(key);
+      }
+    }
+    expect(pairs.size).toBe(6); // C(4,2) = 6
+  });
+
+  it('handles odd N with one bye seat per round (5 players → 5 rounds)', () => {
+    const data = generateRoundRobin(makePlayers(5));
+    expect(data.winnersBracket).toHaveLength(5);
+    expect(data.bracketSize).toBe(5);
+
+    // Each round has 1 bye match (the resting player) and 2 real matches.
+    for (const round of data.winnersBracket) {
+      const byeMatches = round.filter(
+        (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+      );
+      expect(byeMatches).toHaveLength(1);
+      // The bye match is auto-resolved at generation.
+      expect(byeMatches[0].winner).not.toBeNull();
+    }
+  });
+
+  it('every player rests exactly once across the schedule (5 players)', () => {
+    const data = generateRoundRobin(makePlayers(5));
+    const restCounts = new Map<string, number>();
+    for (const round of data.winnersBracket) {
+      for (const m of round) {
+        if (m.player1.id === 'bye') restCounts.set(m.player2.id, (restCounts.get(m.player2.id) ?? 0) + 1);
+        if (m.player2.id === 'bye') restCounts.set(m.player1.id, (restCounts.get(m.player1.id) ?? 0) + 1);
+      }
+    }
+    expect([...restCounts.values()].every((c) => c === 1)).toBe(true);
+    expect(restCounts.size).toBe(5);
+  });
+
+  it('crowns champion when all matches done and one leader emerges', () => {
+    let data = generateRoundRobin(makePlayers(3)); // 3 rounds w/ 1 bye each — 3 real matches
+    // Real matches involve p1, p2, p3; we want p1 to win both, p2 to win one.
+    // Find the matches and pick winners.
+    const realMatches = data.winnersBracket.flat().filter(
+      (m) => m.player1.id !== 'bye' && m.player2.id !== 'bye',
+    );
+    // p1 wins all of theirs; remaining match (p2 vs p3) goes to p2.
+    for (const m of realMatches) {
+      const winner =
+        m.player1.id === 'p1' || m.player2.id === 'p1'
+          ? 'p1'
+          : 'p2';
+      data = selectWinner(structuredClone(data), m.id, winner);
+    }
+    expect(data.champion).toBe('p1');
+    expect(data.status).toBe('completed');
+  });
+
+  it('leaves status:active when leader is tied at #1 (manual tiebreaker required)', () => {
+    let data = generateRoundRobin(makePlayers(4));
+    // 6 matches; cycle wins so two players end on 2-1, two on 1-2 → tie at #1.
+    // Simplest cycle: p1>p2, p1>p3, p4>p1, p2>p4, p3>p4, p3>p2
+    const order: Array<[string, string]> = [
+      ['p1', 'p2'],
+      ['p1', 'p3'],
+      ['p4', 'p1'],
+      ['p2', 'p4'],
+      ['p3', 'p4'],
+      ['p3', 'p2'],
+    ];
+    for (const [winner, loser] of order) {
+      const match = data.winnersBracket
+        .flat()
+        .find(
+          (m) =>
+            (m.player1.id === winner && m.player2.id === loser) ||
+            (m.player1.id === loser && m.player2.id === winner),
+        )!;
+      data = selectWinner(structuredClone(data), match.id, winner);
+    }
+    // Records: p1 = 2-1, p2 = 1-2, p3 = 2-1, p4 = 1-2 → p1 & p3 tied at #1.
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+    const standings = getRoundRobinStandings(data);
+    const top = standings.filter((s) => s.position === 1);
+    expect(top).toHaveLength(2);
+  });
+
+  it('resetMatch wipes the result without cascading into other RR matches', () => {
+    let data = generateRoundRobin(makePlayers(4));
+    const m1 = data.winnersBracket[0][0];
+    const m2 = data.winnersBracket[0][1];
+    const winner1 = m1.player1.id;
+    const winner2 = m2.player1.id;
+
+    data = selectWinner(structuredClone(data), m1.id, winner1);
+    data = selectWinner(data, m2.id, winner2);
+    data = resetMatch(data, m1.id);
+
+    // m1 should be cleared; m2 should be untouched (independent match).
+    const reFetchM1 = findMatch(data, m1.id)!;
+    const reFetchM2 = findMatch(data, m2.id)!;
+    expect(reFetchM1.winner).toBeNull();
+    expect(reFetchM2.winner).toBe(winner2);
+    // Players in both matches should still be the originals.
+    expect(reFetchM1.player1.id).toBe(m1.player1.id);
+    expect(reFetchM1.player2.id).toBe(m1.player2.id);
+  });
+});
+
+describe('getRoundRobinStandings', () => {
+  it('returns empty array for elimination brackets', () => {
+    const single = generateSingleElimination(makePlayers(4));
+    expect(getRoundRobinStandings(single)).toEqual([]);
+    const double = generateDoubleElimination(makePlayers(4));
+    expect(getRoundRobinStandings(double)).toEqual([]);
+  });
+
+  it('returns all players with 0-0 records before any matches are played', () => {
+    const data = generateRoundRobin(makePlayers(3));
+    const s = getRoundRobinStandings(data);
+    expect(s).toHaveLength(3);
+    // All real players have wins=0, losses=0 (bye-walkover for the
+    // resting player counts only as a win; verify that's tracked).
+    // The `played` count for each player after pure generation should
+    // include their bye-win (1) and 0 real matches.
+    const wins = s.reduce((acc, r) => acc + r.wins, 0);
+    const losses = s.reduce((acc, r) => acc + r.losses, 0);
+    // 3 bye walkovers in a 3-player RR — each player gets 1 free win
+    // when they're paired with the bye seat.
+    expect(wins).toBe(3);
+    expect(losses).toBe(0);
+  });
+
+  it('competition ranking — ties share position, next position skips', () => {
+    let data = generateRoundRobin(makePlayers(4));
+    // Goal: p1 and p2 tied at 2-1 (#1), p3 and p4 tied at 1-2 (#3).
+    // One valid cycle: p1>p2, p1>p3, p4>p1, p2>p3, p2>p4, p3>p4.
+    //   p1: W vs p2, W vs p3, L vs p4   → 2-1
+    //   p2: L vs p1, W vs p3, W vs p4   → 2-1
+    //   p3: L vs p1, L vs p2, W vs p4   → 1-2
+    //   p4: W vs p1, L vs p2, L vs p3   → 1-2
+    const order: Array<[string, string]> = [
+      ['p1', 'p2'],
+      ['p1', 'p3'],
+      ['p4', 'p1'],
+      ['p2', 'p3'],
+      ['p2', 'p4'],
+      ['p3', 'p4'],
+    ];
+    for (const [winner, loser] of order) {
+      const match = data.winnersBracket
+        .flat()
+        .find(
+          (m) =>
+            (m.player1.id === winner && m.player2.id === loser) ||
+            (m.player1.id === loser && m.player2.id === winner),
+        )!;
+      data = selectWinner(structuredClone(data), match.id, winner);
+    }
+    const s = getRoundRobinStandings(data);
+    // p1 and p2 tied at #1; p3 and p4 tied at #3.
+    const positions = new Map(s.map((row) => [row.playerId, row.position]));
+    expect(positions.get('p1')).toBe(positions.get('p2'));
+    expect(positions.get('p3')).toBe(positions.get('p4'));
+    expect(positions.get('p1')).toBe(1);
+    expect(positions.get('p3')).toBe(3);
   });
 });
 
