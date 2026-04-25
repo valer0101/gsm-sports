@@ -49,6 +49,18 @@ vi.mock('@gsm/bracket-engine', () => ({
     champion: null,
     status: 'active',
   })),
+  generateSwiss: vi.fn(() => ({
+    format: 'swiss',
+    players: [],
+    bracketSize: 4,
+    wbRounds: 2,
+    winnersBracket: [],
+    losersBracket: [],
+    grandFinal: { id: 'grand_final' },
+    superFinal: { id: 'super_final', needed: false },
+    champion: null,
+    status: 'active',
+  })),
   selectWinner: vi.fn((data: any) => ({ ...data, status: 'active' })),
   resetMatch: vi.fn((data: any) => ({ ...data, status: 'active' })),
   validateResult: vi.fn(() => ({ valid: true, errors: [] })),
@@ -247,18 +259,14 @@ describe('BracketsService', () => {
       expect(generateSingleElimination).not.toHaveBeenCalled();
     });
 
-    it('uses single_elim from sport defaults (chess swiss → falls back to single_elim)', async () => {
-      const { generateDoubleElimination, generateSingleElimination } = await import(
+    it('uses swiss from chess sport defaults (default generator now implemented)', async () => {
+      const { generateSwiss, generateDoubleElimination } = await import(
         '@gsm/bracket-engine'
       );
-      // chess preset's defaultBracketFormat is 'swiss' which is NOT yet
-      // implemented — service should reject it. Override via raw config to
-      // force a supported default for this happy-path test.
-      tournamentsService.findById.mockResolvedValue(
-        makeTournament({
-          sport: { slug: 'chess', config: { defaultBracketFormat: 'single_elim' } },
-        }),
-      );
+      // chess preset's defaultBracketFormat is 'swiss' — implemented since
+      // phase 3.3c slice 2. The natural fallback (no DTO override) lands
+      // on the swiss generator.
+      tournamentsService.findById.mockResolvedValue(chessTournament());
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
       });
@@ -267,7 +275,7 @@ describe('BracketsService', () => {
 
       await service.generate({ tournamentId: 't1' }, 'org-1');
 
-      expect(generateSingleElimination).toHaveBeenCalled();
+      expect(generateSwiss).toHaveBeenCalled();
       expect(generateDoubleElimination).not.toHaveBeenCalled();
     });
 
@@ -301,17 +309,52 @@ describe('BracketsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects a not-yet-implemented format (swiss) even when allowed', async () => {
-      // chess allows swiss in its preset, but the generator isn't shipped
-      // until phase 3.3c — service should reject loudly.
-      tournamentsService.findById.mockResolvedValue(chessTournament());
+    it('rejects a not-yet-implemented format (groups_playoff) even when allowed', async () => {
+      // groups_playoff is in the union but its generator hasn't shipped
+      // yet (phase 3.3d). To exercise the "allowed but not implemented"
+      // branch we need a sport whose `bracketFormats` allow-list includes
+      // it — override the chess config to add it.
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: {
+            slug: 'chess',
+            config: {
+              bracketFormats: ['swiss', 'round_robin', 'single_elim', 'groups_playoff'],
+              defaultBracketFormat: 'swiss',
+            },
+          },
+        }),
+      );
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
       });
 
       await expect(
-        service.generate({ tournamentId: 't1', bracketFormat: 'swiss' }, 'org-1'),
+        service.generate(
+          { tournamentId: 't1', bracketFormat: 'groups_playoff' },
+          'org-1',
+        ),
       ).rejects.toThrow(/not yet implemented/);
+    });
+
+    it('dispatches to generateSwiss when format is swiss', async () => {
+      const { generateSwiss, generateRoundRobin, generateDoubleElimination } =
+        await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(chessTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3'), makeEntry('u4')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate(
+        { tournamentId: 't1', bracketFormat: 'swiss' },
+        'org-1',
+      );
+
+      expect(generateSwiss).toHaveBeenCalled();
+      expect(generateRoundRobin).not.toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
     });
 
     it('dispatches to generateRoundRobin when format is round_robin', async () => {
