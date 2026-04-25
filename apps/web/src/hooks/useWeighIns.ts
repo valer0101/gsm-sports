@@ -37,6 +37,10 @@ export function useAdminRecordWeighIn(tournamentId: string) {
       qc.invalidateQueries({ queryKey: ['admin', 'weigh-ins', tournamentId] });
       // Auto-reassign may move the entry to a different weight category.
       qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
+      // The athlete's own tournament page reads via `useWeighInByEntry` —
+      // refresh the chip if the same browser is logged into both views
+      // (organizer + athlete in dev, or self-organized event).
+      qc.invalidateQueries({ queryKey: ['weigh-in', 'entry'] });
     },
   });
 }
@@ -50,6 +54,7 @@ export function useAdminUndoWeighIn(tournamentId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'weigh-ins', tournamentId] });
       qc.invalidateQueries({ queryKey: ['admin', 'confirmed-entries', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['weigh-in', 'entry'] });
     },
   });
 }

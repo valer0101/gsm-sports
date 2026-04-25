@@ -298,16 +298,24 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         </Section>
       )}
 
-      {/* Weigh-ins — sports that require them, before bracket is generated */}
-      {!tournament.bracketGenerated && tournament.sport?.config.weighInRequired && (
-        <Section title={t('weigh_ins_title')}>
-          <WeighInsManager
-            tournamentId={id}
-            canUndo={isAdmin}
-            highlightEntryIds={weighInBlockedIds}
-          />
-        </Section>
-      )}
+      {/* Weigh-ins — sports that require them, before bracket is generated.
+          Resolution order matches the API gate (`assertAllWeighedIn` in
+          BracketsService): per-tournament `sportConfig` override wins over
+          the sport-wide default. Without this client mirror, an organizer
+          who set `tournament.sportConfig.weighInRequired = true` on a
+          chess event would be locked out of the bracket gate with no UI
+          to record weigh-ins. */}
+      {!tournament.bracketGenerated &&
+        ((tournament.sportConfig as { weighInRequired?: boolean } | null)?.weighInRequired ??
+          tournament.sport?.config.weighInRequired) && (
+          <Section title={t('weigh_ins_title')}>
+            <WeighInsManager
+              tournamentId={id}
+              canUndo={isAdmin}
+              highlightEntryIds={weighInBlockedIds}
+            />
+          </Section>
+        )}
 
       {/* Bracket management — visible after bracket is generated */}
       {tournament.bracketGenerated && brackets && brackets.length > 0 && (

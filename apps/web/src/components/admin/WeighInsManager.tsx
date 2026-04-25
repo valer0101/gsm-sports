@@ -105,7 +105,12 @@ export function WeighInsManager({
             canUndo={canUndo}
             recordState={{
               isPending: record.isPending && record.variables?.entryId === entry.id,
-              error: record.error,
+              // `record.error` is shared across all rows of the table — only
+              // surface it on the row whose mutation actually failed.
+              // Otherwise a failed record on row A would leak its error
+              // message into rows B, C, … on the next render.
+              error:
+                record.variables?.entryId === entry.id ? record.error : null,
             }}
             onRecord={(kg) =>
               record.mutate({ entryId: entry.id, officialWeightKg: kg })
