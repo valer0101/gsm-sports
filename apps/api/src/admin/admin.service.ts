@@ -154,13 +154,20 @@ export class AdminService {
     id: string,
     userId: string,
     userRoles: string[],
+    bracketFormat?: import('@gsm/shared-types').BracketFormat,
   ): Promise<{ bracketsCreated: number }> {
     const t = await this.getTournament(id, userId, userRoles);
     if (t.bracketGenerated) {
       throw new BadRequestException('Bracket already generated for this tournament');
     }
-    const bracketsCreated = await this.bracketsService.generateWithWeightBuckets(id);
-    this.logger.log(`Tournament ${id}: ${bracketsCreated} bracket(s) generated`);
+    const bracketsCreated = await this.bracketsService.generateWithWeightBuckets(
+      id,
+      bracketFormat,
+    );
+    this.logger.log(
+      `Tournament ${id}: ${bracketsCreated} bracket(s) generated` +
+        (bracketFormat ? ` (format: ${bracketFormat})` : ''),
+    );
     return { bracketsCreated };
   }
 

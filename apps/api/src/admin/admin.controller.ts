@@ -21,6 +21,7 @@ import { AssignOperatorDto } from './dto/assign-operator.dto';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 import { CorrectResultDto } from './dto/correct-result.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
+import { GenerateBracketsDto } from './dto/generate-brackets.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -85,8 +86,17 @@ export class AdminController {
 
   @Roles('admin', 'organizer')
   @Post('tournaments/:id/generate-brackets')
-  generateBrackets(@Param('id') id: string, @Request() req: any) {
-    return this.adminService.closeAndGenerateBrackets(id, req.user.sub, req.user.roles);
+  generateBrackets(
+    @Param('id') id: string,
+    @Body() dto: GenerateBracketsDto,
+    @Request() req: any,
+  ) {
+    return this.adminService.closeAndGenerateBrackets(
+      id,
+      req.user.sub,
+      req.user.roles,
+      dto.bracketFormat,
+    );
   }
 
   /* ───────── Operators ───────── */

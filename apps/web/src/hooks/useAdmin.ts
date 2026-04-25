@@ -2,7 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Tournament, Bracket, BracketAuditLog, TournamentEntry } from '@/types/api';
+import type {
+  Tournament,
+  Bracket,
+  BracketAuditLog,
+  TournamentEntry,
+  SportBracketFormat,
+} from '@/types/api';
 
 /* ─── Tournaments ─── */
 
@@ -65,8 +71,14 @@ export function useToggleRegistration(id: string) {
 export function useGenerateBrackets(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      api.post(`/admin/tournaments/${id}/generate-brackets`).then((r: any) => r.data),
+    /**
+     * Body is `{ bracketFormat? }` — omit the field (or pass `undefined`)
+     * to fall back to the sport's `defaultBracketFormat` server-side.
+     */
+    mutationFn: (payload?: { bracketFormat?: SportBracketFormat }) =>
+      api
+        .post(`/admin/tournaments/${id}/generate-brackets`, payload ?? {})
+        .then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'tournament', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'tournaments'] });
