@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import {
   generateDoubleElimination,
+  generateSingleElimination,
   selectWinner,
   resetMatch as resetMatchInBracket,
   validateResult,
@@ -20,6 +21,7 @@ import {
   withdrawPlayerFromSlot as engineWithdrawPlayer,
 } from '@gsm/bracket-engine';
 import type { Player, BracketData } from '@gsm/bracket-engine';
+import type { BracketFormat } from '@gsm/shared-types';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
 import { BracketAuditLog } from './entities/bracket-audit-log.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
@@ -33,7 +35,7 @@ import { RecordResultDto } from './dto/record-result.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
-import { resolveSportConfig } from '../sports/sport-config';
+import { resolveSportConfig, isFormatAllowed } from '../sports/sport-config';
 import type { SportConfig } from '@gsm/shared-types';
 import { TelegramNotificationsService } from '../telegram/telegram-notifications.service';
 import { WeighInsService } from '../weigh-ins/weigh-ins.service';
@@ -241,9 +243,66 @@ export class BracketsService {
 
   // ─── Generate ──────────────────────────────────────────────
 
+  /**
+   * Pick the bracket format for a generation request (Phase 3.3a):
+   *   1. If the DTO carries `bracketFormat`, validate it against the
+   *      sport's `bracketFormats` allow-list (so a chess organizer can't
+   *      accidentally request `double_elim`).
+   *   2. Otherwise fall back to `sportConfig.defaultBracketFormat`.
+   *
+   * Phase 3.3a only ships `single_elim` + `double_elim` — round-robin /
+   * swiss / groups_playoff are still in the type union but trigger a
+   * 400 here until their generators land. This keeps `defaultBracketFormat`
+   * meaningful for sports configured to one of the implemented formats
+   * while failing loudly for the others.
+   */
+  private resolveFormat(
+    requested: BracketFormat | undefined,
+    cfg: SportConfig,
+    tournamentSportConfig: unknown,
+  ): BracketFormat {
+    // Resolution precedence (mirrors `assertAllWeighedIn` and the
+    // match-result validator): explicit DTO → per-tournament override →
+    // sport-wide default. An organizer can flip the format for a special
+    // event via `tournament.sportConfig.defaultBracketFormat` without
+    // touching the global sport config.
+    const tOverride = (tournamentSportConfig ?? {}) as Partial<SportConfig>;
+    const chosen =
+      requested ?? tOverride.defaultBracketFormat ?? cfg.defaultBracketFormat;
+    if (requested && !isFormatAllowed(cfg, requested)) {
+      throw new BadRequestException(
+        `Bracket format '${requested}' is not allowed for this sport. ` +
+          `Allowed: ${cfg.bracketFormats.join(', ')}.`,
+      );
+    }
+    if (chosen !== 'single_elim' && chosen !== 'double_elim') {
+      throw new BadRequestException(
+        `Bracket format '${chosen}' is not yet implemented. ` +
+          `Currently supported: single_elim, double_elim.`,
+      );
+    }
+    return chosen;
+  }
+
+  /**
+   * Build the actual `BracketData` for a list of players using the
+   * already-resolved format. Centralised so the three `generate*`
+   * methods don't duplicate the dispatch.
+   */
+  private buildBracket(format: BracketFormat, players: Player[]): BracketData {
+    if (format === 'single_elim') return generateSingleElimination(players);
+    return generateDoubleElimination(players);
+  }
+
   /** Generate bracket for a specific (ageGroup, hand) group */
   async generateForGroup(
-    dto: { tournamentId: string; ageGroup: string; hand: string; name?: string },
+    dto: {
+      tournamentId: string;
+      ageGroup: string;
+      hand: string;
+      name?: string;
+      bracketFormat?: BracketFormat;
+    },
     organizerId: string,
   ): Promise<Bracket> {
     const tournament = await this.tournamentsService.findById(dto.tournamentId);
@@ -262,6 +321,12 @@ export class BracketsService {
 
     await this.assertAllWeighedIn(entries, tournament);
 
+    const cfg = resolveSportConfig(
+      tournament.sport?.slug ?? '',
+      tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
+    );
+    const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
+
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
       firstName: entry.user?.firstName ?? 'Player',
@@ -271,7 +336,7 @@ export class BracketsService {
       photoUrl: entry.user?.avatarUrl ?? null,
     }));
 
-    const bracketData = generateDoubleElimination(players);
+    const bracketData = this.buildBracket(format, players);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,
@@ -294,7 +359,10 @@ export class BracketsService {
    * creates WeightCategory records, and generates a bracket per category.
    * All DB writes are in a single transaction.
    */
-  async generateWithWeightBuckets(tournamentId: string): Promise<number> {
+  async generateWithWeightBuckets(
+    tournamentId: string,
+    bracketFormat?: BracketFormat,
+  ): Promise<number> {
     const entryRepo = this.dataSource.getRepository(TournamentEntry);
 
     const entries: any[] = await entryRepo
@@ -308,11 +376,16 @@ export class BracketsService {
       throw new BadRequestException('At least 2 registered participants are required');
     }
 
-    // Load the tournament (and its sport) once to gate on `weighInRequired`.
-    // `generateWithWeightBuckets` is called from the close-registration flow,
-    // so entries here are the canonical "confirmed" set for the tournament.
+    // Load the tournament (and its sport) once for both the weigh-in
+    // gate and the format resolver.
     const tournament = await this.tournamentsService.findById(tournamentId);
     await this.assertAllWeighedIn(entries, tournament);
+
+    const cfg = resolveSportConfig(
+      tournament.sport?.slug ?? '',
+      tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
+    );
+    const format = this.resolveFormat(bracketFormat, cfg, tournament.sportConfig);
 
     const groups = new Map<
       string,
@@ -373,7 +446,7 @@ export class BracketsService {
             weightCategoryId: category.id,
             name: catName,
             status: 'active',
-            bracketData: generateDoubleElimination(players) as unknown as Record<string, unknown>,
+            bracketData: this.buildBracket(format, players) as unknown as Record<string, unknown>,
           }),
         );
         count++;
@@ -416,6 +489,12 @@ export class BracketsService {
 
     await this.assertAllWeighedIn(entries, tournament);
 
+    const cfg = resolveSportConfig(
+      tournament.sport?.slug ?? '',
+      tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
+    );
+    const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
+
     const seedMap = new Map((dto.playerSeeds ?? []).map(({ entryId, seed }) => [entryId, seed]));
 
     const players: Player[] = entries
@@ -429,7 +508,7 @@ export class BracketsService {
       }))
       .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
 
-    const bracketData = generateDoubleElimination(players);
+    const bracketData = this.buildBracket(format, players);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,

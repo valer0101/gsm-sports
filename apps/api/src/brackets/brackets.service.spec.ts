@@ -15,6 +15,19 @@ import { WeighInsService } from '../weigh-ins/weigh-ins.service';
 
 vi.mock('@gsm/bracket-engine', () => ({
   generateDoubleElimination: vi.fn(() => ({
+    format: 'double_elim',
+    players: [],
+    bracketSize: 4,
+    wbRounds: 2,
+    winnersBracket: [],
+    losersBracket: [],
+    grandFinal: { id: 'grand_final' },
+    superFinal: { id: 'super_final', needed: false },
+    champion: null,
+    status: 'active',
+  })),
+  generateSingleElimination: vi.fn(() => ({
+    format: 'single_elim',
     players: [],
     bracketSize: 4,
     wbRounds: 2,
@@ -245,8 +258,13 @@ describe('BracketsService', () => {
     });
 
     it('generate: skips the gate entirely when sport does not require weigh-in (chess)', async () => {
+      // Chess preset's `defaultBracketFormat` is `swiss` (Phase 3.3a slice 2
+      // ships only single_elim + double_elim); override to a supported
+      // default so the format dispatch doesn't 400 before the gate check.
       tournamentsService.findById.mockResolvedValue(
-        makeTournament({ sport: { slug: 'chess', config: {} } }),
+        makeTournament({
+          sport: { slug: 'chess', config: { defaultBracketFormat: 'single_elim' } },
+        }),
       );
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
@@ -336,6 +354,148 @@ describe('BracketsService', () => {
       ).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'WEIGH_IN_REQUIRED' }),
       });
+    });
+  });
+
+  // ─── Phase 3.3a: format dispatch ───────────────────────────
+  describe('format dispatch', () => {
+    const armwrestlingTournament = () =>
+      makeTournament({
+        sport: { slug: 'armwrestling', config: {} },
+      });
+    const chessTournament = () =>
+      makeTournament({
+        sport: { slug: 'chess', config: {} },
+      });
+
+    it('uses double_elim from sport defaults (armwrestling)', async () => {
+      const { generateDoubleElimination, generateSingleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
+      tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate({ tournamentId: 't1' }, 'org-1');
+
+      expect(generateDoubleElimination).toHaveBeenCalled();
+      expect(generateSingleElimination).not.toHaveBeenCalled();
+    });
+
+    it('uses single_elim from sport defaults (chess swiss → falls back to single_elim)', async () => {
+      const { generateDoubleElimination, generateSingleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
+      // chess preset's defaultBracketFormat is 'swiss' which is NOT yet
+      // implemented — service should reject it. Override via raw config to
+      // force a supported default for this happy-path test.
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'chess', config: { defaultBracketFormat: 'single_elim' } },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate({ tournamentId: 't1' }, 'org-1');
+
+      expect(generateSingleElimination).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
+
+    it('honors per-tournament sportConfig override (defaultBracketFormat)', async () => {
+      // Per-event override: armwrestling's sport-wide default is
+      // `double_elim`, but THIS tournament opts to use `single_elim` via
+      // `tournament.sportConfig.defaultBracketFormat`. Mirrors the
+      // precedence used by weigh-in and match-result resolution.
+      const { generateSingleElimination, generateDoubleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { defaultBracketFormat: 'single_elim' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate({ tournamentId: 't1' }, 'org-1');
+
+      expect(generateSingleElimination).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
+
+    it('honors an explicit bracketFormat from the DTO when allowed', async () => {
+      const { generateSingleElimination } = await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate(
+        { tournamentId: 't1', bracketFormat: 'single_elim' },
+        'org-1',
+      );
+
+      expect(generateSingleElimination).toHaveBeenCalled();
+    });
+
+    it('rejects a DTO format not in the sport allow-list', async () => {
+      // chess preset only allows swiss / round_robin / single_elim — asking
+      // for double_elim here is a 400.
+      tournamentsService.findById.mockResolvedValue(chessTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+
+      await expect(
+        service.generate({ tournamentId: 't1', bracketFormat: 'double_elim' }, 'org-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a not-yet-implemented format (round_robin) even when allowed', async () => {
+      // chess allows round_robin in its preset, but the generator isn't
+      // shipped until phase 3.3b — service should reject loudly.
+      tournamentsService.findById.mockResolvedValue(chessTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+
+      await expect(
+        service.generate({ tournamentId: 't1', bracketFormat: 'round_robin' }, 'org-1'),
+      ).rejects.toThrow(/not yet implemented/);
+    });
+
+    it('generateForGroup honors the requested format', async () => {
+      const { generateSingleElimination } = await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
+      entriesService.findByGroup.mockResolvedValue([makeEntry('u1'), makeEntry('u2')]);
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generateForGroup(
+        {
+          tournamentId: 't1',
+          ageGroup: 'adults',
+          hand: 'right',
+          bracketFormat: 'single_elim',
+        },
+        'org-1',
+      );
+
+      expect(generateSingleElimination).toHaveBeenCalled();
     });
   });
 
