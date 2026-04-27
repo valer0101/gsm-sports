@@ -596,6 +596,20 @@ describe('getSwissStandings', () => {
     expect(p1.wins).toBe(1);
     expect(p1.losses).toBe(0);
   });
+
+  it('resetMatch refuses to clear an auto-resolved bye match', () => {
+    // Defensive: clearing the winner of a bye match leaves it in
+    // {real, bye, winner: null}, which canRecordResult then rejects.
+    // The operator can't un-stick it short of re-generating. resetMatch
+    // should refuse the operation.
+    const data = generateSwiss(makePlayers(3), 2);
+    const r1Bye = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    )!;
+    const before = JSON.stringify(r1Bye);
+    resetMatch(data, r1Bye.id);
+    expect(JSON.stringify(r1Bye)).toBe(before);
+  });
 });
 
 describe('selectWinner', () => {

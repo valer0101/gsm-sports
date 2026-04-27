@@ -872,13 +872,24 @@ function priorPairs(data: BracketData): Set<string> {
   return pairs;
 }
 
-/** IDs of players who have already received a bye in any prior round. */
-function priorByes(data: BracketData): Set<string> {
-  const byes = new Set<string>();
+/**
+ * Per-player count of byes already received across all prior rounds.
+ * Returned as a `Map` rather than a `Set` so the bye-assignment logic
+ * can rank "fewest prior byes" rather than just "any prior bye" —
+ * matters in long Swiss tournaments where rounds > N (the corner
+ * case where a `Set` fallback could silently double-bye the same
+ * player while others have one).
+ */
+function priorByes(data: BracketData): Map<string, number> {
+  const byes = new Map<string, number>();
   for (const round of data.winnersBracket) {
     for (const m of round) {
-      if (isBye(m.player2.id) && isReal(m.player1.id)) byes.add(m.player1.id);
-      if (isBye(m.player1.id) && isReal(m.player2.id)) byes.add(m.player2.id);
+      if (isBye(m.player2.id) && isReal(m.player1.id)) {
+        byes.set(m.player1.id, (byes.get(m.player1.id) ?? 0) + 1);
+      }
+      if (isBye(m.player1.id) && isReal(m.player2.id)) {
+        byes.set(m.player2.id, (byes.get(m.player2.id) ?? 0) + 1);
+      }
     }
   }
   return byes;
@@ -922,12 +933,23 @@ function pairSwissRound(data: BracketData, roundIdx: number): void {
   const matches: Array<{ p1: string; p2: string }> = [];
   let byeAssignee: string | null = null;
 
-  // Odd N → bye goes to the lowest-scored player who hasn't yet had
-  // one. If everyone's already had a bye, fall back to the absolute
-  // lowest-scored player.
+  // Odd N → bye goes to the player with the fewest prior byes (avoids
+  // double-byeing the same person in long Swiss where rounds > N), and
+  // among those tied, the lowest-scored. Without the count tiebreaker
+  // a `Set`-based "any prior bye" fallback would silently give the
+  // same player a second bye while others have one.
   if (remaining.length % 2 === 1) {
     const candidates = remaining.slice().reverse(); // worst score first
-    byeAssignee = candidates.find((id) => !byesGiven.has(id)) ?? candidates[0];
+    let bestId = candidates[0];
+    let bestByes = byesGiven.get(bestId) ?? 0;
+    for (const id of candidates) {
+      const count = byesGiven.get(id) ?? 0;
+      if (count < bestByes) {
+        bestId = id;
+        bestByes = count;
+      }
+    }
+    byeAssignee = bestId;
     remaining = remaining.filter((id) => id !== byeAssignee);
   }
 
@@ -1282,6 +1304,13 @@ export function canRecordResult(data: BracketData, matchId: string): ValidationR
 export function resetMatch(data: BracketData, matchId: string): BracketData {
   const match = findMatch(data, matchId);
   if (!match) return data;
+
+  // Refuse to reset auto-resolved bye matches. They were never "played"
+  // — the bye slot makes the result deterministic — and clearing the
+  // winner leaves the match in `{real, bye, winner: null}` which
+  // `canRecordResult` then rejects (BYE-in-slot guard), giving the
+  // operator no way to un-stick the bracket short of regeneration.
+  if (match.player1.id === 'bye' || match.player2.id === 'bye') return data;
 
   const oldWinner = match.winner;
   const oldLoser = match.loser;
