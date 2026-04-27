@@ -64,11 +64,24 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   const [generateFormat, setGenerateFormat] = useState<SportBracketFormat | ''>('');
 
   // Restrict the dropdown to formats that are BOTH allowed for the
-  // sport AND have a generator landed today. The empty option means
-  // "use the sport's default".
+  // sport AND have a generator landed today.
   const formatOptions: SportBracketFormat[] = (
     tournament?.sport?.config?.bracketFormats ?? []
   ).filter((f) => IMPLEMENTED_FORMATS.has(f));
+
+  // Resolve the "sport default" label exactly like the API gate does
+  // (Phase 3.3a slice 2 #54): per-tournament `sportConfig` override wins
+  // over the sport-wide default. Without this mirror the dropdown
+  // displays "Sport default (Double elimination)" while the backend
+  // would actually run `single_elim` because of an event-level override.
+  const tournamentOverrideFormat = (
+    tournament?.sportConfig as { defaultBracketFormat?: SportBracketFormat } | null
+  )?.defaultBracketFormat;
+  const resolvedDefault: SportBracketFormat =
+    tournamentOverrideFormat ??
+    tournament?.sport?.config?.defaultBracketFormat ??
+    'double_elim';
+  const defaultIsImplemented = IMPLEMENTED_FORMATS.has(resolvedDefault);
 
   const { data: currentUser } = useCurrentUser();
   const isAdmin = (currentUser?.roles ?? []).includes('admin');
@@ -210,51 +223,66 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
               {t('generate_confirm_desc')}
             </p>
 
-            {/* Format selector — only shown when the sport allows multiple
-                implemented formats. With one option (or zero), there's
-                nothing to choose and the backend's default-fallback wins. */}
-            {formatOptions.length > 1 && (
-              <div className="mb-4">
-                <label
-                  className="block text-xs font-bold uppercase tracking-wider mb-1.5"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  {t('format_label')}
-                </label>
-                <select
-                  value={generateFormat}
-                  onChange={(e) =>
-                    setGenerateFormat(e.target.value as SportBracketFormat | '')
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-transparent border border-white/15 text-white text-sm outline-none focus:border-[var(--color-accent)]"
-                >
-                  <option value="" className="bg-black">
-                    {t('format_default', {
-                      name: t(
-                        `format_name_${tournament.sport?.config.defaultBracketFormat ?? 'double_elim'}`,
-                      ),
-                    })}
-                  </option>
-                  {formatOptions.map((f) => (
-                    <option key={f} value={f} className="bg-black">
-                      {t(`format_name_${f}`)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Format selector — visible whenever there's a real choice to
+                make OR the resolved sport default isn't yet implemented
+                (e.g. chess defaults to `swiss` which would 400 server-side;
+                an admin needs the dropdown to pick `single_elim` instead). */}
+            {formatOptions.length >= 1 &&
+              (formatOptions.length > 1 || !defaultIsImplemented) && (
+                <div className="mb-4">
+                  <label
+                    className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {t('format_label')}
+                  </label>
+                  <select
+                    value={generateFormat}
+                    onChange={(e) =>
+                      setGenerateFormat(e.target.value as SportBracketFormat | '')
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-transparent border border-white/15 text-white text-sm outline-none focus:border-[var(--color-accent)]"
+                  >
+                    {/* Only offer "Sport default" when the resolved default is
+                        actually implementable — otherwise the empty submit
+                        path would 400. The "default" label uses the
+                        per-tournament override (mirrors the API resolver). */}
+                    {defaultIsImplemented && (
+                      <option value="" className="bg-black">
+                        {t('format_default', {
+                          name: t(`format_name_${resolvedDefault}`),
+                        })}
+                      </option>
+                    )}
+                    {formatOptions.map((f) => (
+                      <option key={f} value={f} className="bg-black">
+                        {t(`format_name_${f}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
             <div className="flex gap-2">
               <button
                 disabled={generateBrackets.isPending}
-                onClick={() =>
+                onClick={() => {
+                  // Effective format: explicit pick → use it. No pick + default
+                  // is implemented → omit (server falls back). No pick +
+                  // default would 400 → fall back to the first implemented
+                  // format the sport allows so the admin doesn't dead-end.
+                  const effective: SportBracketFormat | undefined = generateFormat
+                    ? generateFormat
+                    : defaultIsImplemented
+                      ? undefined
+                      : formatOptions[0];
                   generateBrackets.mutate(
-                    generateFormat ? { bracketFormat: generateFormat } : undefined,
+                    effective ? { bracketFormat: effective } : undefined,
                     {
                       onSuccess: () => setShowGenerateConfirm(false),
                     },
-                  )
-                }
+                  );
+                }}
                 className="px-4 py-2 rounded-xl text-sm font-bold"
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
               >
