@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import type { RankingEntry } from '@/types/api';
 import { TableRowSkeleton } from '@/components/ui/Skeleton';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 interface RankingsTableProps {
   entries: RankingEntry[];
@@ -100,7 +101,7 @@ export function RankingsTable({ entries, isLoading }: RankingsTableProps) {
                   className="px-4 py-3 hidden sm:table-cell"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
-                  {entry.country ?? '—'}
+                  <CountryLabel value={entry.country} />
                 </td>
 
                 {/* Hand */}

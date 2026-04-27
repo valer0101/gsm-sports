@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useWorldRankings } from '@/hooks/useRankings';
 import type { PaginatedResponse, RankingEntry } from '@/types/api';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 const WEIGHT_CATEGORIES = [
   { key: '115+', i18nKey: 'super_heavyweight', sub: '115KG+' },
@@ -57,7 +58,7 @@ function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
       </div>
 
       <span className="text-sm shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-        {entry.country}
+        <CountryLabel value={entry.country} showName={false} />
       </span>
     </Link>
   );

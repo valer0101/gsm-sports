@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@gsm/bracket-engine": "*",
+    "@gsm/countries": "*",
     "@gsm/scheduler": "*",
     "@gsm/shared-types": "*",
     "@hookform/resolvers": "^4.1.0",

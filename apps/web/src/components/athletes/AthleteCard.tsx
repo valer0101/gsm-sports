@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import type { Athlete } from '@/types/api';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 interface AthleteCardProps {
   athlete: Athlete;
@@ -54,7 +55,7 @@ export function AthleteCard({ athlete: a }: AthleteCardProps) {
         </div>
 
         <div className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {a.country && <span>{a.country}</span>}
+          {a.country && <CountryLabel value={a.country} />}
           {a.primaryHand && (
             <span className="ml-2">
               ·{' '}

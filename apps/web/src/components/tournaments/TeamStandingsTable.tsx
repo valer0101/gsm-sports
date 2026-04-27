@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useTeamStandings } from '@/hooks/useTeamStandings';
 import type { TeamStandingsRow } from '@/types/api';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 /**
  * Country-level leaderboard for a tournament (Phase 3.4). Data comes
@@ -138,7 +139,9 @@ function TeamRow({
       >
         {row.position}
       </td>
-      <td className="px-2 py-2 text-white font-bold tracking-wide">{row.team}</td>
+      <td className="px-2 py-2 text-white font-bold tracking-wide">
+        <CountryLabel value={row.team} />
+      </td>
       <td className="px-2 py-2 text-center font-mono text-white">{row.points}</td>
       <td
         className="px-2 py-2 text-center font-mono text-xs"

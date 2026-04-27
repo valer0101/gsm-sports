@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useRegistrations } from '@/hooks/useTournaments';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 import type { AgeGroup } from '@/types/api';
 
 const AGE_GROUP_KEYS: Record<AgeGroup, string> = {
@@ -78,7 +79,7 @@ export function ParticipantsList({ tournamentId }: Props) {
                 {entry.user ? `${entry.user.firstName} ${entry.user.lastName}` : '—'}
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                {entry.user?.country ?? ''}
+                {entry.user?.country && <CountryLabel value={entry.user.country} />}
               </p>
             </div>
 
