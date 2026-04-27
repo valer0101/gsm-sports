@@ -303,6 +303,9 @@ export type {
   PointsMatchResult,
   TimeMatchResult,
   SimpleMatchResult,
+  TeamStandingsResponse,
+  TeamStandingsRow,
+  TeamScoringConfig,
 } from '@gsm/shared-types';
 
 export interface PendingMatch {
