@@ -38,6 +38,18 @@ vi.mock('@gsm/bracket-engine', () => ({
     champion: null,
     status: 'active',
   })),
+  generateRoundRobin: vi.fn(() => ({
+    format: 'round_robin',
+    players: [],
+    bracketSize: 4,
+    wbRounds: 3,
+    winnersBracket: [],
+    losersBracket: [],
+    grandFinal: { id: 'grand_final' },
+    superFinal: { id: 'super_final', needed: false },
+    champion: null,
+    status: 'active',
+  })),
   selectWinner: vi.fn((data: any) => ({ ...data, status: 'active' })),
   resetMatch: vi.fn((data: any) => ({ ...data, status: 'active' })),
   validateResult: vi.fn(() => ({ valid: true, errors: [] })),
@@ -465,17 +477,37 @@ describe('BracketsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects a not-yet-implemented format (round_robin) even when allowed', async () => {
-      // chess allows round_robin in its preset, but the generator isn't
-      // shipped until phase 3.3b — service should reject loudly.
+    it('rejects a not-yet-implemented format (swiss) even when allowed', async () => {
+      // chess allows swiss in its preset, but the generator isn't shipped
+      // until phase 3.3c — service should reject loudly.
       tournamentsService.findById.mockResolvedValue(chessTournament());
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
       });
 
       await expect(
-        service.generate({ tournamentId: 't1', bracketFormat: 'round_robin' }, 'org-1'),
+        service.generate({ tournamentId: 't1', bracketFormat: 'swiss' }, 'org-1'),
       ).rejects.toThrow(/not yet implemented/);
+    });
+
+    it('dispatches to generateRoundRobin when format is round_robin', async () => {
+      const { generateRoundRobin, generateDoubleElimination, generateSingleElimination } =
+        await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(chessTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate(
+        { tournamentId: 't1', bracketFormat: 'round_robin' },
+        'org-1',
+      );
+
+      expect(generateRoundRobin).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+      expect(generateSingleElimination).not.toHaveBeenCalled();
     });
 
     it('generateForGroup honors the requested format', async () => {
