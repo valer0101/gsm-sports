@@ -396,6 +396,13 @@
     "image_formats_hint": "JPEG, PNG, WebP — minchev 5 ՄԲ",
     "upload_error": "Buzkum skаlvets"
   },
+  "country_picker": {
+    "placeholder": "Ընտրեք երկիր",
+    "search": "Որոնում…",
+    "no_results": "Համընկնումներ չկան",
+    "press_enter_to_keep": "Սեղմեք Enter՝ «{value}»-ը պահելու համար",
+    "clear": "Մաքրել"
+  },
   "admin_checkin_scan": {
     "title": "Check-in QR-ի սկանավորում",
     "subtitle": "Ուղղեք տեսախցիկը մասնակցի QR կոդին։ Հաջող սկանները ավտոմատ գրանցում են check-in-ը։",

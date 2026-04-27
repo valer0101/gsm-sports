@@ -73,6 +73,11 @@ export function RankingsPageClient({ initialData, sport }: Props) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         {view === 'country' && (
+          // Free-text input — the rankings API filters by exact match on the
+          // legacy stored country name (e.g. 'Armenia'), so a CountryPicker
+          // emitting ISO-2 codes ('AM') would silently return zero rows
+          // against existing data. Revisit once the rankings service learns
+          // to normalize input via @gsm/countries.
           <input
             type="text"
             value={country}

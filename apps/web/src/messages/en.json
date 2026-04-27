@@ -657,6 +657,13 @@
     "image_formats_hint": "JPEG, PNG, WebP — up to 5 MB",
     "upload_error": "Upload error"
   },
+  "country_picker": {
+    "placeholder": "Select country",
+    "search": "Search…",
+    "no_results": "No countries match",
+    "press_enter_to_keep": "Press Enter to keep \"{value}\"",
+    "clear": "Clear"
+  },
   "new_tournament": {
     "back": "← Back",
     "title": "New Tournament",
