@@ -62,6 +62,19 @@ vi.mock('@gsm/bracket-engine', () => ({
     champion: null,
     status: 'active',
   })),
+  generateGroupsPlayoff: vi.fn(() => ({
+    format: 'groups_playoff',
+    players: [],
+    bracketSize: 4,
+    wbRounds: 2,
+    winnersBracket: [],
+    losersBracket: [],
+    grandFinal: { id: 'grand_final' },
+    superFinal: { id: 'super_final', needed: false },
+    groups: [],
+    champion: null,
+    status: 'active',
+  })),
   selectWinner: vi.fn((data: any) => ({ ...data, status: 'active' })),
   resetMatch: vi.fn((data: any) => ({ ...data, status: 'active' })),
   validateResult: vi.fn(() => ({ valid: true, errors: [] })),
@@ -485,11 +498,12 @@ describe('BracketsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects a not-yet-implemented format (groups_playoff) even when allowed', async () => {
-      // groups_playoff is in the union but its generator hasn't shipped
-      // yet (phase 3.3d). To exercise the "allowed but not implemented"
-      // branch we need a sport whose `bracketFormats` allow-list includes
-      // it — override the chess config to add it.
+    it('dispatches to generateGroupsPlayoff when format is groups_playoff', async () => {
+      // groups_playoff isn't in any preset's `bracketFormats` allow-list
+      // out of the box; override chess to include it.
+      const { generateGroupsPlayoff, generateDoubleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: {
@@ -502,15 +516,18 @@ describe('BracketsService', () => {
         }),
       );
       entriesService.findByTournament.mockResolvedValue({
-        data: [makeEntry('u1'), makeEntry('u2')],
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3'), makeEntry('u4')],
       });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
 
-      await expect(
-        service.generate(
-          { tournamentId: 't1', bracketFormat: 'groups_playoff' },
-          'org-1',
-        ),
-      ).rejects.toThrow(/not yet implemented/);
+      await service.generate(
+        { tournamentId: 't1', bracketFormat: 'groups_playoff' },
+        'org-1',
+      );
+
+      expect(generateGroupsPlayoff).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
     });
 
     it('dispatches to generateSwiss when format is swiss', async () => {

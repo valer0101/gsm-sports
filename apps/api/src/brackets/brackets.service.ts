@@ -14,6 +14,7 @@ import {
   generateSingleElimination,
   generateRoundRobin,
   generateSwiss,
+  generateGroupsPlayoff,
   selectWinner,
   resetMatch as resetMatchInBracket,
   validateResult,
@@ -277,16 +278,19 @@ export class BracketsService {
           `Allowed: ${cfg.bracketFormats.join(', ')}.`,
       );
     }
+    // All five formats from `BracketFormat` are implemented as of
+    // Phase 3.3d — no more "not yet implemented" gate. Defensive
+    // exhaustive check still throws so a future addition to the union
+    // without an engine generator fails closed instead of silently
+    // falling through to double-elim.
     if (
       chosen !== 'single_elim' &&
       chosen !== 'double_elim' &&
       chosen !== 'round_robin' &&
-      chosen !== 'swiss'
+      chosen !== 'swiss' &&
+      chosen !== 'groups_playoff'
     ) {
-      throw new BadRequestException(
-        `Bracket format '${chosen}' is not yet implemented. ` +
-          `Currently supported: single_elim, double_elim, round_robin, swiss.`,
-      );
+      throw new BadRequestException(`Bracket format '${chosen}' is not supported.`);
     }
     return chosen;
   }
@@ -300,6 +304,7 @@ export class BracketsService {
     if (format === 'single_elim') return generateSingleElimination(players);
     if (format === 'round_robin') return generateRoundRobin(players);
     if (format === 'swiss') return generateSwiss(players);
+    if (format === 'groups_playoff') return generateGroupsPlayoff(players);
     return generateDoubleElimination(players);
   }
 
