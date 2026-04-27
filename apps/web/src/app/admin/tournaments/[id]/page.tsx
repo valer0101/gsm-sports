@@ -154,8 +154,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
               className="text-sm mt-1 inline-flex items-center gap-1.5 flex-wrap"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              {tournament.city && <span>{tournament.city}</span>}
-              {tournament.city && tournament.country && <span>,</span>}
+              {tournament.city && <span>{tournament.city}{tournament.country ? ',' : ''}</span>}
               {tournament.country && <CountryLabel value={tournament.country} />}
               {(tournament.city || tournament.country) && <span>·</span>}
               <span>{new Date(tournament.startDate).toLocaleDateString(locale)}</span>

@@ -48,8 +48,7 @@ export default function OperatorPage() {
                   className="text-sm mt-0.5 inline-flex items-center gap-1.5"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
-                  {tour.city && <span>{tour.city}</span>}
-                  {tour.city && tour.country && <span>,</span>}
+                  {tour.city && <span>{tour.city}{tour.country ? ',' : ''}</span>}
                   {tour.country && <CountryLabel value={tour.country} />}
                   {(tour.city || tour.country) && <span>·</span>}
                   <span>{new Date(tour.startDate).toLocaleDateString('ru-RU')}</span>

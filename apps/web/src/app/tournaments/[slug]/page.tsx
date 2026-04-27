@@ -131,8 +131,7 @@ export default async function TournamentDetailPage({
                 {t('location')}
               </dt>
               <dd className="font-semibold text-white inline-flex items-center gap-1.5 flex-wrap">
-                {tournament.city && <span>{tournament.city}</span>}
-                {tournament.city && tournament.country && <span>,</span>}
+                {tournament.city && <span>{tournament.city}{tournament.country ? ',' : ''}</span>}
                 {tournament.country && <CountryLabel value={tournament.country} />}
               </dd>
             </div>
