@@ -324,6 +324,50 @@ describe('getRoundRobinStandings', () => {
     expect(getRoundRobinStandings(double)).toEqual([]);
   });
 
+  it('a player with 1 loss outranks a player who has not played yet (played desc tiebreaker)', () => {
+    // Mid-tournament phantom-rank guard: without `played desc` as a
+    // tiebreaker after `wins desc`, a player with 0-0-0 (haven't played
+    // yet) would outrank a player with 0-1 (already lost). That's
+    // misleading on a live audience leaderboard.
+    let data = generateRoundRobin(makePlayers(4));
+    // p1 vs p3 (or whichever the first two slots are). Pick the first
+    // real-vs-real match and let the second player win it; that player
+    // gets a loss recorded, the other one has played zero matches.
+    const firstMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id !== 'bye' && m.player2.id !== 'bye',
+    )!;
+    data = selectWinner(structuredClone(data), firstMatch.id, firstMatch.player1.id);
+
+    const s = getRoundRobinStandings(data);
+    const winnerRow = s.find((row) => row.playerId === firstMatch.player1.id)!;
+    const loserRow = s.find((row) => row.playerId === firstMatch.player2.id)!;
+    const unplayed = s.filter(
+      (row) => row.playerId !== firstMatch.player1.id && row.playerId !== firstMatch.player2.id,
+    );
+    // Winner is #1 (1 win > 0 wins for everyone else).
+    expect(winnerRow.position).toBe(1);
+    // Loser ranks ahead of any unplayed-yet player (more played wins
+    // the tie at 0 wins).
+    expect(unplayed.every((u) => u.position > loserRow.position)).toBe(true);
+  });
+
+  it('selectWinner refuses to overwrite an auto-resolved bye match', () => {
+    // Defensive guard: bye matches are auto-resolved at generation
+    // (winner='bye' or winner=<real player>, loser='bye'). A
+    // misbehaving caller bypassing canRecordResult could otherwise
+    // double-count wins. Confirm `selectWinner` returns the bracket
+    // unchanged for such matches.
+    const data = generateRoundRobin(makePlayers(3));
+    const byeMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    )!;
+    const before = JSON.stringify(byeMatch);
+    const realPlayer =
+      byeMatch.player1.id !== 'bye' ? byeMatch.player1.id : byeMatch.player2.id;
+    selectWinner(data, byeMatch.id, realPlayer);
+    expect(JSON.stringify(byeMatch)).toBe(before);
+  });
+
   it('returns all players with 0-0 records before any matches are played', () => {
     const data = generateRoundRobin(makePlayers(3));
     const s = getRoundRobinStandings(data);

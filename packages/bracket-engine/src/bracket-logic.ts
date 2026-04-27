@@ -625,10 +625,14 @@ export function getRoundRobinStandings(data: BracketData): Standing[] {
     };
   });
 
-  // Sort: more wins first, then fewer losses (so a player with a
-  // pending match doesn't outrank someone with the same wins but a
-  // recorded loss).
-  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+  // Sort: more wins first, then more matches played (so a player who
+  // hasn't played any matches doesn't outrank someone with the same
+  // wins but recorded losses — phantom mid-tournament rankings),
+  // then fewer losses as final tiebreaker.
+  rows.sort(
+    (a, b) =>
+      b.wins - a.wins || b.played - a.played || a.losses - b.losses,
+  );
 
   // Competition ranking: tied rows share position; next position skips.
   let pos = 0;
@@ -1171,6 +1175,14 @@ export function selectWinner(
 ): BracketData {
   const match = findMatch(data, matchId);
   if (!match) return data;
+
+  // Defensive guard: refuse to overwrite an auto-resolved bye match.
+  // `canRecordResult` already rejects these at the API boundary, but
+  // a misbehaving caller (or a UI that surfaces every match without
+  // gating) could reach here directly and corrupt the standings —
+  // e.g. setting a real player as winner of a bye-walkover would
+  // double-credit the win in `getRoundRobinStandings`.
+  if (match.winner === 'bye' || match.loser === 'bye') return data;
 
   const now = new Date().toISOString();
   const isCorrection = !!match.winner;
