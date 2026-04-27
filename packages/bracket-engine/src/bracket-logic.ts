@@ -6,6 +6,7 @@ import {
   BracketData,
   ValidationResult,
   Standing,
+  FinalPlacement,
   GroupStage,
   TBD_PLAYER,
   BYE_PLAYER,
@@ -1226,6 +1227,179 @@ export function getGroupStandings(data: BracketData, groupName: string): Standin
   });
 
   return rows;
+}
+
+// ─── Final placements (Phase 3.4) ───────────────────────────
+
+/**
+ * Compute final placements for a single bracket — a unified cross-
+ * format API for the team-standings aggregator. `position` is 1-based
+ * competition ranking (ties share a position). Bye / TBD seats are
+ * filtered out; only real player ids appear.
+ *
+ * Behaviour per format:
+ *   - `round_robin` / `swiss` — forwards `getRoundRobinStandings` /
+ *     `getSwissStandings` positions verbatim. Mid-tournament rows are
+ *     ranked by current W-L (same competition-ranking sort the
+ *     standings table uses), so partial results yield partial rows.
+ *   - `single_elim` — champion = 1; runner-up = 2 (loser of the WB
+ *     final); then losers of each preceding round form a tied tier.
+ *     Tier size = number of *real* losses in that round (so byes don't
+ *     inflate or skip positions when the field doesn't fill the
+ *     bracket).
+ *   - `double_elim` — champion = 1; runner-up = 2 (loser of GF, or of
+ *     SF when `superFinal.needed`); then LB rounds last→first form
+ *     successive tiers (LB-final loser = 3rd, LB-prev loser = 4th, …).
+ *   - `groups_playoff` — placements are read off the single-elim
+ *     playoff (in `winnersBracket`). Group-stage non-advancers are NOT
+ *     placed — they're simply omitted. This keeps the API honest:
+ *     team scoring schemes typically award points only to top 3-4
+ *     finishers, all of whom are guaranteed to be playoff finishers.
+ *
+ * Best-effort partial: if the bracket isn't finished, only players
+ * whose position is determined (champion + every recorded loser) are
+ * returned. Players still alive in an elimination bracket are omitted
+ * — their final rank isn't known yet.
+ */
+export function getFinalPlacements(data: BracketData): FinalPlacement[] {
+  const format = data.format ?? 'double_elim';
+  switch (format) {
+    case 'round_robin':
+      return getRoundRobinStandings(data).map((s) => ({
+        playerId: s.playerId,
+        position: s.position,
+      }));
+    case 'swiss':
+      return getSwissStandings(data).map((s) => ({
+        playerId: s.playerId,
+        position: s.position,
+      }));
+    case 'single_elim':
+      return placementsFromEliminationRounds(data, data.winnersBracket, {
+        champion: data.champion,
+        runnerUpFinder: () => {
+          // Loser of the last WB round (the WB final).
+          const finalRound = data.winnersBracket[data.winnersBracket.length - 1];
+          if (!finalRound || finalRound.length === 0) return null;
+          const finalMatch = finalRound[0];
+          if (!finalMatch || !finalMatch.loser) return null;
+          if (!isReal(finalMatch.loser)) return null;
+          return finalMatch.loser;
+        },
+        // For SE the WB-final loser is also picked up by the loser-walk
+        // below; we'd double-count without skipping that match.
+        skipLastRoundLoserDuringWalk: true,
+      });
+    case 'double_elim':
+      return placementsFromEliminationRounds(data, data.losersBracket, {
+        champion: data.champion,
+        runnerUpFinder: () => getDoubleElimRunnerUp(data),
+        skipLastRoundLoserDuringWalk: false,
+      });
+    case 'groups_playoff':
+      // Playoff is single-elim-shaped. Group-stage non-advancers are
+      // intentionally excluded (see docstring).
+      return placementsFromEliminationRounds(data, data.winnersBracket, {
+        champion: data.champion,
+        runnerUpFinder: () => {
+          const finalRound = data.winnersBracket[data.winnersBracket.length - 1];
+          if (!finalRound || finalRound.length === 0) return null;
+          const finalMatch = finalRound[0];
+          if (!finalMatch || !finalMatch.loser) return null;
+          if (!isReal(finalMatch.loser)) return null;
+          return finalMatch.loser;
+        },
+        skipLastRoundLoserDuringWalk: true,
+      });
+    default: {
+      const exhaustive: never = format;
+      void exhaustive;
+      return [];
+    }
+  }
+}
+
+/**
+ * Shared placement walker for elimination formats. Walks the supplied
+ * loser-tree rounds last→first; each round's distinct real losers form
+ * one tied tier whose position is `1 + (players already placed above)`.
+ *
+ * For SE/groups_playoff the walked tree IS the WB (the final's loser
+ * is the runner-up — pulled out separately), so we skip the very last
+ * match's loser to avoid double-counting. For DE the walked tree is
+ * the LB and the GF/SF loser is the runner-up, so no skip.
+ */
+function placementsFromEliminationRounds(
+  data: BracketData,
+  rounds: Match[][],
+  opts: {
+    champion: string | null;
+    runnerUpFinder: () => string | null;
+    skipLastRoundLoserDuringWalk: boolean;
+  },
+): FinalPlacement[] {
+  const out: FinalPlacement[] = [];
+  let nextPos = 1;
+
+  if (opts.champion && isReal(opts.champion)) {
+    out.push({ playerId: opts.champion, position: nextPos });
+    nextPos += 1;
+  }
+
+  const runnerUp = opts.runnerUpFinder();
+  if (runnerUp && isReal(runnerUp)) {
+    out.push({ playerId: runnerUp, position: nextPos });
+    nextPos += 1;
+  }
+
+  if (rounds.length === 0) return out;
+
+  const lastRoundIdx = rounds.length - 1;
+  for (let r = lastRoundIdx; r >= 0; r--) {
+    const round = rounds[r];
+    const isLastRound = r === lastRoundIdx;
+
+    const losers: string[] = [];
+    for (let i = 0; i < round.length; i++) {
+      const m = round[i];
+      // Skip the WB-final match for SE/groups_playoff — its loser is
+      // the runner-up, already placed.
+      if (opts.skipLastRoundLoserDuringWalk && isLastRound && i === 0) continue;
+      if (!m.loser) continue;
+      if (!isReal(m.loser)) continue;
+      // Defensive: skip TBD-vs-TBD seats that somehow have a loser id.
+      if (isTbd(m.player1.id) && isTbd(m.player2.id)) continue;
+      losers.push(m.loser);
+    }
+
+    if (losers.length === 0) continue;
+
+    for (const playerId of losers) {
+      out.push({ playerId, position: nextPos });
+    }
+    nextPos += losers.length;
+  }
+
+  return out;
+}
+
+/**
+ * Determine the runner-up of a double-elim bracket — i.e. who lost the
+ * match that decided the championship. SF takes precedence over GF
+ * when `superFinal.needed` is true (because the WB winner forced a
+ * reset by losing GF, so the SF is the real decider).
+ */
+function getDoubleElimRunnerUp(data: BracketData): string | null {
+  if (data.superFinal?.needed) {
+    if (data.superFinal.winner && data.superFinal.loser && isReal(data.superFinal.loser)) {
+      return data.superFinal.loser;
+    }
+    return null;
+  }
+  if (data.grandFinal.winner && data.grandFinal.loser && isReal(data.grandFinal.loser)) {
+    return data.grandFinal.loser;
+  }
+  return null;
 }
 
 /**

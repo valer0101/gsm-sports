@@ -127,6 +127,19 @@ export interface Standing {
 }
 
 /**
+ * One row of a tournament-wide final-placement table (Phase 3.4 —
+ * team standings). Computed by `getFinalPlacements` from a single
+ * `BracketData`; the caller aggregates across all brackets of a
+ * tournament when scoring teams. `position` is 1-based competition
+ * ranking (ties share a position). Only real players are included —
+ * `bye` / `tbd` seats are filtered out.
+ */
+export interface FinalPlacement {
+  playerId: string;
+  position: number;
+}
+
+/**
  * One group in the `groups_playoff` format (Phase 3.3d). Self-
  * contained mini-round-robin — `rounds` matches the
  * `winnersBracket: Match[][]` shape used elsewhere, with match ids
