@@ -259,8 +259,16 @@ export class BracketsService {
   private resolveFormat(
     requested: BracketFormat | undefined,
     cfg: SportConfig,
+    tournamentSportConfig: unknown,
   ): BracketFormat {
-    const chosen = requested ?? cfg.defaultBracketFormat;
+    // Resolution precedence (mirrors `assertAllWeighedIn` and the
+    // match-result validator): explicit DTO → per-tournament override →
+    // sport-wide default. An organizer can flip the format for a special
+    // event via `tournament.sportConfig.defaultBracketFormat` without
+    // touching the global sport config.
+    const tOverride = (tournamentSportConfig ?? {}) as Partial<SportConfig>;
+    const chosen =
+      requested ?? tOverride.defaultBracketFormat ?? cfg.defaultBracketFormat;
     if (requested && !isFormatAllowed(cfg, requested)) {
       throw new BadRequestException(
         `Bracket format '${requested}' is not allowed for this sport. ` +
@@ -317,7 +325,7 @@ export class BracketsService {
       tournament.sport?.slug ?? '',
       tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
-    const format = this.resolveFormat(dto.bracketFormat, cfg);
+    const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
 
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
@@ -377,7 +385,7 @@ export class BracketsService {
       tournament.sport?.slug ?? '',
       tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
-    const format = this.resolveFormat(bracketFormat, cfg);
+    const format = this.resolveFormat(bracketFormat, cfg, tournament.sportConfig);
 
     const groups = new Map<
       string,
@@ -485,7 +493,7 @@ export class BracketsService {
       tournament.sport?.slug ?? '',
       tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
-    const format = this.resolveFormat(dto.bracketFormat, cfg);
+    const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
 
     const seedMap = new Map((dto.playerSeeds ?? []).map(({ entryId, seed }) => [entryId, seed]));
 

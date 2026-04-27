@@ -409,6 +409,32 @@ describe('BracketsService', () => {
       expect(generateDoubleElimination).not.toHaveBeenCalled();
     });
 
+    it('honors per-tournament sportConfig override (defaultBracketFormat)', async () => {
+      // Per-event override: armwrestling's sport-wide default is
+      // `double_elim`, but THIS tournament opts to use `single_elim` via
+      // `tournament.sportConfig.defaultBracketFormat`. Mirrors the
+      // precedence used by weigh-in and match-result resolution.
+      const { generateSingleElimination, generateDoubleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { defaultBracketFormat: 'single_elim' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate({ tournamentId: 't1' }, 'org-1');
+
+      expect(generateSingleElimination).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
+
     it('honors an explicit bracketFormat from the DTO when allowed', async () => {
       const { generateSingleElimination } = await import('@gsm/bracket-engine');
       tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
