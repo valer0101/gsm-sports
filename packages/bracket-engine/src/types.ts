@@ -78,6 +78,14 @@ export interface BracketData {
    * `wb_*`. Undefined for every other format.
    */
   groups?: GroupStage[];
+  /**
+   * How many top finishers per group advance to the playoff. Only set
+   * for `groups_playoff` — read at finalization time to seed the playoff
+   * bracket. Stored explicitly rather than inferred from `bracketSize /
+   * groups.length` because that inference is wrong when advancers ×
+   * groupCount isn't a power of two (the playoff is padded with byes).
+   */
+  advanceFromGroup?: number;
   players: Player[];
   bracketSize: number;
   wbRounds: number;

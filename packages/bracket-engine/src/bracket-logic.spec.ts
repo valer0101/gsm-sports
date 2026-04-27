@@ -676,6 +676,47 @@ describe('generateGroupsPlayoff', () => {
     expect(final.player2.id).not.toBe('tbd');
   });
 
+  it('cross-group seeding: 2g × 2 advance pairs 1A vs 2B and 1B vs 2A in semis', () => {
+    // Default 8-player config (2 groups of 4, top 2 advance). After
+    // group stage the top 2 of each group must NOT meet in the
+    // playoff semis — they should be on opposite sides of the bracket
+    // and only collide in the final. Earlier seeding logic produced
+    // 1A vs 1B in the semis (top group winners colliding immediately).
+    let data = generateGroupsPlayoff(makePlayers(8));
+    // Snake-seeding puts {p1,p4,p5,p8} in group A and {p2,p3,p6,p7} in B.
+    // Make p1 and p4 finish 1-2 in A; p2 and p3 finish 1-2 in B.
+    for (const group of data.groups!) {
+      const standings = group.players.slice();
+      // Make the first listed player win all their matches (becomes 1{group}),
+      // the second listed player win their remaining matches (becomes 2{group}).
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (m.winner) continue; // skip auto-resolved byes
+          // Pick the higher-ranked player by `standings` order as winner.
+          const idx1 = standings.findIndex((p) => p.id === m.player1.id);
+          const idx2 = standings.findIndex((p) => p.id === m.player2.id);
+          const winner = idx1 < idx2 ? m.player1.id : m.player2.id;
+          data = selectWinner(structuredClone(data), m.id, winner);
+        }
+      }
+    }
+
+    const r1 = data.winnersBracket[0];
+    expect(r1).toHaveLength(2); // 4 advancers → 2 semis
+
+    // Compute pairs as sorted [id, id] strings so we can match
+    // either ordering of player1/player2.
+    const pairs = r1.map((m) => [m.player1.id, m.player2.id].sort().join('|'));
+
+    // Group A's top is p1 (first listed), group A's #2 is p4. Group B's
+    // top is p2, #2 is p3. Expected semis: {p1, p3} (1A vs 2B) and
+    // {p2, p4} (1B vs 2A).
+    expect(pairs).toContain(['p1', 'p3'].sort().join('|'));
+    expect(pairs).toContain(['p2', 'p4'].sort().join('|'));
+    // Disallow the buggy earlier output where group winners collide in semis.
+    expect(pairs).not.toContain(['p1', 'p2'].sort().join('|'));
+  });
+
   it('crowns champion when playoff completes', () => {
     let data = generateGroupsPlayoff(makePlayers(4), {
       groupCount: 2,

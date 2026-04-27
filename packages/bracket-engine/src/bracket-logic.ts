@@ -868,7 +868,14 @@ export function getSwissStandings(data: BracketData): Standing[] {
     };
   });
 
-  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+  // Same three-term sort as `getRoundRobinStandings` — `played desc`
+  // before `losses asc` so a player who hasn't played yet doesn't
+  // outrank someone with the same wins but a recorded loss
+  // ("phantom mid-tournament rankings", see #56).
+  rows.sort(
+    (a, b) =>
+      b.wins - a.wins || b.played - a.played || a.losses - b.losses,
+  );
 
   let pos = 0;
   let lastKey = '';
@@ -1198,7 +1205,14 @@ export function getGroupStandings(data: BracketData, groupName: string): Standin
     };
   });
 
-  rows.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+  // Same three-term sort as `getRoundRobinStandings` — `played desc`
+  // before `losses asc` so a player who hasn't played yet doesn't
+  // outrank someone with the same wins but a recorded loss
+  // ("phantom mid-tournament rankings", see #56).
+  rows.sort(
+    (a, b) =>
+      b.wins - a.wins || b.played - a.played || a.losses - b.losses,
+  );
 
   let pos = 0;
   let lastKey = '';
@@ -1334,6 +1348,7 @@ export function generateGroupsPlayoff(
     grandFinal,
     superFinal,
     groups,
+    advanceFromGroup,
     champion: null,
     status: 'active',
   };
@@ -1357,26 +1372,54 @@ function groupStageComplete(data: BracketData): boolean {
 }
 
 /**
- * Standard cross-group playoff seeding. For 2 groups of top 2:
- *   playoff slot order = [1A, 2B, 1B, 2A] → R1: 1A vs 2B, 1B vs 2A.
- * For K groups, top-N: round-robin by group letter then by within-group
- * position, but reverse the position ordering on every other group so
- * top seeds don't meet until the final. Pads with byes when the playoff
- * size is larger than `K*N` (next power of two).
+ * Standard cross-group playoff seeding.
+ *
+ * For 2 groups (the default), produces R1 pairings
+ *   `1A vs 2B, 1B vs 2A, 2A' vs 1B', …` — i.e. each top seed plays a
+ *   bottom seed of the OTHER group, alternating which group's top
+ *   seed is in slot 0. Top seeds therefore can't meet until R2+.
+ *
+ * For K > 2 groups, falls back to a best-effort interleave that
+ *   spreads top seeds across the bracket. Not the textbook
+ *   round-robin draw — TODO: implement standard K-group cross-bracket
+ *   seeding (e.g. for 4 groups × top 2, group winners should face
+ *   runners-up of other groups, not other group winners).
+ *
+ * Pads with byes when the playoff size is larger than the actual
+ * advancer count (non-power-of-2 advancer counts).
  */
 function seedPlayoffSlots(data: BracketData, advanceFromGroup: number): (string | 'bye')[] {
   const groups = data.groups ?? [];
   const slots: (string | 'bye')[] = [];
 
-  // For each within-group position 1..advanceFromGroup, alternate the
-  // group order so #1 from group A goes opposite #2 from group B etc.
-  for (let pos = 0; pos < advanceFromGroup; pos++) {
-    const groupOrder =
-      pos % 2 === 0 ? groups : groups.slice().reverse();
-    for (const group of groupOrder) {
-      const standings = getGroupStandings(data, group.name);
-      const row = standings[pos];
-      slots.push(row?.playerId ?? 'bye');
+  if (groups.length === 2) {
+    // 2-group cross-bracket. Walk i from 0 to advanceFromGroup/2 and
+    // emit two cross-pairs at each step (top-i of A vs bottom-partner
+    // of B; mirror for B vs A). For odd advanceFromGroup, the middle
+    // index pairs the groups' midfielders against each other.
+    const [a, b] = groups.map((g) => getGroupStandings(data, g.name));
+    for (let i = 0; i < advanceFromGroup; i++) {
+      const partnerIdx = advanceFromGroup - 1 - i;
+      if (i < partnerIdx) {
+        slots.push(a[i]?.playerId ?? 'bye');
+        slots.push(b[partnerIdx]?.playerId ?? 'bye');
+        slots.push(b[i]?.playerId ?? 'bye');
+        slots.push(a[partnerIdx]?.playerId ?? 'bye');
+      } else if (i === partnerIdx) {
+        slots.push(a[i]?.playerId ?? 'bye');
+        slots.push(b[i]?.playerId ?? 'bye');
+      }
+      // i > partnerIdx — already emitted in an earlier iteration
+    }
+  } else {
+    // K-group fallback (best-effort).
+    for (let pos = 0; pos < advanceFromGroup; pos++) {
+      const groupOrder = pos % 2 === 0 ? groups : groups.slice().reverse();
+      for (const group of groupOrder) {
+        const standings = getGroupStandings(data, group.name);
+        const row = standings[pos];
+        slots.push(row?.playerId ?? 'bye');
+      }
     }
   }
 
@@ -1420,11 +1463,18 @@ function seedPlayoffR1(data: BracketData): void {
 }
 
 /**
- * Recover the `advanceFromGroup` count from the generated bracket
- * shape. Stored implicitly as `bracketSize / groupCount` — kept simple
- * so we don't need a new persisted field.
+ * Read the `advanceFromGroup` count off the bracket. Persisted by
+ * `generateGroupsPlayoff` so non-power-of-2 advancer counts work
+ * correctly (the playoff is padded with byes; inferring as
+ * `bracketSize / groupCount` would over-count).
+ *
+ * Falls back to `bracketSize / groupCount` for legacy brackets that
+ * predate the persisted field — pre-existing brackets don't exist
+ * yet in production but the fallback keeps the type-loose readers
+ * happy.
  */
 function inferAdvanceFromGroup(data: BracketData): number {
+  if (data.advanceFromGroup !== undefined) return data.advanceFromGroup;
   const groups = data.groups ?? [];
   if (groups.length === 0) return 1;
   return Math.max(1, Math.floor(data.bracketSize / groups.length));
