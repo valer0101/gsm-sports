@@ -25,6 +25,7 @@ import {
 } from '@/hooks/useAdmin';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 import { WeighInsManager } from '@/components/admin/WeighInsManager';
 import type {
   Bracket,
@@ -149,9 +150,15 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-black text-white">{tournament.name}</h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-              {[tournament.city, tournament.country].filter(Boolean).join(', ')} ·{' '}
-              {new Date(tournament.startDate).toLocaleDateString(locale)}
+            <p
+              className="text-sm mt-1 inline-flex items-center gap-1.5 flex-wrap"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {tournament.city && <span>{tournament.city}</span>}
+              {tournament.city && tournament.country && <span>,</span>}
+              {tournament.country && <CountryLabel value={tournament.country} />}
+              {(tournament.city || tournament.country) && <span>·</span>}
+              <span>{new Date(tournament.startDate).toLocaleDateString(locale)}</span>
             </p>
           </div>
           <StatusBadge status={tournament.status} tAdmin={tAdmin} />
