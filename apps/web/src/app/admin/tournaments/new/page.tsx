@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { useCreateTournament } from '@/hooks/useAdmin';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { CountryPicker } from '@/components/ui/CountryPicker';
 import type { Sport } from '@/types/api';
 
 const INP =
@@ -327,12 +328,10 @@ export default function NewTournamentPage() {
               />
             </Field>
             <Field label={t('field_country')}>
-              <input
-                name="country"
+              <CountryPicker
                 value={form.country}
-                onChange={handleChange}
-                placeholder="Армения"
-                className={INP}
+                onChange={(v) => setForm((prev) => ({ ...prev, country: v }))}
+                allowFreeText
               />
             </Field>
           </div>

@@ -13,6 +13,7 @@ import {
   type TelegramLinkToken,
 } from '@/hooks/useTelegram';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { CountryPicker } from '@/components/ui/CountryPicker';
 
 export function ProfilePageClient() {
   const t = useTranslations('profile');
@@ -101,7 +102,12 @@ export function ProfilePageClient() {
 
         {/* Location */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label={t('country')} value={country} onChange={setCountry} />
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-[var(--color-text-secondary)]">
+              {t('country')}
+            </label>
+            <CountryPicker value={country} onChange={setCountry} allowFreeText />
+          </div>
           <Field label={t('city')} value={city} onChange={setCity} />
         </div>
 

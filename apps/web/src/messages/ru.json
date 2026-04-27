@@ -663,6 +663,13 @@
     "image_formats_hint": "JPEG, PNG, WebP — до 5 МБ",
     "upload_error": "Ошибка загрузки"
   },
+  "country_picker": {
+    "placeholder": "Выберите страну",
+    "search": "Поиск…",
+    "no_results": "Ничего не найдено",
+    "press_enter_to_keep": "Нажмите Enter, чтобы оставить «{value}»",
+    "clear": "Очистить"
+  },
   "new_tournament": {
     "back": "← Назад",
     "title": "Новый турнир",
