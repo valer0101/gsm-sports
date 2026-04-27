@@ -73,6 +73,18 @@ export class TournamentEntry {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /**
+   * Snapshot of the athlete's country at registration time (Phase 3.4 —
+   * team standings). Denormalised from `User.country` so historical
+   * results stay stable if the athlete changes country in their profile
+   * after the event. Indexed because team-standings aggregation groups
+   * by it. Nullable because users without a country in their profile
+   * still register; their entries don't contribute to team rankings.
+   */
+  @Index()
+  @Column({ name: 'athlete_country', type: 'varchar', length: 100, nullable: true })
+  athleteCountry: string | null;
+
   /** Timestamp of physical check-in at the venue (scan / manual). */
   @Column({ name: 'checked_in_at', type: 'timestamptz', nullable: true })
   checkedInAt: Date | null;
