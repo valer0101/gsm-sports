@@ -7,6 +7,7 @@ export {
   getRoundRobinStandings,
   getSwissStandings,
   getGroupStandings,
+  getFinalPlacements,
   selectWinner,
   propagateResults,
   findMatch,
@@ -27,6 +28,7 @@ export type {
   BracketData,
   ValidationResult,
   Standing,
+  FinalPlacement,
   GroupStage,
 } from './types';
 export type { BracketSection, BracketMatchVisitor } from './bracket-logic';

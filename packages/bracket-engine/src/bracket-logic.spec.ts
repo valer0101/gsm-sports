@@ -8,6 +8,7 @@ import {
   getRoundRobinStandings,
   getSwissStandings,
   getGroupStandings,
+  getFinalPlacements,
   selectWinner,
   findMatch,
   walkBracketMatches,
@@ -1507,5 +1508,288 @@ describe('isPlayableMatch', () => {
     if (!byeMatch) throw new Error('test setup: expected a BYE match for 3 players');
     // A BYE match gets a winner at generation → not playable either way.
     expect(isPlayableMatch(byeMatch)).toBe(false);
+  });
+});
+
+describe('getFinalPlacements', () => {
+  describe('single_elim', () => {
+    it('places champion=1, runner-up=2, SF losers tied at 3 for 4-player bracket', () => {
+      let data = generateSingleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_2_0', 'p1');
+
+      const placements = getFinalPlacements(data);
+      const byPlayer = Object.fromEntries(placements.map((p) => [p.playerId, p.position]));
+
+      expect(byPlayer.p1).toBe(1);
+      expect(byPlayer.p3).toBe(2);
+      // Both round-1 losers tied at 3 (size-2 tier, no skip to 5 since
+      // there's nothing past it).
+      expect(byPlayer.p2).toBe(3);
+      expect(byPlayer.p4).toBe(3);
+      expect(placements).toHaveLength(4);
+    });
+
+    it('places champion=1, runner-up=2, SF losers tied at 3, QF losers tied at 5 for 8-player bracket', () => {
+      let data = generateSingleElimination(makePlayers(8));
+      // QF
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_1_2', 'p5');
+      data = selectWinner(data, 'wb_1_3', 'p7');
+      // SF
+      data = selectWinner(data, 'wb_2_0', 'p1');
+      data = selectWinner(data, 'wb_2_1', 'p5');
+      // Final
+      data = selectWinner(data, 'wb_3_0', 'p1');
+
+      const byPlayer = Object.fromEntries(
+        getFinalPlacements(data).map((p) => [p.playerId, p.position]),
+      );
+
+      expect(byPlayer.p1).toBe(1);
+      expect(byPlayer.p5).toBe(2);
+      // Two SF losers tied at 3
+      expect(byPlayer.p3).toBe(3);
+      expect(byPlayer.p7).toBe(3);
+      // Four QF losers tied at 5 (3 + 2 SF losers above them)
+      expect(byPlayer.p2).toBe(5);
+      expect(byPlayer.p4).toBe(5);
+      expect(byPlayer.p6).toBe(5);
+      expect(byPlayer.p8).toBe(5);
+    });
+
+    it('omits players still alive when bracket is incomplete', () => {
+      let data = generateSingleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      // wb_1_1 still pending → p3, p4 not placed yet
+      const placed = getFinalPlacements(data).map((p) => p.playerId);
+      expect(placed).toContain('p2');
+      expect(placed).not.toContain('p1');
+      expect(placed).not.toContain('p3');
+      expect(placed).not.toContain('p4');
+    });
+
+    it('does not inflate positions for byes (5-player bracket)', () => {
+      let data = generateSingleElimination(makePlayers(5));
+      // 8-bracket, 3 byes auto-resolved at generation. After R1 the only
+      // real R1 match is between two real players; the rest are bye walks.
+      const r1Real = data.winnersBracket[0].find(
+        (m) => m.player1.id !== 'bye' && m.player2.id !== 'bye' && !m.winner,
+      );
+      if (!r1Real) throw new Error('test setup: expected one real R1 match');
+      data = selectWinner(data, r1Real.id, r1Real.player1.id);
+      // Walk SF + Final using whoever the real winners are.
+      const sf0 = data.winnersBracket[1][0];
+      const sf1 = data.winnersBracket[1][1];
+      data = selectWinner(data, sf0.id, sf0.player1.id);
+      data = selectWinner(data, sf1.id, sf1.player1.id);
+      const finalMatch = data.winnersBracket[2][0];
+      data = selectWinner(data, finalMatch.id, finalMatch.player1.id);
+
+      const placements = getFinalPlacements(data);
+      // 5 real players → 5 placement rows. Champion=1, runner-up=2, two
+      // SF losers tied at 3, one R1 loser at 5 (tier of size 1 — only one
+      // R1 match was real).
+      expect(placements).toHaveLength(5);
+      const positions = placements.map((p) => p.position).sort((a, b) => a - b);
+      expect(positions).toEqual([1, 2, 3, 3, 5]);
+    });
+  });
+
+  describe('double_elim', () => {
+    it('places champion=1, runner-up=2, LB tiers descending for 4 players', () => {
+      let data = generateDoubleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_2_0', 'p1');
+      data = selectWinner(data, 'lb_1_0', 'p2');
+      data = selectWinner(data, 'lb_2_0', 'p2');
+      data = selectWinner(data, 'grand_final', 'p1');
+
+      const byPlayer = Object.fromEntries(
+        getFinalPlacements(data).map((p) => [p.playerId, p.position]),
+      );
+
+      expect(byPlayer.p1).toBe(1);
+      expect(byPlayer.p2).toBe(2);
+      // LB-final loser (p3) takes 3rd
+      expect(byPlayer.p3).toBe(3);
+      // LB-R1 loser (p4) takes 4th
+      expect(byPlayer.p4).toBe(4);
+    });
+
+    it('honours super-final result when grand-final triggered a reset', () => {
+      let data = generateDoubleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_2_0', 'p1');
+      data = selectWinner(data, 'lb_1_0', 'p2');
+      data = selectWinner(data, 'lb_2_0', 'p2');
+      // p2 (LB) beats p1 (WB) in GF → super-final needed
+      data = selectWinner(data, 'grand_final', 'p2');
+      // p2 wins the rematch → champion p2, runner-up p1
+      data = selectWinner(data, 'super_final', 'p2');
+
+      const byPlayer = Object.fromEntries(
+        getFinalPlacements(data).map((p) => [p.playerId, p.position]),
+      );
+      expect(byPlayer.p2).toBe(1);
+      expect(byPlayer.p1).toBe(2);
+    });
+
+    it('omits champion + runner-up while final is pending', () => {
+      let data = generateDoubleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_2_0', 'p1');
+      data = selectWinner(data, 'lb_1_0', 'p2');
+      data = selectWinner(data, 'lb_2_0', 'p2');
+      // GF not yet played → champion + runner-up unknown
+      const placed = getFinalPlacements(data).map((p) => p.playerId);
+      expect(placed).not.toContain('p1');
+      expect(placed).not.toContain('p2');
+      // p3 dropped out via LB final, p4 via LB R1
+      expect(placed).toContain('p3');
+      expect(placed).toContain('p4');
+    });
+  });
+
+  describe('round_robin', () => {
+    it('mirrors getRoundRobinStandings positions', () => {
+      let data = generateRoundRobin(makePlayers(4));
+      // p1 sweeps, p2 wins one, p3/p4 lose all
+      const matches = data.winnersBracket.flat();
+      for (const m of matches) {
+        if (m.winner) continue;
+        const winnerId =
+          m.player1.id === 'p1' || m.player2.id === 'p1'
+            ? 'p1'
+            : m.player1.id === 'p2' || m.player2.id === 'p2'
+              ? 'p2'
+              : m.player1.id;
+        data = selectWinner(data, m.id, winnerId);
+      }
+
+      const placements = getFinalPlacements(data);
+      const standings = getRoundRobinStandings(data);
+      expect(placements.map((p) => p.playerId).sort()).toEqual(
+        standings.map((s) => s.playerId).sort(),
+      );
+      for (const p of placements) {
+        const s = standings.find((x) => x.playerId === p.playerId);
+        expect(s?.position).toBe(p.position);
+      }
+    });
+  });
+
+  describe('swiss', () => {
+    it('mirrors getSwissStandings positions after every round', () => {
+      let data = generateSwiss(makePlayers(4));
+      // R1
+      for (const m of data.winnersBracket[0]) {
+        if (!m.winner) data = selectWinner(data, m.id, m.player1.id);
+      }
+      // R2
+      for (const m of data.winnersBracket[1]) {
+        if (!m.winner) data = selectWinner(data, m.id, m.player1.id);
+      }
+
+      const placements = getFinalPlacements(data);
+      const standings = getSwissStandings(data);
+      expect(placements).toHaveLength(standings.length);
+      for (const p of placements) {
+        const s = standings.find((x) => x.playerId === p.playerId);
+        expect(s?.position).toBe(p.position);
+      }
+    });
+  });
+
+  describe('groups_playoff', () => {
+    it('places using single-elim playoff and omits group-only finishers', () => {
+      // 8 players, 2 groups of 4, top 2 advance → 4-player playoff
+      let data = generateGroupsPlayoff(makePlayers(8), {
+        groupCount: 2,
+        advanceFromGroup: 2,
+      });
+
+      // Resolve every group match — winner is always lower-numbered id
+      for (const group of data.groups ?? []) {
+        for (const round of group.rounds) {
+          for (const m of round) {
+            if (m.winner) continue;
+            const w = m.player1.number < m.player2.number ? m.player1.id : m.player2.id;
+            data = selectWinner(data, m.id, w);
+          }
+        }
+      }
+
+      // Playoff seeded — resolve SF + final
+      const sfRound = data.winnersBracket[0];
+      for (const m of sfRound) {
+        if (!m.winner) data = selectWinner(data, m.id, m.player1.id);
+      }
+      const finalMatch = data.winnersBracket[1][0];
+      data = selectWinner(data, finalMatch.id, finalMatch.player1.id);
+
+      const placements = getFinalPlacements(data);
+      // Exactly 4 placement rows (only playoff finishers).
+      expect(placements).toHaveLength(4);
+
+      const positions = placements.map((p) => p.position).sort((a, b) => a - b);
+      expect(positions).toEqual([1, 2, 3, 3]);
+      expect(placements[0].playerId).toBe(data.champion);
+    });
+
+    it('returns empty placements before the playoff has been seeded', () => {
+      const data = generateGroupsPlayoff(makePlayers(8), {
+        groupCount: 2,
+        advanceFromGroup: 2,
+      });
+      // No matches played yet → playoff seats are TBD; nothing to place.
+      const placements = getFinalPlacements(data);
+      expect(placements).toEqual([]);
+    });
+  });
+
+  describe('cross-format guarantees', () => {
+    it('returns only real player ids (no bye/tbd)', () => {
+      let data = generateSingleElimination(makePlayers(5));
+      // Walk through, picking p1 of each match
+      for (const round of data.winnersBracket) {
+        for (const m of round) {
+          if (m.winner) continue;
+          const w = m.player1.id === 'tbd' ? null : m.player1.id;
+          if (w) data = selectWinner(data, m.id, w);
+        }
+      }
+      const placements = getFinalPlacements(data);
+      for (const p of placements) {
+        expect(p.playerId).not.toBe('bye');
+        expect(p.playerId).not.toBe('tbd');
+      }
+    });
+
+    it('treats undefined format as double_elim (legacy data compatibility)', () => {
+      let data = generateDoubleElimination(makePlayers(4));
+      data = selectWinner(data, 'wb_1_0', 'p1');
+      data = selectWinner(data, 'wb_1_1', 'p3');
+      data = selectWinner(data, 'wb_2_0', 'p1');
+      data = selectWinner(data, 'lb_1_0', 'p2');
+      data = selectWinner(data, 'lb_2_0', 'p2');
+      data = selectWinner(data, 'grand_final', 'p1');
+
+      // Strip the format field — older bracketData JSONB blobs predate
+      // Phase 3.3 and may not carry it.
+      const legacy: BracketData = { ...data };
+      delete (legacy as Partial<BracketData>).format;
+
+      const byPlayer = Object.fromEntries(
+        getFinalPlacements(legacy).map((p) => [p.playerId, p.position]),
+      );
+      expect(byPlayer.p1).toBe(1);
+      expect(byPlayer.p2).toBe(2);
+    });
   });
 });
