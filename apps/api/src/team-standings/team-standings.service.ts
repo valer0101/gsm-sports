@@ -116,6 +116,13 @@ export class TeamStandingsService {
     // edits, manual cleanups) or whose athlete has no country recorded
     // — they don't contribute to a team but were already filtered out
     // by `pointsByPlace`-zero above where applicable.
+    //
+    // `userId` is tracked only inside this method to count distinct
+    // athletes; it is intentionally NOT included in the wire shape.
+    // The public `@Public()` brackets payload never exposes user UUIDs
+    // (it carries entry ids as `Player.id`), and this public endpoint
+    // must not be the path that lets unauthenticated clients pivot a
+    // tournament listing to specific user UUIDs.
     const teamMap = new Map<
       string,
       {
@@ -140,7 +147,7 @@ export class TeamStandingsService {
       row.breakdown.push({
         bracketId: s.bracketId,
         category: s.bracketName,
-        userId: entry.userId,
+        entryId: entry.id,
         placement: s.placement,
         points: s.points,
       });
@@ -152,20 +159,26 @@ export class TeamStandingsService {
         position: 0, // assigned below
         points: r.points,
         athletesScoring: r.athletes.size,
+        // Stable display order: best placement first, then bracket id.
+        // Use raw UTF-16 comparison instead of `localeCompare` — the
+        // host-locale dependency of the latter breaks output determinism
+        // across Node builds (same fix as PR #16 / `3b92517` for the
+        // scheduler tableId tie-break).
         breakdown: r.breakdown.sort(
-          // Stable display order: best placement first, then bracket id
-          // for determinism across calls.
-          (a, b) => a.placement - b.placement || a.bracketId.localeCompare(b.bracketId),
+          (a, b) =>
+            a.placement - b.placement ||
+            (a.bracketId < b.bracketId ? -1 : a.bracketId > b.bracketId ? 1 : 0),
         ),
       }))
       // Points desc; ties broken by athletesScoring desc (depth of roster
       // — a country whose 4 athletes each scored once outranks one whose
-      // single athlete won 4 categories), then alpha for stability.
+      // single athlete won 4 categories), then raw alpha for cross-host
+      // determinism.
       .sort(
         (a, b) =>
           b.points - a.points ||
           b.athletesScoring - a.athletesScoring ||
-          a.team.localeCompare(b.team),
+          (a.team < b.team ? -1 : a.team > b.team ? 1 : 0),
       );
 
     // Competition ranking: tied rows share position; next position skips.

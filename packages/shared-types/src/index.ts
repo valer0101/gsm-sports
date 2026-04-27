@@ -287,9 +287,14 @@ export interface TournamentScheduleResponse {
  * `breakdown` lists every placement that contributed to `points` so the
  * UI can show "1×gold + 2×bronze" reasoning behind a team's total. One
  * entry per athlete-placement pair across every bracket of the tournament.
+ * Each row carries `entryId` (matches the bracket's player id) — never
+ * `users.id`, because this endpoint is `@Public` and the public brackets
+ * payload never exposes user UUIDs either.
  *
  * `athletesScoring` is the count of unique athletes that scored at least
- * one point — useful for tiebreakers and depth-of-roster display.
+ * one point — useful for tiebreakers and depth-of-roster display. The
+ * service computes it from the user-id-to-entry mapping internally; the
+ * count is exposed but the user-id mapping itself is not.
  */
 export interface TeamStandingsRow {
   /** ISO-3166 alpha-2 / alpha-3 / freeform — whatever was stored on the entry. */
@@ -303,8 +308,10 @@ export interface TeamStandingsRow {
     bracketId: string;
     /** Optional category label so the UI can surface "M -70kg". */
     category: string | null;
-    /** UUID of the user who earned the placement. */
-    userId: string;
+    /** UUID of the tournament entry that earned the placement — the same
+     *  id used as `Player.id` in the public bracket payload. The UI can
+     *  cross-reference brackets by this id without ever seeing a user UUID. */
+    entryId: string;
     /** 1 = champion, 2 = runner-up, etc. */
     placement: number;
     /** Points contributed = `pointsByPlace[placement]`, 0 if outside scheme. */

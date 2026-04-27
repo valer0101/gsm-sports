@@ -125,14 +125,22 @@ describe('TeamStandingsService', () => {
       points: 5,
       athletesScoring: 1,
     });
-    // Breakdown carries the full provenance trail.
+    // Breakdown carries the full provenance trail — entryId, NOT userId
+    // (this is a public endpoint and must not leak user UUIDs).
     expect(out.rows[0].breakdown).toHaveLength(3);
     expect(out.rows[0].breakdown[0]).toMatchObject({
       bracketId: 'bracket-1',
       category: 'M -70kg',
+      entryId: 'entry-a',
       placement: 1,
       points: 7,
     });
+    // Defensive: the wire shape does NOT carry userId at any depth.
+    for (const row of out.rows) {
+      for (const item of row.breakdown) {
+        expect(item).not.toHaveProperty('userId');
+      }
+    }
   });
 
   it('drops placements outside the scoring scheme', async () => {
