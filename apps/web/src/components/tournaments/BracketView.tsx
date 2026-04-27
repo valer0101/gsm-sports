@@ -7,6 +7,7 @@ import { useBracketSocket } from '@/hooks/useBracketSocket';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
 import { MatchResultSummary } from '@/components/tournaments/MatchResultSummary';
+import { RoundRobinStandings } from '@/components/tournaments/RoundRobinStandings';
 import type { Bracket, BracketMatch } from '@/types/api';
 
 interface Props {
@@ -84,48 +85,41 @@ export function BracketView({ tournamentId }: Props) {
         </div>
       )}
 
-      {/* Bracket scroll area */}
-      <div className="overflow-x-auto pb-4">
-        <div className="min-w-max">
-          {/* Winners Bracket */}
-          <p
-            className="text-xs font-bold uppercase tracking-widest mb-2"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            {t('winners_bracket')}
-          </p>
-          <BracketGrid rounds={bd.winnersBracket} />
+      {/* Round-robin: standings table + per-round schedule. No tree —
+          there's no winners-into-losers propagation to draw. */}
+      {bd.format === 'round_robin' ? (
+        <div className="space-y-4">
+          <RoundRobinStandings data={bd} />
 
-          {/* Losers Bracket */}
-          {bd.losersBracket.length > 0 && (
-            <>
+          <div className="overflow-x-auto pb-4">
+            <div className="min-w-max">
               <p
-                className="text-xs font-bold uppercase tracking-widest mt-6 mb-2"
+                className="text-xs font-bold uppercase tracking-widest mb-2"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                {t('losers_bracket')}
+                {t('rr_schedule')}
               </p>
-              <BracketGrid rounds={bd.losersBracket} isLosers />
-            </>
-          )}
-
-          {/* Grand Final */}
-          <p
-            className="text-xs font-bold uppercase tracking-widest mt-6 mb-2"
-            style={{ color: '#fbbf24' }}
-          >
-            {t('grand_final')}
-          </p>
-          <div className="flex gap-4">
-            <MatchCard match={bd.grandFinal as BracketMatch} isFinal />
-            {bd.superFinal.needed !== false && (
-              <MatchCard match={bd.superFinal as BracketMatch} isFinal label={t('super_final')} />
-            )}
+              {bd.winnersBracket.map((round, ri) => (
+                <div key={ri} className="mb-4">
+                  <p
+                    className="text-xs mb-2 font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {t('rr_round', { n: ri + 1 })}
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
+                    {round.map((m) => (
+                      <MatchCard key={m.id} match={m} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Champion */}
+          {/* Champion banner — same as elim path. */}
           {bd.champion && (
-            <div className="mt-6 text-center">
+            <div className="mt-2 text-center">
               <span className="text-2xl">🏆</span>
               <p className="text-lg font-black text-white mt-1">
                 {bd.players.find((p) => p.id === bd.champion)
@@ -138,7 +132,72 @@ export function BracketView({ tournamentId }: Props) {
             </div>
           )}
         </div>
-      </div>
+      ) : (
+        /* Elimination layout — single & double elim use the same shape. */
+        <div className="overflow-x-auto pb-4">
+          <div className="min-w-max">
+            {/* Winners Bracket */}
+            <p
+              className="text-xs font-bold uppercase tracking-widest mb-2"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              {t('winners_bracket')}
+            </p>
+            <BracketGrid rounds={bd.winnersBracket} />
+
+            {/* Losers Bracket */}
+            {bd.losersBracket.length > 0 && (
+              <>
+                <p
+                  className="text-xs font-bold uppercase tracking-widest mt-6 mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {t('losers_bracket')}
+                </p>
+                <BracketGrid rounds={bd.losersBracket} isLosers />
+              </>
+            )}
+
+            {/* Grand Final — only relevant for double-elim. Single-elim
+                leaves grandFinal TBD-vs-TBD never-reached. */}
+            {bd.format !== 'single_elim' && (
+              <>
+                <p
+                  className="text-xs font-bold uppercase tracking-widest mt-6 mb-2"
+                  style={{ color: '#fbbf24' }}
+                >
+                  {t('grand_final')}
+                </p>
+                <div className="flex gap-4">
+                  <MatchCard match={bd.grandFinal as BracketMatch} isFinal />
+                  {bd.superFinal.needed !== false && (
+                    <MatchCard
+                      match={bd.superFinal as BracketMatch}
+                      isFinal
+                      label={t('super_final')}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Champion */}
+            {bd.champion && (
+              <div className="mt-6 text-center">
+                <span className="text-2xl">🏆</span>
+                <p className="text-lg font-black text-white mt-1">
+                  {bd.players.find((p) => p.id === bd.champion)
+                    ? `${bd.players.find((p) => p.id === bd.champion)!.firstName} ${bd.players.find((p) => p.id === bd.champion)!.lastName}`
+                    : bd.champion}
+                </p>
+                <p className="text-sm" style={{ color: 'var(--color-accent)' }}>
+                  {t('champion')}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

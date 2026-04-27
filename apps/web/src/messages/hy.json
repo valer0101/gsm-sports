@@ -74,6 +74,8 @@
     "grand_final": "Գրանդ ֆինալ",
     "super_final": "Սուպեր ֆինալ",
     "champion": "Չемпիոն",
+    "rr_schedule": "Ժամանակացույց",
+    "rr_round": "Տուր {n}",
     "participants_count": "Ընդամենը մասնակից: {count}",
     "participants_error": "Չհաջողվեց բեռնել մասնակիցներին",
     "participants_empty": "Մասնակիցներ դեռ չկան",
@@ -477,6 +479,7 @@
     "action_player_withdrawn": "Хахаhогhе снвац (forfeit)",
     "wb_round": "WB Каwнд {n}",
     "lb_round": "LB Каwнд {n}",
+    "rr_round": "Տուր {n}",
     "grand_final": "Гранд финал",
     "super_final": "Супер финал",
     "corrected_badge": "✎ ухгвац",
@@ -544,6 +547,7 @@
     "category": "Карг {n}",
     "wb_round": "WB Каwнд {n}",
     "lb_round": "LB Каwнд {n}",
+    "rr_round": "Տուր {n}",
     "grand_final": "Гранд финал",
     "super_final": "Супер финал",
     "winner_btn": "Хетастац",
@@ -717,5 +721,13 @@
     "btn_save": "Pahpanel",
     "btn_cancel": "Chegharkel",
     "error": "Chargelu skаlvets"
+  },
+  "round_robin": {
+    "title": "Աղյուսակ",
+    "col_position": "#",
+    "col_athlete": "Մարզիկ",
+    "col_played": "Խ",
+    "col_wins": "Հ",
+    "col_losses": "Պ"
   }
 }
