@@ -141,6 +141,72 @@ export function BracketView({ tournamentId }: Props) {
             </div>
           )}
         </div>
+      ) : bd.format === 'groups_playoff' ? (
+        /* Groups + playoff: one standings table per group, per-round
+           schedule per group, then the playoff tree below. */
+        <div className="space-y-6">
+          {(bd.groups ?? []).map((group) => (
+            <div key={group.name} className="space-y-3">
+              <StandingsTable
+                data={bd}
+                groupName={group.name}
+                title={t('group_title', { name: group.name })}
+              />
+              <div className="overflow-x-auto pb-2">
+                <div className="min-w-max">
+                  {group.rounds.map((round, ri) => (
+                    <div key={ri} className="mb-3">
+                      <p
+                        className="text-xs mb-2 font-medium"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {t('rr_round', { n: ri + 1 })}
+                      </p>
+                      <div className="flex gap-3 flex-wrap">
+                        {round.map((m) => (
+                          <MatchCard key={m.id} match={m} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Playoff bracket — populated once group stage completes. Hide
+              the section until at least one playoff seat is filled to
+              avoid a wall of TBD cards. */}
+          {bd.winnersBracket[0]?.some(
+            (m) => m.player1.id !== 'tbd' || m.player2.id !== 'tbd',
+          ) && (
+            <div className="overflow-x-auto pb-4">
+              <div className="min-w-max">
+                <p
+                  className="text-xs font-bold uppercase tracking-widest mb-2"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  {t('playoff')}
+                </p>
+                <BracketGrid rounds={bd.winnersBracket} />
+              </div>
+            </div>
+          )}
+
+          {bd.champion && (
+            <div className="mt-2 text-center">
+              <span className="text-2xl">🏆</span>
+              <p className="text-lg font-black text-white mt-1">
+                {bd.players.find((p) => p.id === bd.champion)
+                  ? `${bd.players.find((p) => p.id === bd.champion)!.firstName} ${bd.players.find((p) => p.id === bd.champion)!.lastName}`
+                  : bd.champion}
+              </p>
+              <p className="text-sm" style={{ color: 'var(--color-accent)' }}>
+                {t('champion')}
+              </p>
+            </div>
+          )}
+        </div>
       ) : (
         /* Elimination layout — single & double elim use the same shape. */
         <div className="overflow-x-auto pb-4">
