@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { ImageUpload } from '@/components/admin/ImageUpload';
+import { CountryPicker } from '@/components/ui/CountryPicker';
 import { useSports, type AthletePayload } from '@/hooks/useAthletes';
 import type { Athlete } from '@/types/api';
 
@@ -219,10 +220,10 @@ export function AthleteForm({ initial, onSubmit, isPending, isError, error }: Pr
           </div>
           <div>
             <Label>{t('field_country')}</Label>
-            <input
-              {...register('country')}
-              placeholder={t('field_country_placeholder')}
-              className={FIELD_CLASS}
+            <CountryPicker
+              value={watch('country') ?? ''}
+              onChange={(v) => setValue('country', v, { shouldDirty: true })}
+              allowFreeText
             />
           </div>
           <div>
