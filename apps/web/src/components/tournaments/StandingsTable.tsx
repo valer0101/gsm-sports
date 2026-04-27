@@ -4,29 +4,32 @@ import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   getRoundRobinStandings,
+  getSwissStandings,
   type BracketData as EngineBracketData,
 } from '@gsm/bracket-engine';
 import { Avatar } from '@/components/Avatar';
 import type { BracketData } from '@/types/api';
 
 /**
- * Public standings table for a round-robin bracket (Phase 3.3b). Pure
- * read — runs the engine's `getRoundRobinStandings` on the bracketData
- * blob and renders a small table sorted by W-L. Tied rows share the
- * same `position` (competition ranking — see engine doc).
+ * Public standings table for any non-elimination format. Pure read —
+ * runs the engine's per-format helper on the bracketData blob and
+ * renders a small table sorted by W-L (competition ranking; ties share
+ * the same `position`).
  *
- * Returns null if the bracket isn't round-robin; safe to drop in
- * unconditionally.
+ * Returns `null` for elimination brackets and for round_robin / swiss
+ * with no players, so callers can drop it in unconditionally.
  */
-export function RoundRobinStandings({ data }: { data: BracketData }) {
-  const t = useTranslations('round_robin');
+export function StandingsTable({ data }: { data: BracketData }) {
+  const t = useTranslations('standings');
 
-  const standings = useMemo(
-    () => getRoundRobinStandings(data as unknown as EngineBracketData),
-    [data],
-  );
+  const standings = useMemo(() => {
+    const engineData = data as unknown as EngineBracketData;
+    if (data.format === 'round_robin') return getRoundRobinStandings(engineData);
+    if (data.format === 'swiss') return getSwissStandings(engineData);
+    return [];
+  }, [data]);
 
-  if (data.format !== 'round_robin') return null;
+  if (data.format !== 'round_robin' && data.format !== 'swiss') return null;
   if (standings.length === 0) return null;
 
   // Look up photoUrl from `data.players` for the avatar column. The
