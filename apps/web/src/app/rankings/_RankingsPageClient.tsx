@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { RankingsTable } from '@/components/rankings/RankingsTable';
 import { Pagination } from '@/components/ui/Pagination';
 import { useWorldRankings, useCountryRankings } from '@/hooks/useRankings';
-import { CountryPicker } from '@/components/ui/CountryPicker';
 import type { PaginatedResponse, RankingEntry } from '@/types/api';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -74,14 +73,18 @@ export function RankingsPageClient({ initialData, sport }: Props) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         {view === 'country' && (
-          <div className="w-56">
-            <CountryPicker
-              value={country}
-              onChange={(v) => { setCountry(v); setPage(1); }}
-              placeholder={t('filter_country')}
-              allowFreeText
-            />
-          </div>
+          // Free-text input — the rankings API filters by exact match on the
+          // legacy stored country name (e.g. 'Armenia'), so a CountryPicker
+          // emitting ISO-2 codes ('AM') would silently return zero rows
+          // against existing data. Revisit once the rankings service learns
+          // to normalize input via @gsm/countries.
+          <input
+            type="text"
+            value={country}
+            onChange={(e) => { setCountry(e.target.value); setPage(1); }}
+            placeholder={t('filter_country')}
+            className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm focus:outline-none focus:border-white/30 w-40"
+          />
         )}
 
         <select

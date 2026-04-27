@@ -113,16 +113,35 @@ export function CountryPicker({
     }
   };
 
+  const buttonLabel = resolved.name ?? resolved.raw ?? (placeholder ?? t('placeholder'));
+
+  // The trigger is a div+role="button" rather than a real <button>, so the
+  // inline clear control can be a true <button> child without producing
+  // invalid button-in-button HTML (Firefox re-parents that and the inner
+  // click never fires). Keyboard support is preserved via onKeyDown.
+  const handleTriggerKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setOpen((o) => !o);
+    }
+  };
+
   return (
     <div ref={rootRef} className={`relative ${className ?? ''}`}>
-      <button
-        type="button"
+      <div
+        role="button"
         id={id}
-        disabled={disabled}
+        tabIndex={disabled ? -1 : 0}
         onClick={() => !disabled && setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white text-left hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        onKeyDown={handleTriggerKey}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white text-left hover:border-white/20 cursor-pointer ${
+          disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-disabled={disabled || undefined}
+        aria-label={buttonLabel}
       >
         <span className="truncate">
           {resolved.raw ? (
@@ -159,12 +178,11 @@ export function CountryPicker({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </span>
-      </button>
+      </div>
 
       {open && (
         <div
-          className="absolute z-50 mt-1 w-full rounded-lg border border-white/15 shadow-2xl overflow-hidden"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
+          className="absolute z-50 mt-1 w-full rounded-lg border border-white/15 shadow-2xl overflow-hidden bg-[var(--color-secondary)]"
         >
           <input
             ref={inputRef}
