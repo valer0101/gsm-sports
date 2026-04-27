@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { getLocale } from 'next-intl/server';
 import type { Tournament } from '@/types/api';
 import { TournamentDetailClient } from './TournamentDetailClient';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 async function getTournament(slug: string): Promise<Tournament | null> {
   try {
@@ -129,8 +130,9 @@ export default async function TournamentDetailPage({
               >
                 {t('location')}
               </dt>
-              <dd className="font-semibold text-white">
-                {[tournament.city, tournament.country].filter(Boolean).join(', ')}
+              <dd className="font-semibold text-white inline-flex items-center gap-1.5 flex-wrap">
+                {tournament.city && <span>{tournament.city}{tournament.country ? ',' : ''}</span>}
+                {tournament.country && <CountryLabel value={tournament.country} />}
               </dd>
             </div>
           )}

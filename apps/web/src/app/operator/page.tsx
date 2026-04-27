@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useOperatorTournaments } from '@/hooks/useOperator';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 export default function OperatorPage() {
   const t = useTranslations('operator');
@@ -43,9 +44,14 @@ export default function OperatorPage() {
             >
               <div>
                 <p className="font-bold text-white">{tour.name}</p>
-                <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {[tour.city, tour.country].filter(Boolean).join(', ')} ·{' '}
-                  {new Date(tour.startDate).toLocaleDateString('ru-RU')}
+                <p
+                  className="text-sm mt-0.5 inline-flex items-center gap-1.5"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {tour.city && <span>{tour.city}{tour.country ? ',' : ''}</span>}
+                  {tour.country && <CountryLabel value={tour.country} />}
+                  {(tour.city || tour.country) && <span>·</span>}
+                  <span>{new Date(tour.startDate).toLocaleDateString('ru-RU')}</span>
                 </p>
               </div>
               <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAthletes, useVerifyAthlete, useSports } from '@/hooks/useAthletes';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CountryLabel } from '@/components/ui/CountryLabel';
 
 export default function AdminAthletesPage() {
   const t = useTranslations('admin_athletes');
@@ -144,7 +145,7 @@ export default function AdminAthletesPage() {
                       {athlete.sport?.nameRu ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                      {athlete.country ?? '—'}
+                      <CountryLabel value={athlete.country} />
                     </td>
                     <td className="px-4 py-3">
                       {athlete.worldRank ? (
