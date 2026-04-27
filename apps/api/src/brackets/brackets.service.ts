@@ -13,6 +13,7 @@ import {
   generateDoubleElimination,
   generateSingleElimination,
   generateRoundRobin,
+  generateSwiss,
   selectWinner,
   resetMatch as resetMatchInBracket,
   validateResult,
@@ -279,11 +280,12 @@ export class BracketsService {
     if (
       chosen !== 'single_elim' &&
       chosen !== 'double_elim' &&
-      chosen !== 'round_robin'
+      chosen !== 'round_robin' &&
+      chosen !== 'swiss'
     ) {
       throw new BadRequestException(
         `Bracket format '${chosen}' is not yet implemented. ` +
-          `Currently supported: single_elim, double_elim, round_robin.`,
+          `Currently supported: single_elim, double_elim, round_robin, swiss.`,
       );
     }
     return chosen;
@@ -297,6 +299,7 @@ export class BracketsService {
   private buildBracket(format: BracketFormat, players: Player[]): BracketData {
     if (format === 'single_elim') return generateSingleElimination(players);
     if (format === 'round_robin') return generateRoundRobin(players);
+    if (format === 'swiss') return generateSwiss(players);
     return generateDoubleElimination(players);
   }
 
