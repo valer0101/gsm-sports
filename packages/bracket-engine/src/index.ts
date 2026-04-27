@@ -3,8 +3,10 @@ export {
   generateSingleElimination,
   generateRoundRobin,
   generateSwiss,
+  generateGroupsPlayoff,
   getRoundRobinStandings,
   getSwissStandings,
+  getGroupStandings,
   selectWinner,
   propagateResults,
   findMatch,
@@ -25,6 +27,7 @@ export type {
   BracketData,
   ValidationResult,
   Standing,
+  GroupStage,
 } from './types';
 export type { BracketSection, BracketMatchVisitor } from './bracket-logic';
 export { TBD_PLAYER, BYE_PLAYER } from './types';
