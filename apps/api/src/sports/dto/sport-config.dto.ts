@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -33,6 +34,26 @@ export class LocalizedTermDto {
   @ApiProperty() @IsString() @MaxLength(64) ru: string;
   @ApiProperty() @IsString() @MaxLength(64) en: string;
   @ApiProperty() @IsString() @MaxLength(64) hy: string;
+}
+
+/**
+ * Validated shape for `SportConfig.teamScoring` (Phase 3.4). The DTO
+ * accepts an object whose keys are stringified positive integers and
+ * values are non-negative numbers; deeper validation (numeric keys,
+ * sane ranges) happens at write time in `SportsService` rather than
+ * in class-validator since `Record<number, number>` isn't a first-class
+ * decorator target.
+ */
+export class TeamScoringConfigDto {
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'number' },
+    example: { 1: 7, 2: 5, 3: 3, 4: 1 },
+    description:
+      '1-based final-placement → points map. Missing positions score 0.',
+  })
+  @IsObject()
+  pointsByPlace: Record<number, number>;
 }
 
 export class TermPairDto {
@@ -128,4 +149,10 @@ export class SportConfigDto {
   @IsOptional()
   @IsBoolean()
   requireCheckIn?: boolean;
+
+  @ApiProperty({ type: TeamScoringConfigDto, required: false })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TeamScoringConfigDto)
+  teamScoring?: TeamScoringConfigDto;
 }

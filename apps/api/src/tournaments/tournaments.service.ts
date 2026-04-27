@@ -15,6 +15,7 @@ import { WeightCategory } from './entities/weight-category.entity';
 import { TournamentOperator } from './entities/tournament-operator.entity';
 import { TournamentTable } from './entities/tournament-table.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
+import { User } from '../users/entities/user.entity';
 import { BracketsService } from '../brackets/brackets.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
@@ -220,6 +221,15 @@ export class TournamentsService {
         }
       }
 
+      // Snapshot country at registration so post-event profile edits don't
+      // shift historical team-standings (Phase 3.4). Read inside the
+      // transaction for consistency with the entry write.
+      const userRow = await em.getRepository(User).findOne({
+        where: { id: userId },
+        select: ['id', 'country'],
+      });
+      const athleteCountry = userRow?.country ?? null;
+
       const newEntry = repo.create({
         tournamentId,
         userId,
@@ -227,6 +237,7 @@ export class TournamentsService {
         hand: dto.hand,
         weightKg: dto.weightKg,
         notes: dto.notes ?? null,
+        athleteCountry,
         status: 'pending' as any,
       });
       const saved = await repo.save(newEntry);

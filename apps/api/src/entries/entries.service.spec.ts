@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { EntriesService } from './entries.service';
 import { TournamentEntry } from './entities/tournament-entry.entity';
+import { User } from '../users/entities/user.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 
 const mockRepo = () => {
@@ -53,9 +54,14 @@ const makeEntry = (overrides = {}) => ({
   ...overrides,
 });
 
+const mockUsersRepo = () => ({
+  findOne: vi.fn().mockResolvedValue({ id: 'user-1', country: null }),
+});
+
 describe('EntriesService', () => {
   let service: EntriesService;
   let repo: ReturnType<typeof mockRepo>;
+  let usersRepo: ReturnType<typeof mockUsersRepo>;
   let tournamentsService: ReturnType<typeof mockTournamentsService>;
 
   beforeEach(async () => {
@@ -63,13 +69,16 @@ describe('EntriesService', () => {
       providers: [
         EntriesService,
         { provide: getRepositoryToken(TournamentEntry), useFactory: mockRepo },
+        { provide: getRepositoryToken(User), useFactory: mockUsersRepo },
         { provide: TournamentsService, useFactory: mockTournamentsService },
       ],
     }).compile();
 
     service = module.get(EntriesService);
     repo = module.get(getRepositoryToken(TournamentEntry));
+    usersRepo = module.get(getRepositoryToken(User));
     tournamentsService = module.get(TournamentsService);
+    void usersRepo; // referenced by tests via `service` only
   });
 
   describe('register', () => {

@@ -88,6 +88,27 @@ export interface SportConfig {
    * true (medical / no-show handling), chess-type sports default to false.
    */
   requireCheckIn: boolean;
+  /**
+   * Points awarded to a team (country / club) per athlete final placement
+   * within a category, for tournament-wide team standings (Phase 3.4). Keys
+   * are 1-based positions; missing keys score 0. Default schema is
+   * 7 / 5 / 3 / 1 (WAF-style — top 4 score points, descending). Per-sport
+   * presets may override (e.g. dense fields like Olympic-style 10/8/6/...);
+   * organizers can further override via `Tournament.sportConfig`.
+   */
+  teamScoring: TeamScoringConfig;
+}
+
+/**
+ * Maps a 1-based final placement (1 = champion) to the points it scores
+ * for the athlete's team. Missing positions score 0 — the scoring scheme
+ * defines how deep the points go.
+ *
+ * Example: `{ pointsByPlace: { 1: 7, 2: 5, 3: 3, 4: 1 } }` means top-4
+ * finishers in each category contribute 7/5/3/1 to their country's total.
+ */
+export interface TeamScoringConfig {
+  pointsByPlace: Record<number, number>;
 }
 
 // ─── Match result detail (Phase 3.2) ────────────────────────
@@ -254,6 +275,48 @@ export interface TournamentScheduleResponse {
     athleteIds: [string, string];
   }>;
   active: ScheduleActiveMatch[];
+}
+
+// ─── Team standings (Phase 3.4) ────────────────────────────
+/**
+ * One team-leaderboard row for a tournament. The "team" axis is the
+ * athlete's country snapshotted at registration time on
+ * `TournamentEntry.athleteCountry` — not joined live off `User.country`,
+ * so a country change after the event leaves history intact.
+ *
+ * `breakdown` lists every placement that contributed to `points` so the
+ * UI can show "1×gold + 2×bronze" reasoning behind a team's total. One
+ * entry per athlete-placement pair across every bracket of the tournament.
+ *
+ * `athletesScoring` is the count of unique athletes that scored at least
+ * one point — useful for tiebreakers and depth-of-roster display.
+ */
+export interface TeamStandingsRow {
+  /** ISO-3166 alpha-2 / alpha-3 / freeform — whatever was stored on the entry. */
+  team: string;
+  /** 1-based competition ranking — ties share a position. */
+  position: number;
+  points: number;
+  athletesScoring: number;
+  breakdown: Array<{
+    /** UUID of the bracket this placement came from. */
+    bracketId: string;
+    /** Optional category label so the UI can surface "M -70kg". */
+    category: string | null;
+    /** UUID of the user who earned the placement. */
+    userId: string;
+    /** 1 = champion, 2 = runner-up, etc. */
+    placement: number;
+    /** Points contributed = `pointsByPlace[placement]`, 0 if outside scheme. */
+    points: number;
+  }>;
+}
+
+export interface TeamStandingsResponse {
+  tournamentId: string;
+  /** Echoed from the resolved sport-config so clients can render the legend. */
+  pointsByPlace: Record<number, number>;
+  rows: TeamStandingsRow[];
 }
 
 // ─── Weigh-ins ──────────────────────────────────────────────

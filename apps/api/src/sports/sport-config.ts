@@ -27,6 +27,12 @@ export const SPORT_CONFIG_DEFAULTS: SportConfig = {
   avgMatchDurationSec: 300,
   minRestBetweenMatchesSec: 900,
   requireCheckIn: false,
+  // WAF-style top-4 scoring (gold 7, silver 5, bronze 3, 4th 1). Mirrors
+  // what most amateur federations use; organizers override per event for
+  // Olympic-style 10/8/6/... or chess-style flat scoring.
+  teamScoring: {
+    pointsByPlace: { 1: 7, 2: 5, 3: 3, 4: 1 },
+  },
 };
 
 type LocalizedPair = {

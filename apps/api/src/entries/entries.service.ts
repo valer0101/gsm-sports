@@ -11,6 +11,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { TournamentEntry, EntryStatus } from './entities/tournament-entry.entity';
+import { User } from '../users/entities/user.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
 
@@ -21,6 +22,8 @@ export class EntriesService {
   constructor(
     @InjectRepository(TournamentEntry)
     private readonly entriesRepository: Repository<TournamentEntry>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     @Inject(forwardRef(() => TournamentsService))
     private readonly tournamentsService: TournamentsService,
   ) {}
@@ -35,6 +38,14 @@ export class EntriesService {
     if (tournament.registrationDeadline && new Date() > tournament.registrationDeadline) {
       throw new BadRequestException('Registration deadline has passed');
     }
+
+    // Snapshot the registrant's country so historical leaderboards are
+    // stable if the user later edits their profile (Phase 3.4).
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'country'],
+    });
+    const athleteCountry = user?.country ?? null;
 
     // Capacity check + insert in a transaction to prevent race conditions
     const saved = await this.entriesRepository.manager.transaction(async (em) => {
@@ -66,6 +77,7 @@ export class EntriesService {
         hand: dto.hand ?? null,
         weightKg: dto.weightKg ?? null,
         notes: dto.notes ?? null,
+        athleteCountry,
         status: 'pending' as EntryStatus,
       });
       return repo.save(entry);
