@@ -65,6 +65,7 @@
     "live": "LIVE",
     "tab_participants": "Participants",
     "tab_bracket": "Bracket",
+    "tab_teams": "Teams",
     "bracket_pending_badge": "soon",
     "bracket_not_ready": "Bracket has not been generated yet",
     "bracket_error": "Failed to load bracket",
@@ -732,5 +733,17 @@
     "col_played": "P",
     "col_wins": "W",
     "col_losses": "L"
+  },
+  "teamStandings": {
+    "title": "Team standings",
+    "col_position": "#",
+    "col_team": "Country",
+    "col_points": "Points",
+    "col_athletes_scoring": "Athletes",
+    "col_medals": "Placements",
+    "loading": "Loading team standings…",
+    "error": "Failed to load team standings",
+    "empty_state": "No team results yet — they appear once finals are recorded.",
+    "medal_tooltip": "{count} × place {place}"
   }
 }

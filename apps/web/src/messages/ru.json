@@ -65,6 +65,7 @@
     "live": "LIVE",
     "tab_participants": "Участники",
     "tab_bracket": "Сетка",
+    "tab_teams": "Команды",
     "bracket_pending_badge": "скоро",
     "bracket_not_ready": "Сетка ещё не сформирована",
     "bracket_error": "Не удалось загрузить сетку",
@@ -738,5 +739,17 @@
     "col_played": "И",
     "col_wins": "В",
     "col_losses": "П"
+  },
+  "teamStandings": {
+    "title": "Командный зачёт",
+    "col_position": "#",
+    "col_team": "Страна",
+    "col_points": "Очки",
+    "col_athletes_scoring": "Атлеты",
+    "col_medals": "Места",
+    "loading": "Загружаем командный зачёт…",
+    "error": "Не удалось загрузить командный зачёт",
+    "empty_state": "Командный зачёт появится после финалов.",
+    "medal_tooltip": "{count} × {place}-е место"
   }
 }

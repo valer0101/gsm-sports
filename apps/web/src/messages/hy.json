@@ -65,6 +65,7 @@
     "live": "LIVE",
     "tab_participants": "Մասնակիցներ",
     "tab_bracket": "Ցանց",
+    "tab_teams": "Թիմեր",
     "bracket_pending_badge": "շուտով",
     "bracket_not_ready": "Ցանցը դեռ չի ձևավորվել",
     "bracket_error": "Չհաջողվեց բեռնել ցանցը",
@@ -733,5 +734,17 @@
     "col_played": "Խ",
     "col_wins": "Հ",
     "col_losses": "Պ"
+  },
+  "teamStandings": {
+    "title": "Թիմային հաշվարկ",
+    "col_position": "#",
+    "col_team": "Երկիր",
+    "col_points": "Միավորներ",
+    "col_athletes_scoring": "Մարզիկներ",
+    "col_medals": "Տեղեր",
+    "loading": "Բեռնում ենք թիմային հաշվարկը…",
+    "error": "Չհաջողվեց բեռնել թիմային հաշվարկը",
+    "empty_state": "Թիմային հաշվարկը կհայտնվի եզրափակիչներից հետո։",
+    "medal_tooltip": "{count} × {place}-րդ տեղ"
   }
 }

@@ -10,10 +10,11 @@ import type { Tournament, TournamentEntry } from '@/types/api';
 import { ParticipantsList } from '@/components/tournaments/ParticipantsList';
 import { BracketView } from '@/components/tournaments/BracketView';
 import { RegisterModal } from '@/components/tournaments/RegisterModal';
+import { TeamStandingsTable } from '@/components/tournaments/TeamStandingsTable';
 import { useMyEntries, useCheckinQr } from '@/hooks/useEntries';
 import { useWeighInByEntry } from '@/hooks/useWeighIns';
 
-type Tab = 'participants' | 'bracket';
+type Tab = 'participants' | 'bracket' | 'teams';
 
 interface Props {
   tournament: Tournament;
@@ -80,6 +81,11 @@ export function TournamentDetailClient({ tournament }: Props) {
             label={t('tab_bracket')}
             badge={!hasBracket ? t('bracket_pending_badge') : undefined}
           />
+          <TabButton
+            active={tab === 'teams'}
+            onClick={() => setTab('teams')}
+            label={t('tab_teams')}
+          />
         </div>
 
         <div className="p-6">
@@ -92,6 +98,7 @@ export function TournamentDetailClient({ tournament }: Props) {
                 {t('bracket_not_ready')}
               </p>
             ))}
+          {tab === 'teams' && <TeamStandingsTable tournamentId={tournament.id} />}
         </div>
       </div>
 
