@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { WeightCategory } from './entities/weight-category.entity';
 
 /**
@@ -19,4 +20,23 @@ export function fitsWeightCategory(
     if (weight > Number(c.maxWeight) + tolerance) return false;
   }
   return true;
+}
+
+/**
+ * Throw a descriptive `BadRequestException` if the given weight does not
+ * fit the category window. No-op when the weight fits. Centralises the
+ * error message used by both registration paths so they stay in sync.
+ */
+export function assertFitsWeightCategory(
+  weight: number,
+  c: Pick<WeightCategory, 'name' | 'minWeight' | 'maxWeight' | 'weightToleranceKg'>,
+): void {
+  if (fitsWeightCategory(weight, c)) return;
+  const tol = Number(c.weightToleranceKg ?? 0);
+  const limit = c.maxWeight !== null ? Number(c.maxWeight) + tol : null;
+  throw new BadRequestException(
+    limit !== null
+      ? `Weight ${weight} kg exceeds category limit (${limit} kg incl. tolerance)`
+      : `Weight ${weight} kg does not fit category "${c.name}"`,
+  );
 }

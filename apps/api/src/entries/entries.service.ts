@@ -14,7 +14,7 @@ import { TournamentEntry, EntryStatus } from './entities/tournament-entry.entity
 import { User } from '../users/entities/user.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
-import { fitsWeightCategory } from '../tournaments/weight-category.util';
+import { assertFitsWeightCategory } from '../tournaments/weight-category.util';
 import { CreateEntryDto } from './dto/create-entry.dto';
 
 @Injectable()
@@ -43,6 +43,8 @@ export class EntriesService {
       throw new BadRequestException('Registration deadline has passed');
     }
 
+    // TODO(gender): once `User.gender` exists, also reject when the user's
+    // gender doesn't match `category.gender`.
     if (dto.weightCategoryId) {
       const category = await this.weightCategoriesRepository.findOne({
         where: { id: dto.weightCategoryId, tournamentId: dto.tournamentId },
@@ -50,14 +52,8 @@ export class EntriesService {
       if (!category) {
         throw new BadRequestException('Weight category does not belong to this tournament');
       }
-      if (dto.weightKg !== undefined && !fitsWeightCategory(dto.weightKg, category)) {
-        const tol = Number(category.weightToleranceKg ?? 0);
-        const limit = category.maxWeight !== null ? Number(category.maxWeight) + tol : null;
-        throw new BadRequestException(
-          limit !== null
-            ? `Weight ${dto.weightKg} kg exceeds category limit (${limit} kg incl. tolerance)`
-            : `Weight ${dto.weightKg} kg does not fit category "${category.name}"`,
-        );
+      if (dto.weightKg !== undefined) {
+        assertFitsWeightCategory(dto.weightKg, category);
       }
     }
 

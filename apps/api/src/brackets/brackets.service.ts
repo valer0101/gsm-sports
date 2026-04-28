@@ -77,10 +77,15 @@ function ageGroupLabel(ageGroup: string): string {
 function mergeSmallCategories<
   G extends { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] },
 >(groups: Map<string, G>) {
+  // Sort by the bucket's numeric upper bound (null = open-top, sorted last).
+  // We can't rely on `WEIGHT_BUCKETS.indexOf` here because configured
+  // categories arrive with a synthesized bucket that isn't in that const,
+  // so `indexOf` returned -1 for every group and the merge order was
+  // effectively Map insertion order.
   const sorted = Array.from(groups.entries()).sort(([, a], [, b]) => {
-    const ai = WEIGHT_BUCKETS.indexOf(a.bucket);
-    const bi = WEIGHT_BUCKETS.indexOf(b.bucket);
-    return ai - bi;
+    const am = a.bucket.max === null ? Infinity : Number(a.bucket.max);
+    const bm = b.bucket.max === null ? Infinity : Number(b.bucket.max);
+    return am - bm;
   });
 
   const result = new Map(sorted);
@@ -417,7 +422,7 @@ export class BracketsService {
 
     if (useConfigured) {
       const sortedCats = [...configuredCats].sort(
-        (a, b) => (a.maxWeight ?? Infinity) - (b.maxWeight ?? Infinity),
+        (a, b) => Number(a.maxWeight ?? Infinity) - Number(b.maxWeight ?? Infinity),
       );
       for (const entry of entries) {
         const weight = Number(entry.weightKg ?? 80);
@@ -430,7 +435,16 @@ export class BracketsService {
         const cat =
           (preassigned && fitsWeightCategory(weight, preassigned) ? preassigned : undefined) ??
           sortedCats.find((c) => fitsWeightCategory(weight, c));
-        if (!cat) continue;
+        if (!cat) {
+          // Don't drop silently — surface to operators so the affected
+          // athlete can be reassigned manually before the bracket goes live.
+          this.logger.warn(
+            `Bracket gen: entry ${entry.id} (${weight}kg) did not fit any configured ` +
+              `weight category in tournament ${tournamentId} — skipped from bracket. ` +
+              `Admin must reassign manually.`,
+          );
+          continue;
+        }
         const bucket = {
           label: cat.name,
           min: cat.minWeight,
