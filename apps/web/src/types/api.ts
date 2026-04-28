@@ -15,12 +15,7 @@ export type SportBracketFormat =
   | 'round_robin'
   | 'swiss'
   | 'groups_playoff';
-export type SportMatchResultSchema =
-  | 'simple_winner'
-  | 'armwrestling'
-  | 'score'
-  | 'time'
-  | 'points';
+export type SportMatchResultSchema = 'simple_winner' | 'armwrestling' | 'score' | 'time' | 'points';
 
 export interface LocalizedTerm {
   ru: string;
@@ -59,6 +54,7 @@ export interface WeightCategory {
   name: string;
   minWeight: number | null;
   maxWeight: number | null;
+  weightToleranceKg: number;
   gender: string;
   sortOrder: number;
 }

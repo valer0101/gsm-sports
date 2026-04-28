@@ -226,13 +226,17 @@ CREATE INDEX idx_tournaments_slug ON tournaments(slug);
 
 ```sql
 CREATE TABLE weight_categories (
-    id              SERIAL PRIMARY KEY,
-    tournament_id   UUID REFERENCES tournaments(id) ON DELETE CASCADE,
-    name            VARCHAR(100) NOT NULL,          -- "до 70 кг"
-    min_weight      DECIMAL(5,2),
-    max_weight      DECIMAL(5,2),
-    gender          VARCHAR(10) DEFAULT 'male',
-    sort_order      INTEGER DEFAULT 0
+    id                   SERIAL PRIMARY KEY,
+    tournament_id        UUID REFERENCES tournaments(id) ON DELETE CASCADE,
+    name                 VARCHAR(100) NOT NULL,          -- "до 70 кг"
+    min_weight           DECIMAL(5,2),
+    max_weight           DECIMAL(5,2),
+    -- Допуск над `max_weight`. Атлет допускается в категорию, если
+    -- `weight <= max_weight + weight_tolerance_kg`. По умолчанию 0
+    -- (строгое поведение).
+    weight_tolerance_kg  DECIMAL(5,2) NOT NULL DEFAULT 0,
+    gender               VARCHAR(10) DEFAULT 'male',
+    sort_order           INTEGER DEFAULT 0
 );
 
 CREATE INDEX idx_weight_cat_tournament ON weight_categories(tournament_id);
@@ -537,10 +541,10 @@ weight_categories ──1:N──> tournament_entries
 
 ## 4. Миграция данных из localStorage
 
-| localStorage ключ | Новая таблица | Примечания |
-|-------------------|---------------|------------|
-| `gsm_tournaments` | `tournaments` + `weight_categories` | Разнести категории в отдельную таблицу |
-| `gsm_participants` | `users` + `athletes` + `tournament_entries` | Разделить на 3 сущности |
-| `gsm_brackets` | `brackets` + `matches` | bracket_data как JSONB + matches отдельно |
-| `gsm_active_tournament` | `tournaments.status = 'active'` | Флаг в самом турнире |
-| `gsm_admin_password` | `users` + `roles` | Полноценная auth система |
+| localStorage ключ       | Новая таблица                               | Примечания                                |
+| ----------------------- | ------------------------------------------- | ----------------------------------------- |
+| `gsm_tournaments`       | `tournaments` + `weight_categories`         | Разнести категории в отдельную таблицу    |
+| `gsm_participants`      | `users` + `athletes` + `tournament_entries` | Разделить на 3 сущности                   |
+| `gsm_brackets`          | `brackets` + `matches`                      | bracket_data как JSONB + matches отдельно |
+| `gsm_active_tournament` | `tournaments.status = 'active'`             | Флаг в самом турнире                      |
+| `gsm_admin_password`    | `users` + `roles`                           | Полноценная auth система                  |

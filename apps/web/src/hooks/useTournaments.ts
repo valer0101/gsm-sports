@@ -55,10 +55,7 @@ export function useRegistrations(tournamentId: string, params: RegistrationsPara
   });
 }
 
-export function useBrackets(
-  tournamentId: string,
-  options: { refetchInterval?: number } = {},
-) {
+export function useBrackets(tournamentId: string, options: { refetchInterval?: number } = {}) {
   return useQuery<Bracket[]>({
     queryKey: ['brackets', tournamentId],
     queryFn: () =>
@@ -74,6 +71,7 @@ interface RegisterPayload {
   ageGroup: AgeGroup;
   hand?: 'left' | 'right';
   weightKg?: number;
+  weightCategoryId?: string;
   notes?: string;
 }
 

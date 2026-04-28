@@ -10,6 +10,7 @@ import {
 import { EntriesService } from './entries.service';
 import { TournamentEntry } from './entities/tournament-entry.entity';
 import { User } from '../users/entities/user.entity';
+import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 
 const mockRepo = () => {
@@ -58,10 +59,15 @@ const mockUsersRepo = () => ({
   findOne: vi.fn().mockResolvedValue({ id: 'user-1', country: null }),
 });
 
+const mockWeightCategoriesRepo = () => ({
+  findOne: vi.fn().mockResolvedValue(null),
+});
+
 describe('EntriesService', () => {
   let service: EntriesService;
   let repo: ReturnType<typeof mockRepo>;
   let usersRepo: ReturnType<typeof mockUsersRepo>;
+  let weightCategoriesRepo: ReturnType<typeof mockWeightCategoriesRepo>;
   let tournamentsService: ReturnType<typeof mockTournamentsService>;
 
   beforeEach(async () => {
@@ -70,6 +76,7 @@ describe('EntriesService', () => {
         EntriesService,
         { provide: getRepositoryToken(TournamentEntry), useFactory: mockRepo },
         { provide: getRepositoryToken(User), useFactory: mockUsersRepo },
+        { provide: getRepositoryToken(WeightCategory), useFactory: mockWeightCategoriesRepo },
         { provide: TournamentsService, useFactory: mockTournamentsService },
       ],
     }).compile();
@@ -77,6 +84,7 @@ describe('EntriesService', () => {
     service = module.get(EntriesService);
     repo = module.get(getRepositoryToken(TournamentEntry));
     usersRepo = module.get(getRepositoryToken(User));
+    weightCategoriesRepo = module.get(getRepositoryToken(WeightCategory));
     tournamentsService = module.get(TournamentsService);
     void usersRepo; // referenced by tests via `service` only
   });
@@ -145,6 +153,96 @@ describe('EntriesService', () => {
           'u1',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    describe('weight category tolerance', () => {
+      it('rejects when weightCategoryId does not belong to the tournament', async () => {
+        tournamentsService.findById.mockResolvedValue(makeTournament());
+        weightCategoriesRepo.findOne.mockResolvedValue(null);
+        await expect(
+          service.register(
+            {
+              tournamentId: 'tournament-1',
+              ageGroup: 'adults',
+              hand: 'right',
+              weightKg: 70,
+              weightCategoryId: 'wc-foreign',
+            },
+            'user-1',
+          ),
+        ).rejects.toThrow(/Weight category does not belong/);
+      });
+
+      it('rejects when weight exceeds max + tolerance', async () => {
+        tournamentsService.findById.mockResolvedValue(makeTournament());
+        weightCategoriesRepo.findOne.mockResolvedValue({
+          id: 'wc-70',
+          name: '70 кг',
+          minWeight: 60,
+          maxWeight: 70,
+          weightToleranceKg: 1,
+        });
+        await expect(
+          service.register(
+            {
+              tournamentId: 'tournament-1',
+              ageGroup: 'adults',
+              hand: 'right',
+              weightKg: 72,
+              weightCategoryId: 'wc-70',
+            },
+            'user-1',
+          ),
+        ).rejects.toThrow(/exceeds category limit \(71 kg incl\. tolerance\)/);
+      });
+
+      it('accepts a weight within max + tolerance', async () => {
+        tournamentsService.findById.mockResolvedValue(makeTournament());
+        weightCategoriesRepo.findOne.mockResolvedValue({
+          id: 'wc-70',
+          name: '70 кг',
+          minWeight: 60,
+          maxWeight: 70,
+          weightToleranceKg: 1,
+        });
+        repo.findOne.mockResolvedValueOnce(null); // no existing entry
+        repo.count.mockResolvedValue(0);
+        repo.create.mockReturnValue(makeEntry({ weightCategoryId: 'wc-70' }));
+        repo.save.mockResolvedValue(makeEntry({ weightCategoryId: 'wc-70' }));
+        repo.findOne.mockResolvedValueOnce(makeEntry({ weightCategoryId: 'wc-70' }));
+
+        const result = await service.register(
+          {
+            tournamentId: 'tournament-1',
+            ageGroup: 'adults',
+            hand: 'right',
+            weightKg: 70.8,
+            weightCategoryId: 'wc-70',
+          },
+          'user-1',
+        );
+        expect(result.id).toBe('entry-1');
+        // The created entry must carry the chosen weightCategoryId so the
+        // bracket-gen pre-assignment lookup picks it up.
+        expect(repo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ weightCategoryId: 'wc-70' }),
+        );
+      });
+
+      it('skips category lookup when no weightCategoryId is provided', async () => {
+        tournamentsService.findById.mockResolvedValue(makeTournament());
+        repo.findOne.mockResolvedValueOnce(null);
+        repo.count.mockResolvedValue(0);
+        repo.create.mockReturnValue(makeEntry());
+        repo.save.mockResolvedValue(makeEntry());
+        repo.findOne.mockResolvedValueOnce(makeEntry());
+
+        await service.register(
+          { tournamentId: 'tournament-1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
+          'user-1',
+        );
+        expect(weightCategoriesRepo.findOne).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -281,9 +379,9 @@ describe('EntriesService', () => {
         makeEntry({ tournament: makeTournament({ bracketGenerated: false }) }),
       );
 
-      await expect(
-        service.reassign('entry-1', { reason: 'no fields' }, actor),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reassign('entry-1', { reason: 'no fields' }, actor)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('appends the reason to entry.notes (preserving existing notes)', async () => {
@@ -299,7 +397,9 @@ describe('EntriesService', () => {
       await service.reassign('entry-1', { weightKg: 85, reason: 'weigh-in correction' }, actor);
 
       const updateArg = repo.update.mock.calls[0][1];
-      expect(updateArg.notes).toMatch(/^existing note\n\[reassign by org-1 @ .+\] weigh-in correction$/);
+      expect(updateArg.notes).toMatch(
+        /^existing note\n\[reassign by org-1 @ .+\] weigh-in correction$/,
+      );
     });
   });
 });

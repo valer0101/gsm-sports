@@ -32,6 +32,12 @@ export class WeightCategory {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   maxWeight: number | null;
 
+  // Allow athletes up to `maxWeight + weightToleranceKg` to register and
+  // be weighed-in for this category. 0 (default) preserves the historical
+  // strict `weight > maxWeight ⇒ reject` behavior.
+  @Column({ name: 'weight_tolerance_kg', type: 'decimal', precision: 5, scale: 2, default: 0 })
+  weightToleranceKg: number;
+
   @Column({ type: 'varchar', length: 10, default: 'male' })
   gender: string;
 

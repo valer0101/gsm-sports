@@ -30,20 +30,44 @@ interface PrizeItem {
 
 const WEIGHT_PRESETS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110];
 
-function buildWeightCategories(selected: number[], hasPlus: boolean, custom: string) {
+function buildWeightCategories(
+  selected: number[],
+  hasPlus: boolean,
+  custom: string,
+  toleranceKg: number,
+) {
   const sorted = [...selected].sort((a, b) => a - b);
-  const result: { name: string; minWeight: number | null; maxWeight: number | null; sortOrder: number }[] = sorted.map((kg, idx) => ({
+  const result: {
+    name: string;
+    minWeight: number | null;
+    maxWeight: number | null;
+    weightToleranceKg: number;
+    sortOrder: number;
+  }[] = sorted.map((kg, idx) => ({
     name: `${kg} кг`,
     minWeight: idx === 0 ? null : sorted[idx - 1],
     maxWeight: kg,
+    weightToleranceKg: toleranceKg,
     sortOrder: idx,
   }));
   if (hasPlus) {
     const last = sorted.length > 0 ? sorted[sorted.length - 1] : 110;
-    result.push({ name: `${last}+ кг`, minWeight: last, maxWeight: null, sortOrder: result.length });
+    result.push({
+      name: `${last}+ кг`,
+      minWeight: last,
+      maxWeight: null,
+      weightToleranceKg: toleranceKg,
+      sortOrder: result.length,
+    });
   }
   if (custom.trim()) {
-    result.push({ name: custom.trim(), minWeight: null, maxWeight: null, sortOrder: result.length });
+    result.push({
+      name: custom.trim(),
+      minWeight: null,
+      maxWeight: null,
+      weightToleranceKg: toleranceKg,
+      sortOrder: result.length,
+    });
   }
   return result;
 }
@@ -86,6 +110,7 @@ export default function NewTournamentPage() {
   const [selectedWeights, setSelectedWeights] = useState<number[]>([]);
   const [weightPlus, setWeightPlus] = useState(false);
   const [customWeight, setCustomWeight] = useState('');
+  const [weightTolerance, setWeightTolerance] = useState('0');
   const [hands, setHands] = useState<string[]>(['right']);
   const [entryFeeType, setEntryFeeType] = useState<'free' | 'paid'>('free');
   const [entryFeeAmount, setEntryFeeAmount] = useState('');
@@ -131,7 +156,10 @@ export default function NewTournamentPage() {
     setSelectedWeights((p) => (p.includes(kg) ? p.filter((x) => x !== kg) : [...p, kg]));
   }
   function toggleHand(val: string) {
-    if (val === 'both') { setHands(['right', 'left']); return; }
+    if (val === 'both') {
+      setHands(['right', 'left']);
+      return;
+    }
     setHands((p) => {
       if (p.includes('right') && p.includes('left')) return [val];
       return p.includes(val) ? p.filter((x) => x !== val) : [...p, val];
@@ -143,17 +171,31 @@ export default function NewTournamentPage() {
   function addPrize() {
     setPrizes((p) => [
       ...p,
-      { id: Date.now().toString(), place: String(p.length + 1), type: 'money', value: '', description: '' },
+      {
+        id: Date.now().toString(),
+        place: String(p.length + 1),
+        type: 'money',
+        value: '',
+        description: '',
+      },
     ]);
   }
-  function removePrize(id: string) { setPrizes((p) => p.filter((x) => x.id !== id)); }
+  function removePrize(id: string) {
+    setPrizes((p) => p.filter((x) => x.id !== id));
+  }
   function updatePrize(id: string, field: keyof PrizeItem, val: string) {
     setPrizes((p) => p.map((x) => (x.id === id ? { ...x, [field]: val } : x)));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const weightCats = buildWeightCategories(selectedWeights, weightPlus, customWeight);
+    const toleranceKg = Math.max(0, parseFloat(weightTolerance) || 0);
+    const weightCats = buildWeightCategories(
+      selectedWeights,
+      weightPlus,
+      customWeight,
+      toleranceKg,
+    );
     const sportConfig: Record<string, unknown> = {
       competitionType,
       hands,
@@ -235,7 +277,10 @@ export default function NewTournamentPage() {
               )}
               <button
                 type="button"
-                onClick={() => { setPosterPreview(''); setPosterUrl(''); }}
+                onClick={() => {
+                  setPosterPreview('');
+                  setPosterUrl('');
+                }}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
               >
                 ✕
@@ -284,7 +329,11 @@ export default function NewTournamentPage() {
               style={{ backgroundColor: 'var(--color-bg)' }}
             >
               <option value="">
-                {sportsLoading ? t('sport_loading') : sports?.length === 0 ? t('sport_empty') : t('sport_placeholder')}
+                {sportsLoading
+                  ? t('sport_loading')
+                  : sports?.length === 0
+                    ? t('sport_empty')
+                    : t('sport_placeholder')}
               </option>
               {sports?.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -378,8 +427,10 @@ export default function NewTournamentPage() {
                 onClick={() => setCompetitionType(ct.value as any)}
                 className="text-left p-4 rounded-xl border transition-colors"
                 style={{
-                  borderColor: competitionType === ct.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
-                  backgroundColor: competitionType === ct.value ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  borderColor:
+                    competitionType === ct.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+                  backgroundColor:
+                    competitionType === ct.value ? 'rgba(255,255,255,0.05)' : 'transparent',
                 }}
               >
                 <p className="font-bold text-white">{ct.label}</p>
@@ -403,8 +454,12 @@ export default function NewTournamentPage() {
                   key={ag.value}
                   className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
                   style={{
-                    borderColor: ageGroups.includes(ag.value) ? 'var(--color-accent)' : 'rgba(255,255,255,0.08)',
-                    backgroundColor: ageGroups.includes(ag.value) ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    borderColor: ageGroups.includes(ag.value)
+                      ? 'var(--color-accent)'
+                      : 'rgba(255,255,255,0.08)',
+                    backgroundColor: ageGroups.includes(ag.value)
+                      ? 'rgba(255,255,255,0.04)'
+                      : 'transparent',
                   }}
                 >
                   <input
@@ -430,8 +485,12 @@ export default function NewTournamentPage() {
                 onClick={() => toggleWeight(kg)}
                 className="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors"
                 style={{
-                  borderColor: selectedWeights.includes(kg) ? 'var(--color-accent)' : 'rgba(255,255,255,0.15)',
-                  backgroundColor: selectedWeights.includes(kg) ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  borderColor: selectedWeights.includes(kg)
+                    ? 'var(--color-accent)'
+                    : 'rgba(255,255,255,0.15)',
+                  backgroundColor: selectedWeights.includes(kg)
+                    ? 'rgba(255,255,255,0.08)'
+                    : 'transparent',
                   color: selectedWeights.includes(kg) ? 'white' : 'var(--color-text-secondary)',
                 }}
               >
@@ -457,10 +516,49 @@ export default function NewTournamentPage() {
             placeholder={t('weight_custom_placeholder')}
             className={`${INP} text-sm py-2`}
           />
+          <div className="mt-3">
+            <label
+              className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {t('weight_tolerance_label')}
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={weightTolerance}
+                onChange={(e) => setWeightTolerance(e.target.value)}
+                min={0}
+                step={0.1}
+                placeholder="0"
+                className={`${INP} text-sm py-2 pr-12`}
+              />
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {t('weight_tolerance_unit')}
+              </span>
+            </div>
+            <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('weight_tolerance_hint')}
+            </p>
+          </div>
           {(selectedWeights.length > 0 || weightPlus || customWeight.trim()) && (
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {t('weight_selected')}{' '}
-              {buildWeightCategories(selectedWeights, weightPlus, customWeight).map((w) => w.name).join(' · ')}
+              {buildWeightCategories(
+                selectedWeights,
+                weightPlus,
+                customWeight,
+                Math.max(0, parseFloat(weightTolerance) || 0),
+              )
+                .map((w) =>
+                  w.weightToleranceKg > 0
+                    ? `${w.name} ${t('weight_tolerance_preview', { kg: w.weightToleranceKg })}`
+                    : w.name,
+                )
+                .join(' · ')}
             </p>
           )}
         </Section>
@@ -475,8 +573,10 @@ export default function NewTournamentPage() {
                 onClick={() => toggleHand(h.value)}
                 className="flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors"
                 style={{
-                  borderColor: handsLabel === h.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
-                  backgroundColor: handsLabel === h.value ? 'rgba(255,255,255,0.06)' : 'transparent',
+                  borderColor:
+                    handsLabel === h.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+                  backgroundColor:
+                    handsLabel === h.value ? 'rgba(255,255,255,0.06)' : 'transparent',
                 }}
               >
                 <span className="text-2xl">{h.emoji}</span>
@@ -502,8 +602,10 @@ export default function NewTournamentPage() {
                 onClick={() => setEntryFeeType(f.value as any)}
                 className="flex items-center gap-3 p-4 rounded-xl border transition-colors"
                 style={{
-                  borderColor: entryFeeType === f.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
-                  backgroundColor: entryFeeType === f.value ? 'rgba(255,255,255,0.06)' : 'transparent',
+                  borderColor:
+                    entryFeeType === f.value ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+                  backgroundColor:
+                    entryFeeType === f.value ? 'rgba(255,255,255,0.06)' : 'transparent',
                 }}
               >
                 <span className="text-xl">{f.emoji}</span>

@@ -10,6 +10,7 @@ import { In, Repository } from 'typeorm';
 import { WeighIn } from './entities/weigh-in.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
+import { fitsWeightCategory } from '../tournaments/weight-category.util';
 import { EntriesService } from '../entries/entries.service';
 import { resolveSportConfig } from '../sports/sport-config';
 
@@ -68,9 +69,7 @@ export class WeighInsService {
       (entry.tournament.sport?.config ?? null) as Parameters<typeof resolveSportConfig>[1],
     );
     if (!sportCfg.weighInRequired) {
-      throw new BadRequestException(
-        'This sport does not require a weigh-in',
-      );
+      throw new BadRequestException('This sport does not require a weigh-in');
     }
 
     // Upsert by entryId (unique).
@@ -147,10 +146,7 @@ export class WeighInsService {
    * weigh-in is intentionally restricted so the audit trail can't be
    * quietly rewritten during the event.
    */
-  async undo(
-    id: string,
-    actor: { userId: string; roles: string[] },
-  ): Promise<void> {
+  async undo(id: string, actor: { userId: string; roles: string[] }): Promise<void> {
     if (!actor.roles.includes('admin')) {
       throw new ForbiddenException('Only admin can undo a weigh-in');
     }
@@ -201,9 +197,7 @@ export class WeighInsService {
       where: { tournamentId: entry.tournamentId },
     });
     const candidates = categories.filter(
-      (c) =>
-        c.gender === entry.weightCategory!.gender &&
-        this.fitsCategory(officialWeightKg, c),
+      (c) => c.gender === entry.weightCategory!.gender && this.fitsCategory(officialWeightKg, c),
     );
 
     if (candidates.length === 0) {
@@ -244,17 +238,8 @@ export class WeighInsService {
     );
   }
 
-  /**
-   * Category membership: `[min, max)` on the lower bound, `(max]` on the
-   * upper — i.e. athletes at the exact min weight belong in the heavier
-   * category, athletes at the exact max weight belong in the current one.
-   * Nullable bounds mean "open" on that side (a -55kg category has
-   * `minWeight = null`, a +100kg has `maxWeight = null`).
-   */
   private fitsCategory(weight: number, c: WeightCategory): boolean {
-    if (c.minWeight !== null && weight <= Number(c.minWeight)) return false;
-    if (c.maxWeight !== null && weight > Number(c.maxWeight)) return false;
-    return true;
+    return fitsWeightCategory(weight, c);
   }
 
   private assertAdminOrOrganizer(
@@ -264,9 +249,7 @@ export class WeighInsService {
     const isAdmin = actor.roles.includes('admin');
     const isOrganizer = entry.tournament?.organizerId === actor.userId;
     if (!isAdmin && !isOrganizer) {
-      throw new ForbiddenException(
-        'Only the tournament organizer or admin can record weigh-ins',
-      );
+      throw new ForbiddenException('Only the tournament organizer or admin can record weigh-ins');
     }
   }
 }

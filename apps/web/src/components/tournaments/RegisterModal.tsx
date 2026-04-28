@@ -47,9 +47,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
   // The per-tournament `hands` still narrows which hands are offered at this
   // specific event (e.g. a right-arm-only tournament).
   const sportHasHands = tournament.sport?.config?.hasHands ?? true;
-  const configuredHands: string[] = sportHasHands
-    ? (cfg.hands ?? ['right', 'left'])
-    : [];
+  const configuredHands: string[] = sportHasHands ? (cfg.hands ?? ['right', 'left']) : [];
 
   // Weight categories only matter for weight-class sports.
   const usesWeightCategories = (tournament.sport?.config?.categoriesType ?? 'weight') === 'weight';
@@ -105,10 +103,11 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
     // Weight is required for weight-class sports, but some sports don't use it.
     if (usesWeightCategories && !selectedWeight) return;
     const weightKg = selectedWeight?.weightKg;
+    const weightCategoryId = selectedWeight?.categoryId;
     try {
       if (sportHasHands && effectiveHand === 'both') {
-        await mutateAsync({ ageGroup: effectiveAge, hand: 'right', weightKg });
-        await mutateAsync({ ageGroup: effectiveAge, hand: 'left', weightKg });
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'right', weightKg, weightCategoryId });
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'left', weightKg, weightCategoryId });
         onSuccess();
         onClose();
       } else {
@@ -120,6 +119,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
             ageGroup: effectiveAge,
             hand: resolvedHand,
             weightKg,
+            weightCategoryId,
           },
           {
             onSuccess: () => {
@@ -217,7 +217,11 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/10"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
-                {hasRight && hasLeft ? tm('hand_both_chip') : hasRight ? tm('hand_right_chip') : tm('hand_left_chip')}
+                {hasRight && hasLeft
+                  ? tm('hand_both_chip')
+                  : hasRight
+                    ? tm('hand_right_chip')
+                    : tm('hand_left_chip')}
               </span>
             )}
             {entryFee && (
@@ -363,6 +367,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                   {weightCategories.map((wc) => {
                     const isSelected = selectedWeight?.categoryId === wc.id;
                     const weightKg = wc.maxWeight ?? wc.minWeight ?? 0;
+                    const tol = Number(wc.weightToleranceKg ?? 0);
                     return (
                       <button
                         key={wc.id}
@@ -382,6 +387,11 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                       >
                         <span className="text-lg font-black">{weightKg}</span>
                         <span className="text-xs opacity-60">{tm('kg')}</span>
+                        {tol > 0 && (
+                          <span className="text-[10px] opacity-60">
+                            +{tol} {tm('kg')}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -405,7 +415,9 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                 </div>
                 {sportHasHands && (
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_hand')}</span>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                      {tm('summary_hand')}
+                    </span>
                     <span className="text-white font-medium">
                       {hand === 'right'
                         ? tm('hand_right_summary')
@@ -418,7 +430,9 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>{tm('summary_category')}</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>
+                    {tm('summary_category')}
+                  </span>
                   <span
                     className="font-semibold"
                     style={{

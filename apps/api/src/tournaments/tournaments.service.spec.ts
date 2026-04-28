@@ -34,6 +34,7 @@ const mockTournamentsRepo = () => ({
 const mockWeightCategoriesRepo = () => ({
   create: vi.fn(),
   save: vi.fn(),
+  findOne: vi.fn(),
 });
 
 const mockOperatorsRepo = () => ({
@@ -512,12 +513,19 @@ describe('TournamentsService', () => {
       tablesRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.assignOperator('tournament-uuid-1', 'operator-1', 'organizer-uuid-1', 'foreign-table'),
+        service.assignOperator(
+          'tournament-uuid-1',
+          'operator-1',
+          'organizer-uuid-1',
+          'foreign-table',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ForbiddenException when user is not organizer', async () => {
-      tournamentsRepo.findOne.mockResolvedValue(makeTournament({ organizerId: 'organizer-uuid-1' }));
+      tournamentsRepo.findOne.mockResolvedValue(
+        makeTournament({ organizerId: 'organizer-uuid-1' }),
+      );
 
       await expect(
         service.assignOperator('tournament-uuid-1', 'operator-1', 'different-user'),
@@ -573,6 +581,70 @@ describe('TournamentsService', () => {
       await expect(
         service.updateOperatorTable('tournament-uuid-1', 'operator-1', null, 'organizer-uuid-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('registerParticipant — weight tolerance', () => {
+    const openTournament = () =>
+      makeTournament({
+        registrationOpen: true,
+        bracketGenerated: false,
+        registrationDeadline: null,
+      });
+
+    it('rejects when weightCategoryId does not belong to the tournament', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(openTournament());
+      weightCategoriesRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.registerParticipant('tournament-uuid-1', 'user-1', {
+          ageGroup: 'adults',
+          hand: 'right',
+          weightKg: 70,
+          weightCategoryId: 'wc-foreign',
+        }),
+      ).rejects.toThrow(/Weight category does not belong/);
+    });
+
+    it('rejects when weight exceeds max + tolerance', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(openTournament());
+      weightCategoriesRepo.findOne.mockResolvedValue({
+        id: 'wc-70',
+        name: '70 кг',
+        minWeight: 60,
+        maxWeight: 70,
+        weightToleranceKg: 1,
+      });
+
+      await expect(
+        service.registerParticipant('tournament-uuid-1', 'user-1', {
+          ageGroup: 'adults',
+          hand: 'right',
+          weightKg: 72,
+          weightCategoryId: 'wc-70',
+        }),
+      ).rejects.toThrow(/exceeds category limit \(71 kg incl\. tolerance\)/);
+    });
+
+    it('skips category lookup when no weightCategoryId is provided', async () => {
+      tournamentsRepo.findOne.mockResolvedValue(openTournament());
+      // The transaction body would otherwise touch the entry repo — short-
+      // circuit it by making the transaction itself reject. Reaching the
+      // transaction means we got past the (unrelated) tolerance branch,
+      // which is what this test asserts.
+      const ds = (service as any).dataSource;
+      ds.transaction.mockImplementationOnce(async () => {
+        throw new BadRequestException('skip-transaction-body');
+      });
+
+      await expect(
+        service.registerParticipant('tournament-uuid-1', 'user-1', {
+          ageGroup: 'adults',
+          hand: 'right',
+          weightKg: 75,
+        }),
+      ).rejects.toThrow(/skip-transaction-body/);
+      expect(weightCategoriesRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });
