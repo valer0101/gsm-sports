@@ -154,6 +154,16 @@ describe('EntriesService', () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
     });
+
+    it('should eagerly load tournament.sport so weigh-in gating works', async () => {
+      repo.findOne.mockResolvedValue(makeEntry());
+      await service.findById('entry-1');
+      expect(repo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relations: expect.arrayContaining(['tournament.sport']),
+        }),
+      );
+    });
   });
 
   describe('withdraw', () => {

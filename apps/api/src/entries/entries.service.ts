@@ -90,7 +90,7 @@ export class EntriesService {
   async findById(id: string): Promise<TournamentEntry> {
     const entry = await this.entriesRepository.findOne({
       where: { id },
-      relations: ['user', 'tournament', 'weightCategory'],
+      relations: ['user', 'tournament', 'tournament.sport', 'weightCategory'],
     });
     if (!entry) throw new NotFoundException(`Entry #${id} not found`);
     return entry;
