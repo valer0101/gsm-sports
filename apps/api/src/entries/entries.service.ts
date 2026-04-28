@@ -12,7 +12,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { TournamentEntry, EntryStatus } from './entities/tournament-entry.entity';
 import { User } from '../users/entities/user.entity';
+import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
+import { fitsWeightCategory } from '../tournaments/weight-category.util';
 import { CreateEntryDto } from './dto/create-entry.dto';
 
 @Injectable()
@@ -24,6 +26,8 @@ export class EntriesService {
     private readonly entriesRepository: Repository<TournamentEntry>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(WeightCategory)
+    private readonly weightCategoriesRepository: Repository<WeightCategory>,
     @Inject(forwardRef(() => TournamentsService))
     private readonly tournamentsService: TournamentsService,
   ) {}
@@ -37,6 +41,25 @@ export class EntriesService {
 
     if (tournament.registrationDeadline && new Date() > tournament.registrationDeadline) {
       throw new BadRequestException('Registration deadline has passed');
+    }
+
+    if (dto.weightCategoryId) {
+      const category = await this.weightCategoriesRepository.findOne({
+        where: { id: dto.weightCategoryId, tournamentId: dto.tournamentId },
+      });
+      if (!category) {
+        throw new BadRequestException('Weight category does not belong to this tournament');
+      }
+      if (dto.weightKg !== undefined && !fitsWeightCategory(dto.weightKg, category)) {
+        const tol = Number(category.weightToleranceKg ?? 0);
+        const limit =
+          category.maxWeight !== null ? Number(category.maxWeight) + tol : null;
+        throw new BadRequestException(
+          limit !== null
+            ? `Weight ${dto.weightKg} kg exceeds category limit (${limit} kg incl. tolerance)`
+            : `Weight ${dto.weightKg} kg does not fit category "${category.name}"`,
+        );
+      }
     }
 
     // Snapshot the registrant's country so historical leaderboards are

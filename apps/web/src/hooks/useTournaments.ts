@@ -74,6 +74,7 @@ interface RegisterPayload {
   ageGroup: AgeGroup;
   hand?: 'left' | 'right';
   weightKg?: number;
+  weightCategoryId?: string;
   notes?: string;
 }
 

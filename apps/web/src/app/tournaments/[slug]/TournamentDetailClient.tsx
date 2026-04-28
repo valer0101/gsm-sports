@@ -110,15 +110,21 @@ export function TournamentDetailClient({ tournament }: Props) {
         >
           <h2 className="font-bold text-white mb-4">{t('weight_categories')}</h2>
           <div className="flex flex-wrap gap-2">
-            {tournament.weightCategories.map((wc) => (
-              <span
-                key={wc.id}
-                className="px-3 py-1.5 rounded-full text-sm border border-white/15"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                {wc.name}
-              </span>
-            ))}
+            {tournament.weightCategories.map((wc) => {
+              const tol = Number(wc.weightToleranceKg ?? 0);
+              return (
+                <span
+                  key={wc.id}
+                  className="px-3 py-1.5 rounded-full text-sm border border-white/15"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {wc.name}
+                  {tol > 0 && (
+                    <span className="ml-1 opacity-70">{t('weight_tolerance_suffix', { kg: tol })}</span>
+                  )}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

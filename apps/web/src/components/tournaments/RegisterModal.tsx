@@ -105,10 +105,11 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
     // Weight is required for weight-class sports, but some sports don't use it.
     if (usesWeightCategories && !selectedWeight) return;
     const weightKg = selectedWeight?.weightKg;
+    const weightCategoryId = selectedWeight?.categoryId;
     try {
       if (sportHasHands && effectiveHand === 'both') {
-        await mutateAsync({ ageGroup: effectiveAge, hand: 'right', weightKg });
-        await mutateAsync({ ageGroup: effectiveAge, hand: 'left', weightKg });
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'right', weightKg, weightCategoryId });
+        await mutateAsync({ ageGroup: effectiveAge, hand: 'left', weightKg, weightCategoryId });
         onSuccess();
         onClose();
       } else {
@@ -120,6 +121,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
             ageGroup: effectiveAge,
             hand: resolvedHand,
             weightKg,
+            weightCategoryId,
           },
           {
             onSuccess: () => {
@@ -363,6 +365,7 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                   {weightCategories.map((wc) => {
                     const isSelected = selectedWeight?.categoryId === wc.id;
                     const weightKg = wc.maxWeight ?? wc.minWeight ?? 0;
+                    const tol = Number(wc.weightToleranceKg ?? 0);
                     return (
                       <button
                         key={wc.id}
@@ -382,6 +385,9 @@ export function RegisterModal({ tournament, onClose, onSuccess }: Props) {
                       >
                         <span className="text-lg font-black">{weightKg}</span>
                         <span className="text-xs opacity-60">{tm('kg')}</span>
+                        {tol > 0 && (
+                          <span className="text-[10px] opacity-60">+{tol} {tm('kg')}</span>
+                        )}
                       </button>
                     );
                   })}

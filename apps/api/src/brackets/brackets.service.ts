@@ -29,6 +29,7 @@ import { Bracket, BracketStatus } from './entities/bracket.entity';
 import { BracketAuditLog } from './entities/bracket-audit-log.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
+import { fitsWeightCategory } from '../tournaments/weight-category.util';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
@@ -73,12 +74,9 @@ function ageGroupLabel(ageGroup: string): string {
   }
 }
 
-function mergeSmallCategories(
-  groups: Map<
-    string,
-    { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] }
-  >,
-) {
+function mergeSmallCategories<
+  G extends { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] },
+>(groups: Map<string, G>) {
   const sorted = Array.from(groups.entries()).sort(([, a], [, b]) => {
     const ai = WEIGHT_BUCKETS.indexOf(a.bucket);
     const bi = WEIGHT_BUCKETS.indexOf(b.bucket);
@@ -401,18 +399,65 @@ export class BracketsService {
     );
     const format = this.resolveFormat(bracketFormat, cfg, tournament.sportConfig);
 
-    const groups = new Map<
-      string,
-      { bucket: (typeof WEIGHT_BUCKETS)[0]; ageGroup: string; hand: string; entries: any[] }
-    >();
+    // If the organizer pre-configured weight categories, group entries
+    // against those (honoring `weightToleranceKg`). Otherwise fall back
+    // to the hardcoded `WEIGHT_BUCKETS` heuristic — used by sports/events
+    // that didn't define explicit categories at create time.
+    const configuredCats = tournament.weightCategories ?? [];
+    const useConfigured = configuredCats.length > 0;
 
-    for (const entry of entries) {
-      const bucket = getWeightBucket(Number(entry.weightKg ?? 80));
-      const key = `${entry.ageGroup}|${entry.hand}|${bucket.label}`;
-      if (!groups.has(key)) {
-        groups.set(key, { bucket, ageGroup: entry.ageGroup, hand: entry.hand, entries: [] });
+    type Group = {
+      bucket: (typeof WEIGHT_BUCKETS)[0];
+      ageGroup: string;
+      hand: string;
+      entries: any[];
+      configuredCategory?: WeightCategory;
+    };
+    const groups = new Map<string, Group>();
+
+    if (useConfigured) {
+      const sortedCats = [...configuredCats].sort(
+        (a, b) => (a.maxWeight ?? Infinity) - (b.maxWeight ?? Infinity),
+      );
+      for (const entry of entries) {
+        const weight = Number(entry.weightKg ?? 80);
+        // Prefer the entry's pre-assigned category (set at registration
+        // when the user picked one); otherwise pick the lightest category
+        // whose `(min, max + tolerance]` window accepts the weight.
+        const preassigned = entry.weightCategoryId
+          ? sortedCats.find((c) => c.id === entry.weightCategoryId)
+          : undefined;
+        const cat =
+          (preassigned && fitsWeightCategory(weight, preassigned)
+            ? preassigned
+            : undefined) ?? sortedCats.find((c) => fitsWeightCategory(weight, c));
+        if (!cat) continue;
+        const bucket = {
+          label: cat.name,
+          min: cat.minWeight,
+          max: cat.maxWeight,
+        } as (typeof WEIGHT_BUCKETS)[0];
+        const key = `${entry.ageGroup}|${entry.hand}|${cat.id}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            bucket,
+            ageGroup: entry.ageGroup,
+            hand: entry.hand,
+            entries: [],
+            configuredCategory: cat,
+          });
+        }
+        groups.get(key)!.entries.push(entry);
       }
-      groups.get(key)!.entries.push(entry);
+    } else {
+      for (const entry of entries) {
+        const bucket = getWeightBucket(Number(entry.weightKg ?? 80));
+        const key = `${entry.ageGroup}|${entry.hand}|${bucket.label}`;
+        if (!groups.has(key)) {
+          groups.set(key, { bucket, ageGroup: entry.ageGroup, hand: entry.hand, entries: [] });
+        }
+        groups.get(key)!.entries.push(entry);
+      }
     }
 
     const mergedGroups = mergeSmallCategories(groups);
@@ -423,24 +468,33 @@ export class BracketsService {
       const bRepo = em.getRepository(Bracket);
       const tRepo = em.getRepository(Tournament);
 
-      await wcRepo.delete({ tournamentId });
+      // Only wipe categories when we generated them ourselves from
+      // hardcoded buckets — preserve admin-configured categories so the
+      // tolerance + naming the organizer set up survives bracket gen.
+      if (!useConfigured) {
+        await wcRepo.delete({ tournamentId });
+      }
 
       let count = 0;
 
       for (const [, group] of mergedGroups) {
         if (group.entries.length < 2) continue;
 
-        const catName = `${ageGroupLabel(group.ageGroup)} · ${group.bucket.label} · ${group.hand === 'right' ? 'Правая' : 'Левая'}`;
+        const catName = group.configuredCategory
+          ? group.configuredCategory.name
+          : `${ageGroupLabel(group.ageGroup)} · ${group.bucket.label} · ${group.hand === 'right' ? 'Правая' : 'Левая'}`;
 
-        const category = await wcRepo.save(
-          wcRepo.create({
-            tournamentId,
-            name: catName,
-            minWeight: group.bucket.min,
-            maxWeight: group.bucket.max,
-            gender: 'male',
-          }),
-        );
+        const category = group.configuredCategory
+          ? group.configuredCategory
+          : await wcRepo.save(
+              wcRepo.create({
+                tournamentId,
+                name: catName,
+                minWeight: group.bucket.min,
+                maxWeight: group.bucket.max,
+                gender: 'male',
+              }),
+            );
 
         for (const entry of group.entries) {
           await eRepo.update(entry.id, { weightCategoryId: category.id, status: 'confirmed' });

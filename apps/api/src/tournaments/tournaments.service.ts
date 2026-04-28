@@ -19,6 +19,7 @@ import { User } from '../users/entities/user.entity';
 import { BracketsService } from '../brackets/brackets.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
+import { fitsWeightCategory } from './weight-category.util';
 
 interface FindAllOptions {
   sport?: string;
@@ -182,7 +183,13 @@ export class TournamentsService {
   async registerParticipant(
     tournamentId: string,
     userId: string,
-    dto: { ageGroup: string; hand: string; weightKg: number; notes?: string },
+    dto: {
+      ageGroup: string;
+      hand: string;
+      weightKg: number;
+      weightCategoryId?: string;
+      notes?: string;
+    },
   ) {
     const tournament = await this.findById(tournamentId);
 
@@ -194,6 +201,30 @@ export class TournamentsService {
     }
     if (tournament.registrationDeadline && new Date() > tournament.registrationDeadline) {
       throw new BadRequestException('Registration deadline has passed');
+    }
+
+    // Tolerance check — if the registrant picked a weight category, their
+    // weight must fit `(min, max + weightToleranceKg]`. Without an explicit
+    // pick we leave assignment to the bracket-generation auto-bucket pass.
+    let resolvedWeightCategoryId: string | null = dto.weightCategoryId ?? null;
+    if (dto.weightCategoryId) {
+      const category = await this.weightCategoriesRepository.findOne({
+        where: { id: dto.weightCategoryId, tournamentId },
+      });
+      if (!category) {
+        throw new BadRequestException('Weight category does not belong to this tournament');
+      }
+      if (!fitsWeightCategory(dto.weightKg, category)) {
+        const tol = Number(category.weightToleranceKg ?? 0);
+        const limit =
+          category.maxWeight !== null ? Number(category.maxWeight) + tol : null;
+        throw new BadRequestException(
+          limit !== null
+            ? `Weight ${dto.weightKg} kg exceeds category limit (${limit} kg incl. tolerance)`
+            : `Weight ${dto.weightKg} kg does not fit category "${category.name}"`,
+        );
+      }
+      resolvedWeightCategoryId = category.id;
     }
 
     const entryRepo = this.dataSource.getRepository(TournamentEntry);
@@ -236,6 +267,7 @@ export class TournamentsService {
         ageGroup: dto.ageGroup as any,
         hand: dto.hand,
         weightKg: dto.weightKg,
+        weightCategoryId: resolvedWeightCategoryId,
         notes: dto.notes ?? null,
         athleteCountry,
         status: 'pending' as any,

@@ -32,6 +32,18 @@ class WeightCategoryDto {
   @IsNumber()
   maxWeight?: number;
 
+  @ApiProperty({
+    example: 1,
+    required: false,
+    description:
+      'Weight tolerance in kg. An athlete is allowed in this category as long ' +
+      'as their weight ≤ maxWeight + weightToleranceKg. Default 0 (strict).',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  weightToleranceKg?: number;
+
   @ApiProperty({ example: 'male', required: false })
   @IsOptional()
   @IsEnum(['male', 'female'])

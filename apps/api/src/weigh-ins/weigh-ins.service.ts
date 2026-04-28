@@ -10,6 +10,7 @@ import { In, Repository } from 'typeorm';
 import { WeighIn } from './entities/weigh-in.entity';
 import { TournamentEntry } from '../entries/entities/tournament-entry.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
+import { fitsWeightCategory } from '../tournaments/weight-category.util';
 import { EntriesService } from '../entries/entries.service';
 import { resolveSportConfig } from '../sports/sport-config';
 
@@ -244,17 +245,8 @@ export class WeighInsService {
     );
   }
 
-  /**
-   * Category membership: `[min, max)` on the lower bound, `(max]` on the
-   * upper — i.e. athletes at the exact min weight belong in the heavier
-   * category, athletes at the exact max weight belong in the current one.
-   * Nullable bounds mean "open" on that side (a -55kg category has
-   * `minWeight = null`, a +100kg has `maxWeight = null`).
-   */
   private fitsCategory(weight: number, c: WeightCategory): boolean {
-    if (c.minWeight !== null && weight <= Number(c.minWeight)) return false;
-    if (c.maxWeight !== null && weight > Number(c.maxWeight)) return false;
-    return true;
+    return fitsWeightCategory(weight, c);
   }
 
   private assertAdminOrOrganizer(

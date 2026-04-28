@@ -59,6 +59,7 @@ export interface WeightCategory {
   name: string;
   minWeight: number | null;
   maxWeight: number | null;
+  weightToleranceKg: number;
   gender: string;
   sortOrder: number;
 }

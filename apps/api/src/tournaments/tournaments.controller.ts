@@ -37,6 +37,11 @@ class RegisterParticipantDto {
   @Max(300)
   weightKg: number;
 
+  @ApiProperty({ example: 'weight-category-uuid', required: false })
+  @IsOptional()
+  @IsUUID()
+  weightCategoryId?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

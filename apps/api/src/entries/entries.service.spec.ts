@@ -10,6 +10,7 @@ import {
 import { EntriesService } from './entries.service';
 import { TournamentEntry } from './entities/tournament-entry.entity';
 import { User } from '../users/entities/user.entity';
+import { WeightCategory } from '../tournaments/entities/weight-category.entity';
 import { TournamentsService } from '../tournaments/tournaments.service';
 
 const mockRepo = () => {
@@ -58,6 +59,10 @@ const mockUsersRepo = () => ({
   findOne: vi.fn().mockResolvedValue({ id: 'user-1', country: null }),
 });
 
+const mockWeightCategoriesRepo = () => ({
+  findOne: vi.fn().mockResolvedValue(null),
+});
+
 describe('EntriesService', () => {
   let service: EntriesService;
   let repo: ReturnType<typeof mockRepo>;
@@ -70,6 +75,7 @@ describe('EntriesService', () => {
         EntriesService,
         { provide: getRepositoryToken(TournamentEntry), useFactory: mockRepo },
         { provide: getRepositoryToken(User), useFactory: mockUsersRepo },
+        { provide: getRepositoryToken(WeightCategory), useFactory: mockWeightCategoriesRepo },
         { provide: TournamentsService, useFactory: mockTournamentsService },
       ],
     }).compile();
