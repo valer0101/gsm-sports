@@ -120,7 +120,9 @@ export function TournamentDetailClient({ tournament }: Props) {
                 >
                   {wc.name}
                   {tol > 0 && (
-                    <span className="ml-1 opacity-70">{t('weight_tolerance_suffix', { kg: tol })}</span>
+                    <span className="ml-1 opacity-70">
+                      {t('weight_tolerance_suffix', { kg: tol })}
+                    </span>
                   )}
                 </span>
               );
@@ -210,18 +212,23 @@ function MyRegistrationCard({ entry }: { entry: TournamentEntry }) {
   // sport-config lookup needed on the client.
   const { data: weighIn } = useWeighInByEntry(entry.id);
 
-  const statusLabel =
-    isCheckedIn ? t('checkin_status_checked_in')
-    : entry.status === 'confirmed' ? t('checkin_status_confirmed')
-    : entry.status === 'pending' ? t('checkin_status_pending')
-    : entry.status === 'withdrawn' ? t('checkin_status_withdrawn')
-    : t('checkin_status_rejected');
+  const statusLabel = isCheckedIn
+    ? t('checkin_status_checked_in')
+    : entry.status === 'confirmed'
+      ? t('checkin_status_confirmed')
+      : entry.status === 'pending'
+        ? t('checkin_status_pending')
+        : entry.status === 'withdrawn'
+          ? t('checkin_status_withdrawn')
+          : t('checkin_status_rejected');
 
-  const statusColor =
-    isCheckedIn ? '#10b981'
-    : entry.status === 'confirmed' ? 'var(--color-accent)'
-    : entry.status === 'pending' ? '#fbbf24'
-    : '#9ca3af';
+  const statusColor = isCheckedIn
+    ? '#10b981'
+    : entry.status === 'confirmed'
+      ? 'var(--color-accent)'
+      : entry.status === 'pending'
+        ? '#fbbf24'
+        : '#9ca3af';
 
   return (
     <div
@@ -274,10 +281,7 @@ function MyRegistrationCard({ entry }: { entry: TournamentEntry }) {
       )}
 
       {isCheckedIn && (
-        <div
-          className="shrink-0 text-center text-5xl"
-          style={{ color: '#10b981' }}
-        >
+        <div className="shrink-0 text-center text-5xl" style={{ color: '#10b981' }}>
           ✓
         </div>
       )}

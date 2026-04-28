@@ -676,6 +676,7 @@
     "weight_tolerance_label": "Tolerance, kg",
     "weight_tolerance_unit": "kg",
     "weight_tolerance_hint": "An athlete may compete if their weight ≤ category max + tolerance. Default 0 (strict).",
+    "weight_tolerance_preview": "(+{kg} kg)",
     "hand_section": "Hand",
     "hand_right": "Right",
     "hand_left": "Left",

@@ -69,9 +69,7 @@ export class WeighInsService {
       (entry.tournament.sport?.config ?? null) as Parameters<typeof resolveSportConfig>[1],
     );
     if (!sportCfg.weighInRequired) {
-      throw new BadRequestException(
-        'This sport does not require a weigh-in',
-      );
+      throw new BadRequestException('This sport does not require a weigh-in');
     }
 
     // Upsert by entryId (unique).
@@ -148,10 +146,7 @@ export class WeighInsService {
    * weigh-in is intentionally restricted so the audit trail can't be
    * quietly rewritten during the event.
    */
-  async undo(
-    id: string,
-    actor: { userId: string; roles: string[] },
-  ): Promise<void> {
+  async undo(id: string, actor: { userId: string; roles: string[] }): Promise<void> {
     if (!actor.roles.includes('admin')) {
       throw new ForbiddenException('Only admin can undo a weigh-in');
     }
@@ -202,9 +197,7 @@ export class WeighInsService {
       where: { tournamentId: entry.tournamentId },
     });
     const candidates = categories.filter(
-      (c) =>
-        c.gender === entry.weightCategory!.gender &&
-        this.fitsCategory(officialWeightKg, c),
+      (c) => c.gender === entry.weightCategory!.gender && this.fitsCategory(officialWeightKg, c),
     );
 
     if (candidates.length === 0) {
@@ -256,9 +249,7 @@ export class WeighInsService {
     const isAdmin = actor.roles.includes('admin');
     const isOrganizer = entry.tournament?.organizerId === actor.userId;
     if (!isAdmin && !isOrganizer) {
-      throw new ForbiddenException(
-        'Only the tournament organizer or admin can record weigh-ins',
-      );
+      throw new ForbiddenException('Only the tournament organizer or admin can record weigh-ins');
     }
   }
 }

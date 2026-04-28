@@ -216,8 +216,7 @@ export class TournamentsService {
       }
       if (!fitsWeightCategory(dto.weightKg, category)) {
         const tol = Number(category.weightToleranceKg ?? 0);
-        const limit =
-          category.maxWeight !== null ? Number(category.maxWeight) + tol : null;
+        const limit = category.maxWeight !== null ? Number(category.maxWeight) + tol : null;
         throw new BadRequestException(
           limit !== null
             ? `Weight ${dto.weightKg} kg exceeds category limit (${limit} kg incl. tolerance)`

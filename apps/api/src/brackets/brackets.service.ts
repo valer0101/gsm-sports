@@ -163,7 +163,10 @@ export class BracketsService {
    */
   private async assertAllWeighedIn(
     entries: { id: string }[],
-    tournament: { sport?: { slug?: string; config?: unknown } | null; sportConfig?: unknown | null },
+    tournament: {
+      sport?: { slug?: string; config?: unknown } | null;
+      sportConfig?: unknown | null;
+    },
   ): Promise<void> {
     const sportCfg = resolveSportConfig(
       tournament.sport?.slug ?? '',
@@ -173,9 +176,7 @@ export class BracketsService {
     const weighInRequired = tOverride.weighInRequired ?? sportCfg.weighInRequired;
     if (!weighInRequired) return;
 
-    const missing = await this.weighInsService.findMissingForEntries(
-      entries.map((e) => e.id),
-    );
+    const missing = await this.weighInsService.findMissingForEntries(entries.map((e) => e.id));
     if (missing.length === 0) return;
 
     throw new BadRequestException({
@@ -268,8 +269,7 @@ export class BracketsService {
     // event via `tournament.sportConfig.defaultBracketFormat` without
     // touching the global sport config.
     const tOverride = (tournamentSportConfig ?? {}) as Partial<SportConfig>;
-    const chosen =
-      requested ?? tOverride.defaultBracketFormat ?? cfg.defaultBracketFormat;
+    const chosen = requested ?? tOverride.defaultBracketFormat ?? cfg.defaultBracketFormat;
     if (requested && !isFormatAllowed(cfg, requested)) {
       throw new BadRequestException(
         `Bracket format '${requested}' is not allowed for this sport. ` +
@@ -428,9 +428,8 @@ export class BracketsService {
           ? sortedCats.find((c) => c.id === entry.weightCategoryId)
           : undefined;
         const cat =
-          (preassigned && fitsWeightCategory(weight, preassigned)
-            ? preassigned
-            : undefined) ?? sortedCats.find((c) => fitsWeightCategory(weight, c));
+          (preassigned && fitsWeightCategory(weight, preassigned) ? preassigned : undefined) ??
+          sortedCats.find((c) => fitsWeightCategory(weight, c));
         if (!cat) continue;
         const bucket = {
           label: cat.name,
@@ -725,8 +724,7 @@ export class BracketsService {
       // can flip the schema for a special-format event without touching
       // the global sport config.
       const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
-      const matchResultSchema =
-        tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
+      const matchResultSchema = tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
       const resultErrors = validateMatchResult(dto.result, matchResultSchema, existingMatch);
       if (resultErrors.length > 0) {
         throw new BadRequestException({
@@ -847,9 +845,7 @@ export class BracketsService {
     // Fetch replacement entry and verify it belongs to the same tournament
     const newEntry = await this.entriesService.findById(dto.newEntryId);
     if (newEntry.tournamentId !== bracket.tournamentId) {
-      throw new BadRequestException(
-        'Replacement entry does not belong to this tournament',
-      );
+      throw new BadRequestException('Replacement entry does not belong to this tournament');
     }
     if (newEntry.status !== 'confirmed') {
       throw new BadRequestException('Replacement entry must be in confirmed status');

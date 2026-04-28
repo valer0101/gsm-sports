@@ -55,10 +55,7 @@ export function useRegistrations(tournamentId: string, params: RegistrationsPara
   });
 }
 
-export function useBrackets(
-  tournamentId: string,
-  options: { refetchInterval?: number } = {},
-) {
+export function useBrackets(tournamentId: string, options: { refetchInterval?: number } = {}) {
   return useQuery<Bracket[]>({
     queryKey: ['brackets', tournamentId],
     queryFn: () =>

@@ -287,9 +287,9 @@ describe('EntriesService', () => {
         makeEntry({ tournament: makeTournament({ bracketGenerated: false }) }),
       );
 
-      await expect(
-        service.reassign('entry-1', { reason: 'no fields' }, actor),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reassign('entry-1', { reason: 'no fields' }, actor)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('appends the reason to entry.notes (preserving existing notes)', async () => {
@@ -305,7 +305,9 @@ describe('EntriesService', () => {
       await service.reassign('entry-1', { weightKg: 85, reason: 'weigh-in correction' }, actor);
 
       const updateArg = repo.update.mock.calls[0][1];
-      expect(updateArg.notes).toMatch(/^existing note\n\[reassign by org-1 @ .+\] weigh-in correction$/);
+      expect(updateArg.notes).toMatch(
+        /^existing note\n\[reassign by org-1 @ .+\] weigh-in correction$/,
+      );
     });
   });
 });
