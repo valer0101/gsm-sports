@@ -122,7 +122,12 @@ describe('EntriesService', () => {
     it('should throw if tournament is full', async () => {
       tournamentsService.findById.mockResolvedValue(makeTournament({ maxParticipants: 2 }));
       repo.findOne.mockResolvedValue(null);
-      repo.count.mockResolvedValue(2); // already full
+      const qb = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getCount: vi.fn().mockResolvedValue(2),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
       await expect(
         service.register(
           { tournamentId: 't1', ageGroup: 'adults', hand: 'right', weightKg: 75 },
