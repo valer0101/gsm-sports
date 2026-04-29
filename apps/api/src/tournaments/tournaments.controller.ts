@@ -20,6 +20,7 @@ import { TournamentsService } from './tournaments.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { Public } from '../auth/public.decorator';
 import { AgeGroup } from '../entries/entities/tournament-entry.entity';
 
 class RegisterParticipantDto {
@@ -82,6 +83,7 @@ export class TournamentsController {
 
   // ─── Tournaments ─────────────────────────────────────────────────────────────
 
+  @Public()
   @Get()
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'status', required: false })
@@ -98,6 +100,7 @@ export class TournamentsController {
     return this.tournamentsService.findAll({ sport, status, country, page, limit });
   }
 
+  @Public()
   @Get(':slug')
   findBySlug(@Param('slug') slug: string) {
     return this.tournamentsService.findBySlug(slug);
@@ -142,6 +145,7 @@ export class TournamentsController {
 
   // ─── Registrations ───────────────────────────────────────────────────────────
 
+  @Public()
   @Get(':id/registrations')
   @ApiQuery({ name: 'ageGroup', required: false })
   @ApiQuery({ name: 'hand', required: false })

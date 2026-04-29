@@ -101,7 +101,7 @@ export function ParticipantsList({ tournamentId }: Props) {
                   {entry.hand === 'left' ? t('hand_left') : t('hand_right')}
                 </span>
               )}
-              {entry.weightKg && (
+              {(entry.weightCategory?.name || entry.weightKg) && (
                 <span
                   className="text-xs px-2 py-0.5 rounded-full"
                   style={{
@@ -109,7 +109,7 @@ export function ParticipantsList({ tournamentId }: Props) {
                     color: 'var(--color-accent)',
                   }}
                 >
-                  {entry.weightKg} {t('kg')}
+                  {entry.weightCategory?.name ?? `${entry.weightKg} ${t('kg')}`}
                 </span>
               )}
             </div>

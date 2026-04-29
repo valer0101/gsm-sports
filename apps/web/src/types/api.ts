@@ -122,6 +122,9 @@ export interface TournamentEntry {
   ageGroup: AgeGroup | null;
   hand: 'left' | 'right' | null;
   weightKg: number | null;
+  weightCategoryId: string | null;
+  /** Eagerly loaded by the registrations endpoint via `leftJoinAndSelect`. */
+  weightCategory?: WeightCategory | null;
   status: 'pending' | 'confirmed' | 'checked_in' | 'rejected' | 'withdrawn';
   notes: string | null;
   createdAt: string;
