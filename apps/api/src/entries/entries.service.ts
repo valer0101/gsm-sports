@@ -128,7 +128,7 @@ export class EntriesService {
   async findByTournament(
     tournamentId: string,
     options: {
-      status?: EntryStatus;
+      status?: EntryStatus | EntryStatus[];
       weightCategoryId?: string;
       page?: number;
       limit?: number;
@@ -147,7 +147,13 @@ export class EntriesService {
       .take(take)
       .skip(skip);
 
-    if (status) qb.andWhere('e.status = :status', { status });
+    if (status) {
+      if (Array.isArray(status)) {
+        qb.andWhere('e.status IN (:...statuses)', { statuses: status });
+      } else {
+        qb.andWhere('e.status = :status', { status });
+      }
+    }
     if (weightCategoryId)
       qb.andWhere('e.weightCategoryId = :weightCategoryId', { weightCategoryId });
 
@@ -203,7 +209,7 @@ export class EntriesService {
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.user', 'user')
       .where('e.tournamentId = :tournamentId', { tournamentId })
-      .andWhere('e.status = :status', { status: 'confirmed' })
+      .andWhere('e.status IN (:...statuses)', { statuses: ['confirmed', 'checked_in'] })
       .orderBy('e.createdAt', 'ASC');
 
     if (ageGroup) qb.andWhere('e.ageGroup = :ageGroup', { ageGroup });
