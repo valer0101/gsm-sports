@@ -5,7 +5,7 @@ import { BroadcastOverlay } from './BroadcastOverlay';
 async function getTournament(slug: string): Promise<Tournament | null> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
-    const res = await fetch(`${apiUrl}/tournaments/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${apiUrl}/tournaments/${slug}`, { cache: 'no-store' });
     if (!res.ok) return null;
     return res.json();
   } catch {
