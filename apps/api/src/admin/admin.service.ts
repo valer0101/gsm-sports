@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentOperator } from '../tournaments/entities/tournament-operator.entity';
 import { WeightCategory } from '../tournaments/entities/weight-category.entity';
@@ -285,7 +285,9 @@ export class AdminService {
   }
 
   async getParticipantCount(tournamentId: string): Promise<number> {
-    return this.entriesRepository.count({ where: { tournamentId, status: 'confirmed' } });
+    return this.entriesRepository.count({
+      where: { tournamentId, status: In(['confirmed', 'checked_in']) },
+    });
   }
 
   private slugify(text: string): string {

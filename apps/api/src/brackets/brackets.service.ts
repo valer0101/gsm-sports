@@ -386,7 +386,7 @@ export class BracketsService {
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.user', 'user')
       .where('e.tournamentId = :tournamentId', { tournamentId })
-      .andWhere('e.status IN (:...statuses)', { statuses: ['confirmed'] })
+      .andWhere('e.status IN (:...statuses)', { statuses: ['confirmed', 'checked_in'] })
       .getMany();
 
     if (entries.length < 2) {
@@ -510,7 +510,7 @@ export class BracketsService {
             );
 
         for (const entry of group.entries) {
-          await eRepo.update(entry.id, { weightCategoryId: category.id, status: 'confirmed' });
+          await eRepo.update(entry.id, { weightCategoryId: category.id });
         }
 
         const players: Player[] = group.entries.map((entry, idx) => ({
@@ -557,14 +557,14 @@ export class BracketsService {
     }
 
     const { data: entries } = await this.entriesService.findByTournament(dto.tournamentId, {
-      status: 'confirmed',
+      status: ['confirmed', 'checked_in'],
       weightCategoryId: dto.weightCategoryId,
       limit: 200,
     });
 
     if (entries.length < 2) {
       throw new BadRequestException(
-        'At least 2 confirmed entries are required to generate a bracket',
+        'At least 2 registered participants are required to generate a bracket',
       );
     }
 
@@ -861,8 +861,8 @@ export class BracketsService {
     if (newEntry.tournamentId !== bracket.tournamentId) {
       throw new BadRequestException('Replacement entry does not belong to this tournament');
     }
-    if (newEntry.status !== 'confirmed') {
-      throw new BadRequestException('Replacement entry must be in confirmed status');
+    if (newEntry.status !== 'confirmed' && newEntry.status !== 'checked_in') {
+      throw new BadRequestException('Replacement entry must be confirmed or checked-in');
     }
 
     const data = bracket.bracketData as unknown as BracketData;

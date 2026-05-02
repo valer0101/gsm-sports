@@ -237,6 +237,26 @@ describe('BracketsService', () => {
       expect(result.status).toBe('active');
     });
 
+    it('should include checked-in entries in the candidate pool (regression)', async () => {
+      // Regression: previously the query filtered by status='confirmed' only,
+      // so once an organizer ran admin check-in (status: confirmed → checked_in)
+      // those entries dropped out and generation failed with "At least 2…".
+      tournamentsService.findById.mockResolvedValue(makeTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3'), makeEntry('u4')],
+      });
+      const created = makeBracket();
+      repo.create.mockReturnValue(created);
+      repo.save.mockResolvedValue(created);
+
+      await service.generate({ tournamentId: 'tournament-1' }, 'org-1');
+
+      expect(entriesService.findByTournament).toHaveBeenCalledWith(
+        'tournament-1',
+        expect.objectContaining({ status: ['confirmed', 'checked_in'] }),
+      );
+    });
+
     it('should throw if not organizer', async () => {
       tournamentsService.findById.mockResolvedValue(makeTournament());
       await expect(service.generate({ tournamentId: 't1' }, 'wrong')).rejects.toThrow(
