@@ -6,7 +6,7 @@ import { type Prize, type EntryFeeType, type ReviewData, newPrizeId } from '../.
 import { Section, SectionTitle, Label, Helper } from '../fields/Section';
 import { Toggle } from '../fields/Toggle';
 import { DateTimeInput } from '../fields/DateTimeInput';
-import { PrizeRow } from '../PrizeRow';
+import { PlaceGroup } from '../PlaceGroup';
 import { ReviewBlock } from '../ReviewBlock';
 
 export type Step4Props = {
@@ -30,15 +30,34 @@ export function Step4Registration(p: Step4Props) {
       .reduce((sum, pr) => sum + (parseFloat(pr.amount || '0') || 0), 0);
   }, [p.prizes]);
 
-  const addPrize = () => {
-    const nextPlace = p.prizes.length === 0 ? 1 : Math.max(...p.prizes.map((x) => x.place)) + 1;
+  // Group prizes by place — { 1: [moneyPrize, trophyPrize], 2: [...] } sorted ascending.
+  const placeGroups = useMemo(() => {
+    const m = new Map<number, Prize[]>();
+    for (const pr of p.prizes) {
+      if (!m.has(pr.place)) m.set(pr.place, []);
+      m.get(pr.place)!.push(pr);
+    }
+    return Array.from(m.entries()).sort(([a], [b]) => a - b);
+  }, [p.prizes]);
+
+  const addPlace = () => {
+    const nextPlace = p.prizes.length === 0
+      ? 1
+      : Math.max(...p.prizes.map((x) => x.place)) + 1;
     p.setPrizes([...p.prizes, { id: newPrizeId(), place: nextPlace, type: 'money', amount: '' }]);
+  };
+  const addRewardToPlace = (place: number) => {
+    // Default new reward to 'medal' so users see the change vs duplicating money.
+    p.setPrizes([...p.prizes, { id: newPrizeId(), place, type: 'medal', description: '' }]);
   };
   const updatePrize = (id: string, patch: Partial<Prize>) => {
     p.setPrizes(p.prizes.map((pr) => (pr.id === id ? { ...pr, ...patch } : pr)));
   };
   const removePrize = (id: string) => {
     p.setPrizes(p.prizes.filter((pr) => pr.id !== id));
+  };
+  const removePlace = (place: number) => {
+    p.setPrizes(p.prizes.filter((pr) => pr.place !== place));
   };
 
   const isValidUrl = (u: string) => {
@@ -153,31 +172,39 @@ export function Step4Registration(p: Step4Props) {
             </div>
           )}
         </div>
-        <Helper>Add prizes to motivate participants. Skip if there are none.</Helper>
-        {p.prizes.length === 0 ? (
+        <Helper>Add prizes per place. Each place can hold multiple rewards (money + trophy + certificate, etc.).</Helper>
+        {placeGroups.length === 0 ? (
           <div className="mt-4 text-center py-8 border-2 border-dashed border-[var(--color-border)] rounded-md">
             <div className="text-[var(--color-text-muted)] mb-3">{Icon.trophy('h-8 w-8 mx-auto')}</div>
             <button
               type="button"
-              onClick={addPrize}
+              onClick={addPlace}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              Add first prize
+              Add first place
             </button>
           </div>
         ) : (
           <div className="mt-4 space-y-3">
-            {p.prizes.map((pr) => (
-              <PrizeRow key={pr.id} prize={pr} onUpdate={(patch) => updatePrize(pr.id, patch)} onRemove={() => removePrize(pr.id)} />
+            {placeGroups.map(([place, rewards]) => (
+              <PlaceGroup
+                key={place}
+                place={place}
+                rewards={rewards}
+                onUpdateReward={updatePrize}
+                onRemoveReward={removePrize}
+                onAddReward={() => addRewardToPlace(place)}
+                onRemovePlace={() => removePlace(place)}
+              />
             ))}
             <button
               type="button"
-              onClick={addPrize}
+              onClick={addPlace}
               className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-white border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              Add prize
+              Add another place
             </button>
           </div>
         )}

@@ -4,6 +4,10 @@ import { PRIZE_TYPE_LABELS } from '../_lib/constants';
 
 const PRIZE_TYPE_IDS: PrizeType[] = ['money', 'medal', 'trophy', 'certificate', 'custom'];
 
+/**
+ * Single reward row — used inside a PlaceGroup.
+ * The place number lives on the group, not the row.
+ */
 export function PrizeRow({
   prize,
   onUpdate,
@@ -13,21 +17,20 @@ export function PrizeRow({
   onUpdate: (patch: Partial<Prize>) => void;
   onRemove: () => void;
 }) {
-  const placeBadgeClass =
-    prize.place === 1 ? 'bg-[var(--color-accent)] text-black'
-    : prize.place === 2 ? 'bg-[#C0C0C0] text-black'
-    : prize.place === 3 ? 'bg-[#CD7F32] text-white'
-    : 'bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-secondary)]';
-
   return (
-    <div className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
-      <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-mono font-bold ${placeBadgeClass}`}>
-        {prize.place}
-      </div>
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-[140px_1fr] gap-2">
+    <div className="flex items-center gap-2">
+      <div className="flex-1 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
         <select
           value={prize.type}
-          onChange={(e) => onUpdate({ type: e.target.value as PrizeType })}
+          onChange={(e) => {
+            const t = e.target.value as PrizeType;
+            // Switching type clears the irrelevant field to avoid sending money's
+            // amount alongside a trophy.
+            onUpdate({
+              type: t,
+              ...(t === 'money' ? { description: '' } : { amount: '' }),
+            });
+          }}
           className="h-10 px-3 bg-[var(--color-background)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none rounded text-sm"
         >
           {PRIZE_TYPE_IDS.map((id) => (
@@ -65,7 +68,7 @@ export function PrizeRow({
         type="button"
         onClick={onRemove}
         className="flex-shrink-0 h-10 w-10 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-dim)] rounded-md transition-colors"
-        aria-label="Remove prize"
+        aria-label="Remove reward"
       >
         {Icon.trash()}
       </button>
