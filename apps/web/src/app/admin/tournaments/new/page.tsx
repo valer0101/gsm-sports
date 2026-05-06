@@ -331,6 +331,9 @@ export default function NewTournamentPage() {
               streamUrl={streamUrl} setStreamUrl={setStreamUrl}
               isFeatured={isFeatured} setIsFeatured={setIsFeatured}
               maxParticipants={maxParticipants} setMaxParticipants={setMaxParticipants}
+              ageGroups={ageGroups}
+              categoryCount={categories.length}
+              handMul={hand === 'both' ? 2 : 1}
               review={{
                 name,
                 poster: posterUrl,

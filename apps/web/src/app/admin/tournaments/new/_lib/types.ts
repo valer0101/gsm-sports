@@ -22,6 +22,12 @@ export type Prize = {
   type: PrizeType;
   amount?: string;
   description?: string;
+  /**
+   * Optional override target. If set, the prize applies only to that age
+   * group's brackets. If unset, the prize is part of the "default" pool
+   * that applies to any age group lacking its own overrides.
+   */
+  ageGroup?: AgeGroup;
 };
 
 export type Locale = 'ru' | 'en' | 'hy';

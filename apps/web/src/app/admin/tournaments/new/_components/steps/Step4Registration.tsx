@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '../../_lib/icons';
-import { type Prize, type EntryFeeType, type ReviewData, newPrizeId } from '../../_lib/types';
+import { type AgeGroup, type Prize, type EntryFeeType, type ReviewData, newPrizeId } from '../../_lib/types';
+import { AGE_GROUPS } from '../../_lib/constants';
+import { sumMoney, totalTournamentPayout, bracketsPerGroup } from '../../_lib/prize-calc';
 import { Section, SectionTitle, Label, Helper } from '../fields/Section';
 import { Toggle } from '../fields/Toggle';
 import { DateTimeInput } from '../fields/DateTimeInput';
@@ -19,36 +21,81 @@ export type Step4Props = {
   streamUrl: string; setStreamUrl: (v: string) => void;
   isFeatured: boolean; setIsFeatured: (v: boolean) => void;
   maxParticipants: string; setMaxParticipants: (v: string) => void;
+  /** Picked in Step 2 — drives the per-age-group prize tabs. */
+  ageGroups: Set<AgeGroup>;
+  /** Picked in Step 3 — feeds the bracket-multiplier total. */
+  categoryCount: number;
+  /** 2 if both hands, else 1 — feeds the bracket-multiplier total. */
+  handMul: number;
   review: ReviewData;
   goToStep: (n: number) => void;
 };
 
-export function Step4Registration(p: Step4Props) {
-  const totalMoneyPrize = useMemo(() => {
-    return p.prizes
-      .filter((pr) => pr.type === 'money' && pr.amount)
-      .reduce((sum, pr) => sum + (parseFloat(pr.amount || '0') || 0), 0);
-  }, [p.prizes]);
+/** Tab key — null is the "default / applies to all" pool. */
+type PrizeTab = AgeGroup | null;
 
-  // Group prizes by place — { 1: [moneyPrize, trophyPrize], 2: [...] } sorted ascending.
+export function Step4Registration(p: Step4Props) {
+  const showAgeTabs = p.ageGroups.size > 1;
+  const [activeTab, setActiveTab] = useState<PrizeTab>(null);
+
+  // The active tab can become invalid if the user goes back to Step 2 and
+  // deselects an age group — fall back to default in that case.
+  const effectiveTab: PrizeTab = (
+    activeTab !== null && !p.ageGroups.has(activeTab)
+  ) ? null : activeTab;
+
+  // Prizes belonging to the active tab. null tab = default (no ageGroup field).
+  const tabPrizes = useMemo(
+    () => p.prizes.filter((pr) =>
+      effectiveTab === null ? !pr.ageGroup : pr.ageGroup === effectiveTab,
+    ),
+    [p.prizes, effectiveTab],
+  );
+
+  // Group active-tab prizes by place — { 1: [moneyPrize, trophyPrize], ... }.
   const placeGroups = useMemo(() => {
     const m = new Map<number, Prize[]>();
-    for (const pr of p.prizes) {
+    for (const pr of tabPrizes) {
       if (!m.has(pr.place)) m.set(pr.place, []);
       m.get(pr.place)!.push(pr);
     }
     return Array.from(m.entries()).sort(([a], [b]) => a - b);
-  }, [p.prizes]);
+  }, [tabPrizes]);
+
+  // Per-bracket money for the active tab — what the prize total would be in a
+  // single bracket of this kind.
+  const perBracketActive = useMemo(() => sumMoney(tabPrizes), [tabPrizes]);
+
+  // Tournament-wide total across every bracket, accounting for per-age-group
+  // overrides falling back to the default pool.
+  const tournamentTotal = useMemo(
+    () => totalTournamentPayout(p.prizes, p.ageGroups, p.categoryCount, p.handMul),
+    [p.prizes, p.ageGroups, p.categoryCount, p.handMul],
+  );
+
+  const totalBrackets = useMemo(() => {
+    const groups = Math.max(1, p.ageGroups.size);
+    return bracketsPerGroup(p.categoryCount, p.handMul) * groups;
+  }, [p.ageGroups.size, p.categoryCount, p.handMul]);
+
+  const tagForNew = (): { ageGroup?: AgeGroup } =>
+    effectiveTab === null ? {} : { ageGroup: effectiveTab };
 
   const addPlace = () => {
-    const nextPlace = p.prizes.length === 0
+    const nextPlace = tabPrizes.length === 0
       ? 1
-      : Math.max(...p.prizes.map((x) => x.place)) + 1;
-    p.setPrizes([...p.prizes, { id: newPrizeId(), place: nextPlace, type: 'money', amount: '' }]);
+      : Math.max(...tabPrizes.map((x) => x.place)) + 1;
+    p.setPrizes([
+      ...p.prizes,
+      { id: newPrizeId(), place: nextPlace, type: 'money', amount: '', ...tagForNew() },
+    ]);
   };
   const addRewardToPlace = (place: number) => {
     // Default new reward to 'medal' so users see the change vs duplicating money.
-    p.setPrizes([...p.prizes, { id: newPrizeId(), place, type: 'medal', description: '' }]);
+    p.setPrizes([
+      ...p.prizes,
+      { id: newPrizeId(), place, type: 'medal', description: '', ...tagForNew() },
+    ]);
   };
   const updatePrize = (id: string, patch: Partial<Prize>) => {
     p.setPrizes(p.prizes.map((pr) => (pr.id === id ? { ...pr, ...patch } : pr)));
@@ -57,7 +104,11 @@ export function Step4Registration(p: Step4Props) {
     p.setPrizes(p.prizes.filter((pr) => pr.id !== id));
   };
   const removePlace = (place: number) => {
-    p.setPrizes(p.prizes.filter((pr) => pr.place !== place));
+    // Only remove places within the active tab's scope.
+    p.setPrizes(p.prizes.filter((pr) => {
+      const matchesTab = effectiveTab === null ? !pr.ageGroup : pr.ageGroup === effectiveTab;
+      return !(matchesTab && pr.place === place);
+    }));
   };
 
   const isValidUrl = (u: string) => {
@@ -163,26 +214,82 @@ export function Step4Registration(p: Step4Props) {
       </Section>
 
       <Section>
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
           <SectionTitle inline>Prize pool</SectionTitle>
-          {totalMoneyPrize > 0 && (
-            <div className="text-sm">
-              <span className="text-[var(--color-text-secondary)]">Total: </span>
-              <span className="font-mono font-bold text-[var(--color-accent)]">{totalMoneyPrize.toLocaleString()} AMD</span>
+          {(perBracketActive > 0 || tournamentTotal > 0) && (
+            <div className="text-right">
+              {perBracketActive > 0 && (
+                <div className="text-xs text-[var(--color-text-secondary)]">
+                  Per bracket:{' '}
+                  <span className="font-mono font-semibold text-white">
+                    {perBracketActive.toLocaleString()} AMD
+                  </span>
+                </div>
+              )}
+              {tournamentTotal > 0 && (
+                <div className="text-sm mt-0.5">
+                  <span className="text-[var(--color-text-secondary)]">Tournament total: </span>
+                  <span className="font-mono font-bold text-[var(--color-accent)]">
+                    {tournamentTotal.toLocaleString()} AMD
+                  </span>
+                  <span className="text-xs text-[var(--color-text-muted)] ml-1">
+                    ({totalBrackets} bracket{totalBrackets === 1 ? '' : 's'})
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
         <Helper>Add prizes per place. Each place can hold multiple rewards (money + trophy + certificate, etc.).</Helper>
+
+        {showAgeTabs && (
+          <div className="mt-4 flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
+            <PrizeTabButton
+              active={effectiveTab === null}
+              onClick={() => setActiveTab(null)}
+              label="Default"
+              hint="Applies to every age group"
+            />
+            {AGE_GROUPS.filter((ag) => p.ageGroups.has(ag.id)).map((ag) => {
+              const hasOverrides = p.prizes.some((pr) => pr.ageGroup === ag.id);
+              return (
+                <PrizeTabButton
+                  key={ag.id}
+                  active={effectiveTab === ag.id}
+                  onClick={() => setActiveTab(ag.id)}
+                  label={ag.label}
+                  badge={hasOverrides ? 'override' : undefined}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {showAgeTabs && effectiveTab !== null && (
+          <div className="mt-3 px-3 py-2 bg-[var(--color-primary-dim)] border border-[var(--color-primary)]/30 rounded-md text-xs text-[var(--color-text-secondary)] flex items-start gap-2">
+            <div className="text-[var(--color-primary)] flex-shrink-0 mt-0.5">{Icon.info('h-3.5 w-3.5')}</div>
+            <div>
+              Prizes here override the <strong className="text-white">Default</strong> pool for{' '}
+              <strong className="text-white">{AGE_GROUPS.find((g) => g.id === effectiveTab)?.label.toLowerCase()}</strong>{' '}
+              brackets only. Leave empty to use the default.
+            </div>
+          </div>
+        )}
         {placeGroups.length === 0 ? (
           <div className="mt-4 text-center py-8 border-2 border-dashed border-[var(--color-border)] rounded-md">
             <div className="text-[var(--color-text-muted)] mb-3">{Icon.trophy('h-8 w-8 mx-auto')}</div>
+            <p className="text-xs text-[var(--color-text-muted)] mb-3">
+              {effectiveTab === null
+                ? 'No prizes yet.'
+                : `No overrides for ${AGE_GROUPS.find((g) => g.id === effectiveTab)?.label.toLowerCase()} — falls back to Default.`}
+            </p>
             <button
               type="button"
               onClick={addPlace}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              Add first place
+              {effectiveTab === null ? 'Add first place' : 'Add override'}
             </button>
           </div>
         ) : (
@@ -255,9 +362,44 @@ export function Step4Registration(p: Step4Props) {
         entryFeeType={p.entryFeeType}
         entryFeeAmount={p.entryFeeAmount}
         maxParticipants={p.maxParticipants}
-        totalMoneyPrize={totalMoneyPrize}
+        totalMoneyPrize={tournamentTotal}
         goToStep={p.goToStep}
       />
     </div>
+  );
+}
+
+function PrizeTabButton({
+  active,
+  onClick,
+  label,
+  hint,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  hint?: string;
+  badge?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={hint}
+      className={[
+        'relative px-3 py-1.5 text-xs font-semibold uppercase tracking-wide rounded transition-colors',
+        active
+          ? 'bg-[var(--color-primary)] text-white'
+          : 'text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-background)]',
+      ].join(' ')}
+    >
+      {label}
+      {badge && (
+        <span className="ml-1.5 inline-block px-1 py-px text-[9px] tracking-normal bg-[var(--color-accent)] text-black rounded uppercase font-bold">
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
