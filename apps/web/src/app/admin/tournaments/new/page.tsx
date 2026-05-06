@@ -331,7 +331,7 @@ export default function NewTournamentPage() {
               isFeatured={isFeatured} setIsFeatured={setIsFeatured}
               maxParticipants={maxParticipants} setMaxParticipants={setMaxParticipants}
               ageGroups={ageGroups}
-              categoryCount={categories.length}
+              categories={categories}
               handMul={hand === 'both' ? 2 : 1}
               genderCount={Math.max(1, genders.size)}
               review={{

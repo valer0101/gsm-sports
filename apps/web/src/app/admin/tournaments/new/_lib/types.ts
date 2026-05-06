@@ -23,12 +23,25 @@ export type Prize = {
   amount?: string;
   description?: string;
   /**
-   * Optional override target. If set, the prize applies only to that age
-   * group's brackets. If unset, the prize is part of the "default" pool
-   * that applies to any age group lacking its own overrides.
+   * Optional age-group override. If set, the prize applies only to that
+   * group's brackets. Together with `weightCategoryId`, the (age, category)
+   * pair forms the override scope; the most specific match wins.
    */
   ageGroup?: AgeGroup;
+  /**
+   * Optional weight-category override (client-side category id). If set,
+   * the prize applies only to that category's brackets. Falls back to the
+   * "all categories" entry when missing.
+   */
+  weightCategoryId?: string;
 };
+
+export function categoryLabel(c: WeightCat): string {
+  if (c.name) return c.name;
+  if (c.minKg === null && c.maxKg === null) return 'Absolute';
+  if (c.maxKg === null) return `${c.minKg}+ kg`;
+  return `${c.maxKg} kg`;
+}
 
 export type Locale = 'ru' | 'en' | 'hy';
 

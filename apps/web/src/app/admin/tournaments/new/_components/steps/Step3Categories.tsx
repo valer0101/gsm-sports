@@ -62,7 +62,7 @@ export function Step3Categories(p: Step3Props) {
     p.categories.some((c) => c.maxKg === kg && c.minKg !== null && !c.name);
 
   const toggleOpenHeavyweight = () => {
-    const idx = p.categories.findIndex((c) => c.maxKg === null);
+    const idx = p.categories.findIndex((c) => c.maxKg === null && c.minKg !== null);
     if (idx >= 0) {
       p.setCategories(p.categories.filter((_, i) => i !== idx));
     } else {
@@ -71,7 +71,18 @@ export function Step3Categories(p: Step3Props) {
     }
   };
 
-  const hasOpenHeavyweight = p.categories.some((c) => c.maxKg === null);
+  const hasOpenHeavyweight = p.categories.some((c) => c.maxKg === null && c.minKg !== null);
+
+  const toggleAbsolute = () => {
+    const idx = p.categories.findIndex((c) => c.minKg === null && c.maxKg === null);
+    if (idx >= 0) {
+      p.setCategories(p.categories.filter((_, i) => i !== idx));
+    } else {
+      p.setCategories([...p.categories, { id: newCatId(), minKg: null, maxKg: null, name: 'Absolute' }]);
+    }
+  };
+
+  const hasAbsolute = p.categories.some((c) => c.minKg === null && c.maxKg === null);
 
   const addCustom = () => {
     setCustomError('');
@@ -135,6 +146,20 @@ export function Step3Categories(p: Step3Props) {
               >
                 {hasOpenHeavyweight && Icon.check('h-3 w-3')}
                 +110 KG
+              </button>
+              <button
+                type="button"
+                onClick={toggleAbsolute}
+                title="Open weight — anyone competes regardless of weight"
+                className={[
+                  'px-3.5 py-2 rounded-md border font-mono text-sm font-semibold transition-all flex items-center gap-1.5',
+                  hasAbsolute
+                    ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface-2)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]',
+                ].join(' ')}
+              >
+                {hasAbsolute && Icon.check('h-3 w-3')}
+                ABSOLUTE
               </button>
             </div>
           </Section>
@@ -249,31 +274,41 @@ export function Step3Categories(p: Step3Props) {
                 </div>
               ) : (
                 <ul className="space-y-1.5">
-                  {sortedCats.map((c) => (
-                    <li
-                      key={c.id}
-                      className="group flex items-center gap-3 px-3 py-2.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md hover:border-[var(--color-border-strong)] transition-colors"
-                    >
-                      <div className="font-mono text-base font-bold text-white min-w-[64px]">
-                        {c.maxKg === null ? `${c.minKg}+` : `${c.maxKg}`}
-                        <span className="text-xs font-normal text-[var(--color-text-muted)] ml-0.5">KG</span>
-                      </div>
-                      <div className="flex-1 text-xs text-[var(--color-text-secondary)] font-mono">
-                        {c.maxKg === null ? `over ${c.minKg} kg` : `${c.minKg ?? 0}.0 – ${c.maxKg.toFixed(1)} kg`}
-                        {p.tolerance > 0 && c.maxKg !== null && (
-                          <span className="text-[var(--color-text-muted)]"> (+{p.tolerance.toFixed(1)})</span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeCat(c.id)}
-                        className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-all"
-                        aria-label="Remove category"
+                  {sortedCats.map((c) => {
+                    const isAbsolute = c.minKg === null && c.maxKg === null;
+                    const isOpen = c.maxKg === null && c.minKg !== null;
+                    return (
+                      <li
+                        key={c.id}
+                        className="group flex items-center gap-3 px-3 py-2.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md hover:border-[var(--color-border-strong)] transition-colors"
                       >
-                        {Icon.trash('h-4 w-4')}
-                      </button>
-                    </li>
-                  ))}
+                        <div className="font-mono text-base font-bold text-white min-w-[64px]">
+                          {isAbsolute ? 'ABS' : isOpen ? `${c.minKg}+` : `${c.maxKg}`}
+                          {!isAbsolute && (
+                            <span className="text-xs font-normal text-[var(--color-text-muted)] ml-0.5">KG</span>
+                          )}
+                        </div>
+                        <div className="flex-1 text-xs text-[var(--color-text-secondary)] font-mono">
+                          {isAbsolute
+                            ? 'open weight — no limit'
+                            : isOpen
+                              ? `over ${c.minKg} kg`
+                              : `${c.minKg ?? 0}.0 – ${(c.maxKg as number).toFixed(1)} kg`}
+                          {p.tolerance > 0 && !isAbsolute && !isOpen && (
+                            <span className="text-[var(--color-text-muted)]"> (+{p.tolerance.toFixed(1)})</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeCat(c.id)}
+                          className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-all"
+                          aria-label="Remove category"
+                        >
+                          {Icon.trash('h-4 w-4')}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { Icon } from '../../_lib/icons';
-import { type AgeGroup, type Prize, type EntryFeeType, type ReviewData, newPrizeId } from '../../_lib/types';
+import { type AgeGroup, type Prize, type EntryFeeType, type ReviewData, type WeightCat, categoryLabel, newPrizeId } from '../../_lib/types';
 import { AGE_GROUPS } from '../../_lib/constants';
-import { sumMoney, totalTournamentPayout, bracketsPerGroup } from '../../_lib/prize-calc';
+import { sumMoney, totalTournamentPayout, bracketsPerPair } from '../../_lib/prize-calc';
 import { Section, SectionTitle, Label, Helper } from '../fields/Section';
 import { Toggle } from '../fields/Toggle';
 import { DateTimeInput } from '../fields/DateTimeInput';
@@ -23,8 +23,8 @@ export type Step4Props = {
   maxParticipants: string; setMaxParticipants: (v: string) => void;
   /** Picked in Step 2 — drives the per-age-group prize tabs. */
   ageGroups: Set<AgeGroup>;
-  /** Picked in Step 3 — feeds the bracket-multiplier total. */
-  categoryCount: number;
+  /** Picked in Step 3 — drives the per-category prize tabs. */
+  categories: WeightCat[];
   /** 2 if both hands, else 1 — feeds the bracket-multiplier total. */
   handMul: number;
   /** Number of genders competing (Step 3) — 1 or 2. */
@@ -33,28 +33,26 @@ export type Step4Props = {
   goToStep: (n: number) => void;
 };
 
-/** Tab key — null is the "default / applies to all" pool. */
-type PrizeTab = AgeGroup | null;
-
 export function Step4Registration(p: Step4Props) {
   const showAgeTabs = p.ageGroups.size > 1;
-  const [activeTab, setActiveTab] = useState<PrizeTab>(null);
+  const showCatTabs = p.categories.length > 0;
 
-  // The active tab can become invalid if the user goes back to Step 2 and
-  // deselects an age group — fall back to default in that case.
-  const effectiveTab: PrizeTab = (
-    activeTab !== null && !p.ageGroups.has(activeTab)
-  ) ? null : activeTab;
+  const [activeAge, setActiveAge] = useState<AgeGroup | null>(null);
+  const [activeCat, setActiveCat] = useState<string | null>(null);
 
-  // Prizes belonging to the active tab. null tab = default (no ageGroup field).
+  // Drop stale tab targets if the user went back and removed the option.
+  const effectiveAge: AgeGroup | null = activeAge && !p.ageGroups.has(activeAge) ? null : activeAge;
+  const effectiveCat: string | null = activeCat && !p.categories.some((c) => c.id === activeCat) ? null : activeCat;
+
+  // Prizes whose scope matches the active tab pair exactly.
   const tabPrizes = useMemo(
     () => p.prizes.filter((pr) =>
-      effectiveTab === null ? !pr.ageGroup : pr.ageGroup === effectiveTab,
+      (effectiveAge === null ? !pr.ageGroup : pr.ageGroup === effectiveAge)
+      && (effectiveCat === null ? !pr.weightCategoryId : pr.weightCategoryId === effectiveCat),
     ),
-    [p.prizes, effectiveTab],
+    [p.prizes, effectiveAge, effectiveCat],
   );
 
-  // Group active-tab prizes by place — { 1: [moneyPrize, trophyPrize], ... }.
   const placeGroups = useMemo(() => {
     const m = new Map<number, Prize[]>();
     for (const pr of tabPrizes) {
@@ -64,24 +62,23 @@ export function Step4Registration(p: Step4Props) {
     return Array.from(m.entries()).sort(([a], [b]) => a - b);
   }, [tabPrizes]);
 
-  // Per-bracket money for the active tab — what the prize total would be in a
-  // single bracket of this kind.
   const perBracketActive = useMemo(() => sumMoney(tabPrizes), [tabPrizes]);
 
-  // Tournament-wide total across every bracket, accounting for per-age-group
-  // overrides falling back to the default pool.
   const tournamentTotal = useMemo(
-    () => totalTournamentPayout(p.prizes, p.ageGroups, p.categoryCount, p.handMul, p.genderCount),
-    [p.prizes, p.ageGroups, p.categoryCount, p.handMul, p.genderCount],
+    () => totalTournamentPayout(p.prizes, p.ageGroups, p.categories, p.handMul, p.genderCount),
+    [p.prizes, p.ageGroups, p.categories, p.handMul, p.genderCount],
   );
 
   const totalBrackets = useMemo(() => {
-    const groups = Math.max(1, p.ageGroups.size);
-    return bracketsPerGroup(p.categoryCount, p.handMul, p.genderCount) * groups;
-  }, [p.ageGroups.size, p.categoryCount, p.handMul, p.genderCount]);
+    const ageCount = Math.max(1, p.ageGroups.size);
+    const catCount = Math.max(1, p.categories.length);
+    return bracketsPerPair(p.handMul, p.genderCount) * ageCount * catCount;
+  }, [p.ageGroups.size, p.categories.length, p.handMul, p.genderCount]);
 
-  const tagForNew = (): { ageGroup?: AgeGroup } =>
-    effectiveTab === null ? {} : { ageGroup: effectiveTab };
+  const tagForNew = (): { ageGroup?: AgeGroup; weightCategoryId?: string } => ({
+    ...(effectiveAge !== null && { ageGroup: effectiveAge }),
+    ...(effectiveCat !== null && { weightCategoryId: effectiveCat }),
+  });
 
   const addPlace = () => {
     const nextPlace = tabPrizes.length === 0
@@ -93,7 +90,6 @@ export function Step4Registration(p: Step4Props) {
     ]);
   };
   const addRewardToPlace = (place: number) => {
-    // Default new reward to 'medal' so users see the change vs duplicating money.
     p.setPrizes([
       ...p.prizes,
       { id: newPrizeId(), place, type: 'medal', description: '', ...tagForNew() },
@@ -106,12 +102,33 @@ export function Step4Registration(p: Step4Props) {
     p.setPrizes(p.prizes.filter((pr) => pr.id !== id));
   };
   const removePlace = (place: number) => {
-    // Only remove places within the active tab's scope.
     p.setPrizes(p.prizes.filter((pr) => {
-      const matchesTab = effectiveTab === null ? !pr.ageGroup : pr.ageGroup === effectiveTab;
-      return !(matchesTab && pr.place === place);
+      const matchesAge = effectiveAge === null ? !pr.ageGroup : pr.ageGroup === effectiveAge;
+      const matchesCat = effectiveCat === null ? !pr.weightCategoryId : pr.weightCategoryId === effectiveCat;
+      return !(matchesAge && matchesCat && pr.place === place);
     }));
   };
+
+  const ageHasOverrides = (g: AgeGroup) =>
+    p.prizes.some((pr) => pr.ageGroup === g);
+  const catHasOverridesInActiveAge = (catId: string) =>
+    p.prizes.some(
+      (pr) => pr.weightCategoryId === catId
+        && (effectiveAge === null ? !pr.ageGroup : pr.ageGroup === effectiveAge),
+    );
+
+  // Used in the empty-state and override info banner.
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (effectiveAge) parts.push(AGE_GROUPS.find((g) => g.id === effectiveAge)?.label.toLowerCase() ?? effectiveAge);
+    if (effectiveCat) {
+      const cat = p.categories.find((c) => c.id === effectiveCat);
+      if (cat) parts.push(categoryLabel(cat));
+    }
+    return parts.join(' · ');
+  }, [effectiveAge, effectiveCat, p.categories]);
+
+  const isOverrideTab = effectiveAge !== null || effectiveCat !== null;
 
   const isValidUrl = (u: string) => {
     if (!u) return null;
@@ -245,35 +262,58 @@ export function Step4Registration(p: Step4Props) {
         <Helper>Add prizes per place. Each place can hold multiple rewards (money + trophy + certificate, etc.).</Helper>
 
         {showAgeTabs && (
-          <div className="mt-4 flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
-            <PrizeTabButton
-              active={effectiveTab === null}
-              onClick={() => setActiveTab(null)}
-              label="Default"
-              hint="Applies to every age group"
-            />
-            {AGE_GROUPS.filter((ag) => p.ageGroups.has(ag.id)).map((ag) => {
-              const hasOverrides = p.prizes.some((pr) => pr.ageGroup === ag.id);
-              return (
+          <div className="mt-4">
+            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">Age group</div>
+            <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
+              <PrizeTabButton
+                active={effectiveAge === null}
+                onClick={() => setActiveAge(null)}
+                label="All ages"
+                hint="Applies to every age group unless overridden"
+              />
+              {AGE_GROUPS.filter((ag) => p.ageGroups.has(ag.id)).map((ag) => (
                 <PrizeTabButton
                   key={ag.id}
-                  active={effectiveTab === ag.id}
-                  onClick={() => setActiveTab(ag.id)}
+                  active={effectiveAge === ag.id}
+                  onClick={() => setActiveAge(ag.id)}
                   label={ag.label}
-                  badge={hasOverrides ? 'override' : undefined}
+                  badge={ageHasOverrides(ag.id) ? 'override' : undefined}
                 />
-              );
-            })}
+              ))}
+            </div>
           </div>
         )}
 
-        {showAgeTabs && effectiveTab !== null && (
+        {showCatTabs && (
+          <div className="mt-3">
+            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">Weight category</div>
+            <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
+              <PrizeTabButton
+                active={effectiveCat === null}
+                onClick={() => setActiveCat(null)}
+                label="All weights"
+                hint="Applies to every weight category unless overridden"
+              />
+              {p.categories.map((c) => (
+                <PrizeTabButton
+                  key={c.id}
+                  active={effectiveCat === c.id}
+                  onClick={() => setActiveCat(c.id)}
+                  label={categoryLabel(c)}
+                  badge={catHasOverridesInActiveAge(c.id) ? 'override' : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isOverrideTab && (
           <div className="mt-3 px-3 py-2 bg-[var(--color-primary-dim)] border border-[var(--color-primary)]/30 rounded-md text-xs text-[var(--color-text-secondary)] flex items-start gap-2">
             <div className="text-[var(--color-primary)] flex-shrink-0 mt-0.5">{Icon.info('h-3.5 w-3.5')}</div>
             <div>
-              Prizes here override the <strong className="text-white">Default</strong> pool for{' '}
-              <strong className="text-white">{AGE_GROUPS.find((g) => g.id === effectiveTab)?.label.toLowerCase()}</strong>{' '}
-              brackets only. Leave empty to use the default.
+              Prizes here override the more general pool for{' '}
+              <strong className="text-white">{scopeLabel}</strong>{' '}
+              brackets only. Leave empty to inherit the next-broader scope.
             </div>
           </div>
         )}
@@ -281,9 +321,9 @@ export function Step4Registration(p: Step4Props) {
           <div className="mt-4 text-center py-8 border-2 border-dashed border-[var(--color-border)] rounded-md">
             <div className="text-[var(--color-text-muted)] mb-3">{Icon.trophy('h-8 w-8 mx-auto')}</div>
             <p className="text-xs text-[var(--color-text-muted)] mb-3">
-              {effectiveTab === null
+              {!isOverrideTab
                 ? 'No prizes yet.'
-                : `No overrides for ${AGE_GROUPS.find((g) => g.id === effectiveTab)?.label.toLowerCase()} — falls back to Default.`}
+                : `No overrides for ${scopeLabel} — falls back to broader scope.`}
             </p>
             <button
               type="button"
@@ -291,7 +331,7 @@ export function Step4Registration(p: Step4Props) {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              {effectiveTab === null ? 'Add first place' : 'Add override'}
+              {!isOverrideTab ? 'Add first place' : 'Add override'}
             </button>
           </div>
         ) : (
