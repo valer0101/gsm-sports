@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Icon } from '../../_lib/icons';
 import { type AgeGroup, type Prize, type EntryFeeType, type ReviewData, type WeightCat, categoryLabel, newPrizeId } from '../../_lib/types';
 import { AGE_GROUPS } from '../../_lib/constants';
@@ -34,6 +35,17 @@ export type Step4Props = {
 };
 
 export function Step4Registration(p: Step4Props) {
+  const t = useTranslations('tournament_wizard');
+
+  const ageLabelLower = (id: AgeGroup): string =>
+    id === 'juniors' ? t('age_juniors').toLowerCase()
+    : id === 'adults' ? t('age_adults').toLowerCase()
+    : t('age_veterans').toLowerCase();
+  const ageLabel = (id: AgeGroup): string =>
+    id === 'juniors' ? t('age_juniors')
+    : id === 'adults' ? t('age_adults')
+    : t('age_veterans');
+
   const showAgeTabs = p.ageGroups.size > 1;
   const showCatTabs = p.categories.length > 0;
 
@@ -120,12 +132,13 @@ export function Step4Registration(p: Step4Props) {
   // Used in the empty-state and override info banner.
   const scopeLabel = useMemo(() => {
     const parts: string[] = [];
-    if (effectiveAge) parts.push(AGE_GROUPS.find((g) => g.id === effectiveAge)?.label.toLowerCase() ?? effectiveAge);
+    if (effectiveAge) parts.push(ageLabelLower(effectiveAge));
     if (effectiveCat) {
       const cat = p.categories.find((c) => c.id === effectiveCat);
       if (cat) parts.push(categoryLabel(cat));
     }
     return parts.join(' · ');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ageLabelLower closes over `t` which is stable per locale; recomputing on each render is fine.
   }, [effectiveAge, effectiveCat, p.categories]);
 
   const isOverrideTab = effectiveAge !== null || effectiveCat !== null;
@@ -139,42 +152,44 @@ export function Step4Registration(p: Step4Props) {
   return (
     <div className="space-y-8">
       <div>
-        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">Step 4 of 4</div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Registration &amp; Prizes</h1>
-        <p className="mt-2 text-[var(--color-text-secondary)]">Final touches before launch.</p>
+        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">
+          {t('step_label', { current: 4, total: 4 })}
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">{t('step4_title')}</h1>
+        <p className="mt-2 text-[var(--color-text-secondary)]">{t('step4_subtitle')}</p>
       </div>
 
       <Section>
-        <SectionTitle>Registration</SectionTitle>
+        <SectionTitle>{t('registration_section')}</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <Label>Registration deadline</Label>
+            <Label>{t('registration_deadline_label')}</Label>
             <DateTimeInput value={p.registrationDeadline} onChange={p.setRegistrationDeadline} />
-            <Helper>Last moment athletes can sign up. Defaults to 24h before start.</Helper>
+            <Helper>{t('registration_deadline_helper')}</Helper>
           </div>
           <div>
-            <Label>Total participant cap</Label>
+            <Label>{t('participant_cap_label')}</Label>
             <input
               type="number" min="2"
               value={p.maxParticipants}
               onChange={(e) => p.setMaxParticipants(e.target.value)}
-              placeholder="Unlimited"
+              placeholder={t('advanced_unlimited_placeholder')}
               className="w-full h-12 px-4 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] [color-scheme:dark]"
             />
-            <Helper>Across all categories. Leave blank for no cap.</Helper>
+            <Helper>{t('participant_cap_helper')}</Helper>
           </div>
         </div>
         <div className="mt-5 flex items-center justify-between gap-4 px-4 py-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
           <div>
-            <div className="text-sm font-semibold">Open registration immediately</div>
-            <div className="text-xs text-[var(--color-text-muted)] mt-0.5">If off, tournament saves as draft and registration opens manually later.</div>
+            <div className="text-sm font-semibold">{t('registration_open_now')}</div>
+            <div className="text-xs text-[var(--color-text-muted)] mt-0.5">{t('registration_open_helper')}</div>
           </div>
           <Toggle value={p.registrationOpenImmediately} onChange={p.setRegistrationOpenImmediately} />
         </div>
       </Section>
 
       <Section>
-        <SectionTitle>Entry fee</SectionTitle>
+        <SectionTitle>{t('entry_fee_section')}</SectionTitle>
         <div className="grid grid-cols-2 gap-3 mb-4">
           <button
             type="button"
@@ -186,8 +201,8 @@ export function Step4Registration(p: Step4Props) {
                 : 'border-[var(--color-border)] bg-[var(--color-surface-2)] hover:border-[var(--color-border-strong)]',
             ].join(' ')}
           >
-            <div className="font-semibold text-base">Free</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">No entry fee for athletes.</div>
+            <div className="font-semibold text-base">{t('entry_fee_free')}</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{t('entry_fee_free_desc')}</div>
           </button>
           <button
             type="button"
@@ -199,32 +214,32 @@ export function Step4Registration(p: Step4Props) {
                 : 'border-[var(--color-border)] bg-[var(--color-surface-2)] hover:border-[var(--color-border-strong)]',
             ].join(' ')}
           >
-            <div className="font-semibold text-base">Paid</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">Athletes pay to register.</div>
+            <div className="font-semibold text-base">{t('entry_fee_paid')}</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{t('entry_fee_paid_desc')}</div>
           </button>
         </div>
         {p.entryFeeType === 'paid' && (
           <div className="space-y-4 pt-2">
             <div>
-              <Label>Amount</Label>
+              <Label>{t('entry_fee_amount_label')}</Label>
               <div className="relative">
                 <input
                   type="number" min="0"
                   value={p.entryFeeAmount}
                   onChange={(e) => p.setEntryFeeAmount(e.target.value)}
-                  placeholder="5000"
+                  placeholder={t('entry_fee_amount_placeholder')}
                   className="w-full h-14 pl-4 pr-16 text-2xl font-mono font-bold bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] [color-scheme:dark]"
                 />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--color-text-secondary)] pointer-events-none">AMD</div>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--color-text-secondary)] pointer-events-none">{t('amd_suffix')}</div>
               </div>
             </div>
             <div>
-              <Label>Conditions (optional)</Label>
+              <Label>{t('entry_fee_conditions_label')}</Label>
               <textarea
                 value={p.entryFeeConditions}
                 onChange={(e) => p.setEntryFeeConditions(e.target.value)}
                 rows={3}
-                placeholder="Refund policy, payment method, deadlines..."
+                placeholder={t('entry_fee_conditions_placeholder')}
                 className="w-full px-4 py-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] resize-y"
               />
             </div>
@@ -234,50 +249,50 @@ export function Step4Registration(p: Step4Props) {
 
       <Section>
         <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
-          <SectionTitle inline>Prize pool</SectionTitle>
+          <SectionTitle inline>{t('prize_pool_title')}</SectionTitle>
           {(perBracketActive > 0 || tournamentTotal > 0) && (
             <div className="text-right">
               {perBracketActive > 0 && (
                 <div className="text-xs text-[var(--color-text-secondary)]">
-                  Per bracket:{' '}
+                  {t('prize_per_bracket')}{' '}
                   <span className="font-mono font-semibold text-white">
-                    {perBracketActive.toLocaleString()} AMD
+                    {perBracketActive.toLocaleString()} {t('amd_suffix')}
                   </span>
                 </div>
               )}
               {tournamentTotal > 0 && (
                 <div className="text-sm mt-0.5">
-                  <span className="text-[var(--color-text-secondary)]">Tournament total: </span>
+                  <span className="text-[var(--color-text-secondary)]">{t('prize_tournament_total')} </span>
                   <span className="font-mono font-bold text-[var(--color-accent)]">
-                    {tournamentTotal.toLocaleString()} AMD
+                    {tournamentTotal.toLocaleString()} {t('amd_suffix')}
                   </span>
                   <span className="text-xs text-[var(--color-text-muted)] ml-1">
-                    ({totalBrackets} bracket{totalBrackets === 1 ? '' : 's'})
+                    {t(totalBrackets === 1 ? 'prize_brackets_count_one' : 'prize_brackets_count_other', { count: totalBrackets })}
                   </span>
                 </div>
               )}
             </div>
           )}
         </div>
-        <Helper>Add prizes per place. Each place can hold multiple rewards (money + trophy + certificate, etc.).</Helper>
+        <Helper>{t('prize_pool_helper')}</Helper>
 
         {showAgeTabs && (
           <div className="mt-4">
-            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">Age group</div>
+            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">{t('prize_age_group_label')}</div>
             <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
               <PrizeTabButton
                 active={effectiveAge === null}
                 onClick={() => setActiveAge(null)}
-                label="All ages"
-                hint="Applies to every age group unless overridden"
+                label={t('prize_tab_all_ages')}
+                hint={t('prize_tab_all_ages_hint')}
               />
               {AGE_GROUPS.filter((ag) => p.ageGroups.has(ag.id)).map((ag) => (
                 <PrizeTabButton
                   key={ag.id}
                   active={effectiveAge === ag.id}
                   onClick={() => setActiveAge(ag.id)}
-                  label={ag.label}
-                  badge={ageHasOverrides(ag.id) ? 'override' : undefined}
+                  label={ageLabel(ag.id)}
+                  badge={ageHasOverrides(ag.id) ? t('prize_override_badge') : undefined}
                 />
               ))}
             </div>
@@ -286,13 +301,13 @@ export function Step4Registration(p: Step4Props) {
 
         {showCatTabs && (
           <div className="mt-3">
-            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">Weight category</div>
+            <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[var(--color-text-muted)] mb-1.5">{t('prize_weight_category_label')}</div>
             <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md">
               <PrizeTabButton
                 active={effectiveCat === null}
                 onClick={() => setActiveCat(null)}
-                label="All weights"
-                hint="Applies to every weight category unless overridden"
+                label={t('prize_tab_all_weights')}
+                hint={t('prize_tab_all_weights_hint')}
               />
               {p.categories.map((c) => (
                 <PrizeTabButton
@@ -300,7 +315,7 @@ export function Step4Registration(p: Step4Props) {
                   active={effectiveCat === c.id}
                   onClick={() => setActiveCat(c.id)}
                   label={categoryLabel(c)}
-                  badge={catHasOverridesInActiveAge(c.id) ? 'override' : undefined}
+                  badge={catHasOverridesInActiveAge(c.id) ? t('prize_override_badge') : undefined}
                 />
               ))}
             </div>
@@ -311,9 +326,9 @@ export function Step4Registration(p: Step4Props) {
           <div className="mt-3 px-3 py-2 bg-[var(--color-primary-dim)] border border-[var(--color-primary)]/30 rounded-md text-xs text-[var(--color-text-secondary)] flex items-start gap-2">
             <div className="text-[var(--color-primary)] flex-shrink-0 mt-0.5">{Icon.info('h-3.5 w-3.5')}</div>
             <div>
-              Prizes here override the more general pool for{' '}
-              <strong className="text-white">{scopeLabel}</strong>{' '}
-              brackets only. Leave empty to inherit the next-broader scope.
+              {t('prize_override_info_prefix')}
+              <strong className="text-white">{scopeLabel}</strong>
+              {t('prize_override_info_suffix')}
             </div>
           </div>
         )}
@@ -322,8 +337,8 @@ export function Step4Registration(p: Step4Props) {
             <div className="text-[var(--color-text-muted)] mb-3">{Icon.trophy('h-8 w-8 mx-auto')}</div>
             <p className="text-xs text-[var(--color-text-muted)] mb-3">
               {!isOverrideTab
-                ? 'No prizes yet.'
-                : `No overrides for ${scopeLabel} — falls back to broader scope.`}
+                ? t('prize_empty_default')
+                : t('prize_empty_override', { scope: scopeLabel })}
             </p>
             <button
               type="button"
@@ -331,7 +346,7 @@ export function Step4Registration(p: Step4Props) {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              {!isOverrideTab ? 'Add first place' : 'Add override'}
+              {!isOverrideTab ? t('prize_add_first_place') : t('prize_add_override')}
             </button>
           </div>
         ) : (
@@ -353,17 +368,17 @@ export function Step4Registration(p: Step4Props) {
               className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-white border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-md transition-colors"
             >
               {Icon.plus('h-4 w-4')}
-              Add another place
+              {t('prize_add_another_place')}
             </button>
           </div>
         )}
       </Section>
 
       <Section>
-        <SectionTitle>Live stream</SectionTitle>
-        <Helper>YouTube, Twitch, Kick — paste live stream link if you&apos;ll broadcast.</Helper>
+        <SectionTitle>{t('stream_section')}</SectionTitle>
+        <Helper>{t('stream_helper')}</Helper>
         <div className="mt-4">
-          <Label>Stream URL</Label>
+          <Label>{t('stream_url_label')}</Label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none">
               {Icon.video()}
@@ -372,7 +387,7 @@ export function Step4Registration(p: Step4Props) {
               type="url"
               value={p.streamUrl}
               onChange={(e) => p.setStreamUrl(e.target.value)}
-              placeholder="https://youtube.com/live/..."
+              placeholder={t('stream_url_placeholder')}
               className={[
                 'w-full h-12 pl-10 pr-10 bg-[var(--color-surface-2)] border focus:ring-4 focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)]',
                 urlValid === false ? 'border-[var(--color-error)] focus:border-[var(--color-error)] focus:ring-[var(--color-error)]/20'
@@ -384,15 +399,15 @@ export function Step4Registration(p: Step4Props) {
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-success)]">{Icon.check()}</div>
             )}
           </div>
-          {urlValid === false && <div className="mt-1.5 text-xs text-[var(--color-error)]">Not a valid URL.</div>}
+          {urlValid === false && <div className="mt-1.5 text-xs text-[var(--color-error)]">{t('stream_url_invalid')}</div>}
         </div>
       </Section>
 
       <Section>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <SectionTitle inline>Feature on homepage</SectionTitle>
-            <Helper>Featured tournaments appear in the hero carousel on the homepage.</Helper>
+            <SectionTitle inline>{t('featured_title')}</SectionTitle>
+            <Helper>{t('featured_helper')}</Helper>
           </div>
           <Toggle value={p.isFeatured} onChange={p.setIsFeatured} />
         </div>

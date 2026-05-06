@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Icon } from '../../_lib/icons';
 import { FORMATS } from '../../_lib/constants';
 import { slugify } from '../../_lib/slug';
@@ -29,27 +30,49 @@ export type Step1Props = {
 };
 
 export function Step1Basic(p: Step1Props) {
+  const t = useTranslations('tournament_wizard');
+
+  // FORMATS comes from constants.ts (sport-engine values), but the visible
+  // labels and descriptions live in the translation file so they localize.
+  const formatLabel = (id: string): string => {
+    if (id === 'single_elimination') return t('format_single_elim');
+    if (id === 'double_elimination') return t('format_double_elim');
+    return t('format_round_robin');
+  };
+  const formatDesc = (id: string): string => {
+    if (id === 'single_elimination') return t('format_single_elim_desc');
+    if (id === 'double_elimination') return t('format_double_elim_desc');
+    return t('format_round_robin_desc');
+  };
+
+  const descriptionPlaceholder =
+    p.descriptionLocale === 'ru' ? t('description_placeholder_ru')
+    : p.descriptionLocale === 'en' ? t('description_placeholder_en')
+    : t('description_placeholder_hy');
+
   return (
     <div className="space-y-8">
       <div>
-        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">Step 1 of 4</div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Basic Information</h1>
-        <p className="mt-2 text-[var(--color-text-secondary)]">Identify the tournament: what, when, where.</p>
+        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">
+          {t('step_label', { current: 1, total: 4 })}
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">{t('step1_title')}</h1>
+        <p className="mt-2 text-[var(--color-text-secondary)]">{t('step1_subtitle')}</p>
       </div>
 
       <Section>
-        <Label>Poster</Label>
+        <Label>{t('poster_label')}</Label>
         <PosterUpload url={p.poster} onChange={p.setPoster} />
       </Section>
 
       <Section>
         <div>
-          <Label required>Tournament name</Label>
+          <Label required>{t('name_label')}</Label>
           <input
             type="text"
             value={p.name}
             onChange={(e) => p.setName(e.target.value)}
-            placeholder="e.g. Yerevan Open 2026"
+            placeholder={t('name_placeholder')}
             className="w-full h-14 px-4 text-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)]"
           />
           {p.name.trim().length > 0 && (
@@ -73,7 +96,7 @@ export function Step1Basic(p: Step1Props) {
                     className="flex items-center gap-1 text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition-colors"
                   >
                     {Icon.pencil()}
-                    Edit slug
+                    {t('edit_slug')}
                   </button>
                 </>
               )}
@@ -83,11 +106,11 @@ export function Step1Basic(p: Step1Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
           <div>
-            <Label required>Sport</Label>
+            <Label required>{t('sport_label')}</Label>
             <SportSelect value={p.sportId} onChange={p.setSportId} />
           </div>
           <div>
-            <Label>Format</Label>
+            <Label>{t('format_label')}</Label>
             <div className="flex gap-2 flex-wrap">
               {FORMATS.map((f) => {
                 const active = p.format === f.id;
@@ -107,8 +130,8 @@ export function Step1Basic(p: Step1Props) {
                     {recommended && (
                       <span className="absolute top-1.5 right-1.5 text-[9px] tracking-wider uppercase text-[var(--color-accent)] font-bold">★</span>
                     )}
-                    <div className="text-sm font-semibold">{f.label}</div>
-                    <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{f.desc}</div>
+                    <div className="text-sm font-semibold">{formatLabel(f.id)}</div>
+                    <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{formatDesc(f.id)}</div>
                     {active && <div className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--color-primary)]" />}
                   </button>
                 );
@@ -119,21 +142,20 @@ export function Step1Basic(p: Step1Props) {
       </Section>
 
       <Section>
-        <SectionTitle>Schedule</SectionTitle>
+        <SectionTitle>{t('schedule_section')}</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <Label required>Start date &amp; time</Label>
+            <Label required>{t('start_date_label')}</Label>
             <DateTimeInput
               value={p.startDate}
               onChange={(v) => {
                 p.setStartDate(v);
-                // If end is now before start, clear it.
                 if (p.endDate && v && p.endDate <= v) p.setEndDate('');
               }}
             />
           </div>
           <div>
-            <Label>End date &amp; time</Label>
+            <Label>{t('end_date_label')}</Label>
             <DateTimeInput
               value={p.endDate}
               onChange={p.setEndDate}
@@ -142,35 +164,35 @@ export function Step1Basic(p: Step1Props) {
               invalid={!!p.endDate && !!p.startDate && p.endDate <= p.startDate}
             />
             {p.endDate && p.startDate && p.endDate <= p.startDate ? (
-              <p className="mt-1.5 text-xs text-[var(--color-error)]">End must be after start.</p>
+              <p className="mt-1.5 text-xs text-[var(--color-error)]">{t('end_date_error')}</p>
             ) : (
-              <Helper>{p.startDate ? 'Leave empty for single-day events.' : 'Pick a start date first.'}</Helper>
+              <Helper>{p.startDate ? t('end_date_helper_default') : t('end_date_helper_no_start')}</Helper>
             )}
           </div>
         </div>
       </Section>
 
       <Section>
-        <SectionTitle>Location</SectionTitle>
+        <SectionTitle>{t('location_section')}</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
-            <Label>Country</Label>
-            <TextInput value={p.country} onChange={p.setCountry} placeholder="Armenia" icon={Icon.globe} />
+            <Label>{t('country_label')}</Label>
+            <TextInput value={p.country} onChange={p.setCountry} placeholder={t('country_placeholder')} icon={Icon.globe} />
           </div>
           <div>
-            <Label>City</Label>
-            <TextInput value={p.city} onChange={p.setCity} placeholder="Yerevan" />
+            <Label>{t('city_label')}</Label>
+            <TextInput value={p.city} onChange={p.setCity} placeholder={t('city_placeholder')} />
           </div>
           <div>
-            <Label>Venue</Label>
-            <TextInput value={p.venue} onChange={p.setVenue} placeholder="Karen Demirchyan Arena" />
+            <Label>{t('venue_label')}</Label>
+            <TextInput value={p.venue} onChange={p.setVenue} placeholder={t('venue_placeholder')} />
           </div>
         </div>
       </Section>
 
       <Section>
         <div className="flex items-center justify-between mb-3">
-          <SectionTitle inline>Description</SectionTitle>
+          <SectionTitle inline>{t('description_section')}</SectionTitle>
           <div className="flex gap-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md p-0.5">
             {(['ru', 'en', 'hy'] as const).map((loc) => (
               <button
@@ -192,15 +214,11 @@ export function Step1Basic(p: Step1Props) {
           onChange={(e) => p.setDescription({ ...p.description, [p.descriptionLocale]: e.target.value })}
           rows={6}
           maxLength={2000}
-          placeholder={p.descriptionLocale === 'ru'
-            ? 'Опишите турнир, регламент, условия участия...'
-            : p.descriptionLocale === 'en'
-            ? 'Describe the tournament, rules, participation conditions...'
-            : 'Նկարագրեք մրցաշարը, կանոնակարգը, մասնակցության պայմանները...'}
+          placeholder={descriptionPlaceholder}
           className="w-full px-4 py-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] resize-y"
         />
         <div className="flex items-center justify-between mt-2">
-          <Helper>Russian is primary. EN/HY are optional but recommended.</Helper>
+          <Helper>{t('description_helper')}</Helper>
           <span className="text-xs text-[var(--color-text-muted)] font-mono">
             {p.description[p.descriptionLocale].length} / 2000
           </span>

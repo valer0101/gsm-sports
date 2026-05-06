@@ -1,23 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Icon } from '../../_lib/icons';
 import { useSports, pickSportName, pickSportEmoji } from '../../_lib/hooks';
 
 export function SportSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('tournament_wizard');
   const [open, setOpen] = useState(false);
   const { data: sports, isLoading, error, refetch } = useSports();
   const selected = sports?.find((s) => s.id === value);
 
   const triggerLabel = isLoading
-    ? 'Loading sports...'
+    ? t('sport_loading')
     : error
-    ? 'Failed to load — click to retry'
+    ? t('sport_error')
     : selected
     ? null
     : sports && sports.length === 0
-    ? 'No sports available'
-    : 'Choose a sport';
+    ? t('sport_empty')
+    : t('sport_placeholder');
 
   return (
     <div className="relative">

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Icon } from '../../_lib/icons';
 import { AGE_GROUPS } from '../../_lib/constants';
 import type { AgeGroup, CompetitionType, Hand } from '../../_lib/types';
@@ -18,9 +19,25 @@ export type Step2Props = {
 };
 
 export function Step2Format(p: Step2Props) {
+  const t = useTranslations('tournament_wizard');
   const isSetka = p.competitionType === 'setka';
   const ageCount = p.ageGroups.size || 1;
   const handMultiplier = p.hand === 'both' ? 2 : p.hand ? 1 : 1;
+
+  const ageLabel = (id: AgeGroup) =>
+    id === 'juniors' ? t('age_juniors')
+    : id === 'adults' ? t('age_adults')
+    : t('age_veterans');
+  const ageSubLabel = (id: AgeGroup) =>
+    id === 'juniors' ? t('age_juniors_sub')
+    : id === 'adults' ? t('age_adults_sub')
+    : t('age_veterans_sub');
+
+  const tiebreakerOptions = [
+    { id: 'higher_seed', label: t('tiebreaker_higher_seed') },
+    { id: 'coin_flip', label: t('tiebreaker_coin_flip') },
+    { id: 'extra_round', label: t('tiebreaker_extra_round') },
+  ];
 
   const toggleAge = (id: AgeGroup) => {
     const next = new Set(p.ageGroups);
@@ -32,37 +49,39 @@ export function Step2Format(p: Step2Props) {
   return (
     <div className="space-y-8">
       <div>
-        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">Step 2 of 4</div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Format Configuration</h1>
-        <p className="mt-2 text-[var(--color-text-secondary)]">Set the rules of competition.</p>
+        <div className="text-[11px] tracking-[0.12em] uppercase text-[var(--color-primary)] font-semibold mb-2">
+          {t('step_label', { current: 2, total: 4 })}
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">{t('step2_title')}</h1>
+        <p className="mt-2 text-[var(--color-text-secondary)]">{t('step2_subtitle')}</p>
       </div>
 
       <Section>
-        <SectionTitle>Competition type</SectionTitle>
+        <SectionTitle>{t('competition_type')}</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BigChoiceCard
             active={p.competitionType === 'setka'}
             onClick={() => p.setCompetitionType('setka')}
             icon={Icon.brackets()}
-            title="SETKA"
-            subtitle="Bracket tournament"
-            description="Multiple matches per athlete. Single or double elimination."
+            title={t('comp_setka_title')}
+            subtitle={t('comp_setka_subtitle')}
+            description={t('comp_setka_description')}
           />
           <BigChoiceCard
             active={p.competitionType === 'armfight'}
             onClick={() => p.setCompetitionType('armfight')}
             icon={Icon.zap()}
-            title="ARMFIGHT"
-            subtitle="Single match"
-            description="One-off exhibition match between named athletes. Often title fights."
+            title={t('comp_armfight_title')}
+            subtitle={t('comp_armfight_subtitle')}
+            description={t('comp_armfight_description')}
           />
         </div>
       </Section>
 
       {isSetka && (
         <Section>
-          <SectionTitle>Age groups</SectionTitle>
-          <Helper>Pick which age categories compete. Skip to allow all ages in one bracket.</Helper>
+          <SectionTitle>{t('age_groups_label')}</SectionTitle>
+          <Helper>{t('age_groups_helper')}</Helper>
           <div className="flex flex-wrap gap-2 mt-4">
             {AGE_GROUPS.map((ag) => {
               const active = p.ageGroups.has(ag.id);
@@ -79,8 +98,8 @@ export function Step2Format(p: Step2Props) {
                   ].join(' ')}
                 >
                   {active && Icon.check('h-3.5 w-3.5')}
-                  <span>{ag.label}</span>
-                  <span className={active ? 'text-white/70' : 'text-[var(--color-text-muted)]'}>· {ag.sub}</span>
+                  <span>{ageLabel(ag.id)}</span>
+                  <span className={active ? 'text-white/70' : 'text-[var(--color-text-muted)]'}>· {ageSubLabel(ag.id)}</span>
                 </button>
               );
             })}
@@ -88,24 +107,24 @@ export function Step2Format(p: Step2Props) {
           {p.ageGroups.size === 0 && (
             <div className="mt-4 flex items-start gap-2 text-xs text-[var(--color-warning)]">
               {Icon.info('h-4 w-4 mt-0.5 flex-shrink-0')}
-              <span>No age groups selected — all ages will compete together in one bracket per category.</span>
+              <span>{t('age_groups_warning')}</span>
             </div>
           )}
         </Section>
       )}
 
       <Section>
-        <SectionTitle>Arm-wrestling hand</SectionTitle>
-        <Helper>Which hand do athletes compete with?</Helper>
+        <SectionTitle>{t('hand_section')}</SectionTitle>
+        <Helper>{t('hand_helper')}</Helper>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-          <HandCard active={p.hand === 'right'} onClick={() => p.setHand('right')} icon={Icon.handRight()} title="Right hand" />
-          <HandCard active={p.hand === 'left'} onClick={() => p.setHand('left')} icon={Icon.handLeft()} title="Left hand" />
+          <HandCard active={p.hand === 'right'} onClick={() => p.setHand('right')} icon={Icon.handRight()} title={t('hand_right')} />
+          <HandCard active={p.hand === 'left'} onClick={() => p.setHand('left')} icon={Icon.handLeft()} title={t('hand_left')} />
           <HandCard
             active={p.hand === 'both'}
             onClick={() => p.setHand('both')}
             icon={Icon.handBoth()}
-            title="Both hands"
-            extraNote="Each athlete registers for left & right separately — counts as two entries."
+            title={t('hand_both')}
+            extraNote={t('hand_both_note')}
           />
         </div>
       </Section>
@@ -116,13 +135,15 @@ export function Step2Format(p: Step2Props) {
           <div className="text-sm text-[var(--color-text-primary)]">
             {isSetka ? (
               <>
-                Will create <span className="font-mono font-bold text-[var(--color-primary)]">{ageCount}</span> bracket{ageCount > 1 ? 's' : ''} per weight category
-                {handMultiplier > 1 && <> × <span className="font-mono font-bold text-[var(--color-primary)]">{handMultiplier}</span> hands</>}
-                <span className="text-[var(--color-text-secondary)]"> · weight categories defined in next step.</span>
+                {t(ageCount === 1 ? 'bracket_preview_setka_one' : 'bracket_preview_setka_other', { count: ageCount })}
+                {handMultiplier > 1 && t('bracket_preview_hands', { count: handMultiplier })}
+                <span className="text-[var(--color-text-secondary)]">{t('bracket_preview_categories_next')}</span>
               </>
             ) : (
               <>
-                Single match{handMultiplier > 1 ? ' × 2 hands' : ''} <span className="text-[var(--color-text-secondary)]">— weight categories defined in next step.</span>
+                {t('bracket_preview_armfight_single')}
+                {handMultiplier > 1 && t('bracket_preview_armfight_both')}
+                <span className="text-[var(--color-text-secondary)]">{t('bracket_preview_categories_next')}</span>
               </>
             )}
           </div>
@@ -136,56 +157,52 @@ export function Step2Format(p: Step2Props) {
           className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-white transition-colors"
         >
           <span className={`transition-transform ${p.advancedOpen ? 'rotate-180' : ''}`}>{Icon.chevronDown('h-4 w-4')}</span>
-          Advanced settings
-          <span className="text-[var(--color-text-muted)]">— optional</span>
+          {t('advanced_toggle')}
+          <span className="text-[var(--color-text-muted)]">{t('advanced_optional')}</span>
         </button>
 
         {p.advancedOpen && (
           <Section>
             <div className="space-y-5">
               <div>
-                <Label>Max participants per category</Label>
+                <Label>{t('advanced_max_per_cat')}</Label>
                 <input
                   type="number"
                   min="2"
                   value={p.maxParticipantsCat}
                   onChange={(e) => p.setMaxParticipantsCat(e.target.value)}
-                  placeholder="Unlimited"
+                  placeholder={t('advanced_unlimited_placeholder')}
                   className="w-full h-12 px-4 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] [color-scheme:dark]"
                 />
-                <Helper>Leave blank for no cap.</Helper>
+                <Helper>{t('advanced_max_per_cat_helper')}</Helper>
               </div>
               <div>
-                <Label>Match duration limit (seconds)</Label>
+                <Label>{t('advanced_match_duration')}</Label>
                 <input
                   type="number"
                   min="0"
                   value={p.matchDuration}
                   onChange={(e) => p.setMatchDuration(e.target.value)}
-                  placeholder="No limit"
+                  placeholder={t('advanced_no_limit_placeholder')}
                   className="w-full h-12 px-4 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-dim)] focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)] [color-scheme:dark]"
                 />
               </div>
               <div>
-                <Label>Tiebreaker rule</Label>
+                <Label>{t('advanced_tiebreaker')}</Label>
                 <div className="flex gap-2 flex-wrap">
-                  {[
-                    { id: 'higher_seed', label: 'Higher seed wins' },
-                    { id: 'coin_flip', label: 'Coin flip' },
-                    { id: 'extra_round', label: 'Extra round' },
-                  ].map((t) => (
+                  {tiebreakerOptions.map((tb) => (
                     <button
-                      key={t.id}
+                      key={tb.id}
                       type="button"
-                      onClick={() => p.setTiebreaker(t.id)}
+                      onClick={() => p.setTiebreaker(tb.id)}
                       className={[
                         'px-4 py-2.5 rounded-md border text-sm font-medium transition-all',
-                        p.tiebreaker === t.id
+                        p.tiebreaker === tb.id
                           ? 'bg-[var(--color-primary-dim)] border-[var(--color-primary)] text-white'
                           : 'bg-[var(--color-surface-2)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]',
                       ].join(' ')}
                     >
-                      {t.label}
+                      {tb.label}
                     </button>
                   ))}
                 </div>

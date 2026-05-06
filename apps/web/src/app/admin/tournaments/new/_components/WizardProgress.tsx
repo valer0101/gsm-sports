@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { Icon } from '../_lib/icons';
 import { STEPS } from '../_lib/constants';
 
@@ -10,18 +13,28 @@ export function WizardProgress({
   completedSteps: Set<number>;
   onJump: (n: number) => void;
 }) {
+  const t = useTranslations('tournament_wizard');
+
+  // STEPS comes from constants.ts as a static array; map its label to a
+  // translation key so the user-facing text is always localized.
+  const stepKey: Record<string, string> = {
+    BASIC: 'progress_basic',
+    FORMAT: 'progress_format',
+    CATEGORIES: 'progress_categories',
+    REGISTRATION: 'progress_registration',
+  };
+  const labelOf = (s: { label: string }) => t(stepKey[s.label] ?? 'progress_basic');
+
   return (
     <>
       {/* Mobile compact bar */}
       <div className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-4">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs">
-            <span className="text-[var(--color-text-muted)]">Step </span>
-            <span className="text-white font-bold">{currentStep}</span>
-            <span className="text-[var(--color-text-muted)]"> of {STEPS.length}</span>
+            {t('step_label', { current: currentStep, total: STEPS.length })}
           </div>
           <div className="text-[10px] tracking-[0.12em] uppercase font-bold text-[var(--color-primary)]">
-            {STEPS[currentStep - 1].label}
+            {labelOf(STEPS[currentStep - 1])}
           </div>
         </div>
         <div className="h-1 bg-[var(--color-border)] rounded-full overflow-hidden">
@@ -66,7 +79,7 @@ export function WizardProgress({
                         !isDone && !isCurrent && 'text-[var(--color-text-muted)]',
                       ].filter(Boolean).join(' ')}
                     >
-                      {s.label}
+                      {labelOf(s)}
                     </span>
                   </button>
                   {i < STEPS.length - 1 && (

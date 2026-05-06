@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { useCreateTournament } from '@/hooks/useAdmin';
 import { Icon } from './_lib/icons';
@@ -23,6 +24,7 @@ import { Step3Categories } from './_components/steps/Step3Categories';
 import { Step4Registration } from './_components/steps/Step4Registration';
 
 export default function NewTournamentPage() {
+  const t = useTranslations('tournament_wizard');
   const router = useRouter();
   const createMutation = useCreateTournament();
   const { data: sports } = useSports();
@@ -202,7 +204,7 @@ export default function NewTournamentPage() {
       const data = (e as { response?: { data?: { message?: string | string[] } } })?.response?.data;
       const msg = Array.isArray(data?.message)
         ? data?.message.join(' · ')
-        : data?.message ?? 'Failed to create tournament. Try again.';
+        : data?.message ?? t('submit_error_default');
       setSubmitError(msg);
       // Scroll the error into view at the top of step 4.
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -210,7 +212,7 @@ export default function NewTournamentPage() {
   };
 
   const cancel = () => {
-    if (isDirty && !window.confirm('Discard changes? Your tournament won’t be saved.')) return;
+    if (isDirty && !window.confirm(t('discard_confirm'))) return;
     router.push('/admin');
   };
 
@@ -226,8 +228,8 @@ export default function NewTournamentPage() {
           className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-white transition-colors"
         >
           {Icon.arrowLeft()}
-          <span className="hidden sm:inline">Back to tournaments</span>
-          <span className="sm:hidden">Back</span>
+          <span className="hidden sm:inline">{t('back_full')}</span>
+          <span className="sm:hidden">{t('back')}</span>
         </button>
         <div className="flex items-center gap-1 sm:gap-2">
           <button
@@ -236,14 +238,14 @@ export default function NewTournamentPage() {
             disabled={createMutation.isPending || !sportId || !name.trim() || !startDate || !venue.trim()}
             className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-[var(--color-text-secondary)] hover:text-white border border-transparent hover:border-[var(--color-border)] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save draft
+            {t('save_draft')}
           </button>
           <button
             type="button"
             onClick={cancel}
             className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-[var(--color-text-secondary)] hover:text-white transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
         </div>
       </header>
@@ -268,14 +270,14 @@ export default function NewTournamentPage() {
             <div className="mb-6 px-5 py-4 bg-[var(--color-error)]/10 border border-[var(--color-error)]/40 rounded-md flex items-start gap-3">
               <div className="text-[var(--color-error)] flex-shrink-0 mt-0.5">{Icon.info('h-5 w-5')}</div>
               <div className="flex-1">
-                <div className="text-sm font-semibold text-[var(--color-error)]">Couldn&apos;t create tournament</div>
+                <div className="text-sm font-semibold text-[var(--color-error)]">{t('submit_error_title')}</div>
                 <div className="text-xs text-[var(--color-text-secondary)] mt-1">{submitError}</div>
               </div>
               <button
                 type="button"
                 onClick={() => setSubmitError(null)}
                 className="text-[var(--color-text-muted)] hover:text-white"
-                aria-label="Dismiss"
+                aria-label={t('cancel')}
               >
                 {Icon.x()}
               </button>
