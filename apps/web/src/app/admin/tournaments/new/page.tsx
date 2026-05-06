@@ -150,6 +150,7 @@ export default function NewTournamentPage() {
         description: entryFeeConditions || null,
       },
       prizes: prizes.map(({ id: _id, ...rest }) => rest),
+      ...(format && { format }),
       ...(maxParticipantsCat && { maxParticipantsPerCategory: parseInt(maxParticipantsCat, 10) }),
       ...(matchDuration && { matchDurationSec: parseInt(matchDuration, 10) }),
       ...(tiebreaker && { tiebreaker }),
@@ -161,9 +162,9 @@ export default function NewTournamentPage() {
     return {
       sportId,
       name: name.trim(),
-      // Slug is generated server-side from the name — the wizard's slug
-      // preview/edit field is purely informational.
-      format,
+      // The DTO whitelists fields — `slug` is server-generated and `format`
+      // lives inside sportConfig (the entity has a column for it but the DTO
+      // doesn't expose it directly). Keep them out of the top-level payload.
       startDate,
       endDate: endDate || undefined,
       location: venue.trim(),
