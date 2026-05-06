@@ -13,7 +13,7 @@ import { Icon } from './_lib/icons';
 import { slugify } from './_lib/slug';
 import { useSports, pickSportName, pickSportEmoji } from './_lib/hooks';
 import type {
-  AgeGroup, CompetitionType, EntryFeeType, Hand, Locale, Prize, WeightCat,
+  AgeGroup, CompetitionType, EntryFeeType, Gender, Hand, Locale, Prize, WeightCat,
 } from './_lib/types';
 import { WizardProgress } from './_components/WizardProgress';
 import { WizardFooter } from './_components/WizardFooter';
@@ -58,7 +58,7 @@ export default function NewTournamentPage() {
   // Step 3
   const [categories, setCategories] = useState<WeightCat[]>([]);
   const [tolerance, setTolerance] = useState(0);
-  const [splitGenders, setSplitGenders] = useState(false);
+  const [genders, setGenders] = useState<Set<Gender>>(new Set(['male', 'female']));
 
   // Step 4
   const [registrationDeadline, setRegistrationDeadline] = useState('');
@@ -128,6 +128,7 @@ export default function NewTournamentPage() {
 
   // Build the CreateTournamentDto payload from form state.
   const buildPayload = () => {
+    const activeGenders = Array.from(genders);
     const weightCategories = categories.flatMap((c, idx) => {
       const baseName = c.name || (c.maxKg === null ? `${c.minKg}+` : `${c.maxKg}`);
       const base = {
@@ -137,10 +138,7 @@ export default function NewTournamentPage() {
         weightToleranceKg: tolerance,
         sortOrder: idx,
       };
-      const genders = splitGenders && c.genders && c.genders.length > 0
-        ? c.genders
-        : (['male', 'female'] as const);
-      return genders.map((g) => ({ ...base, gender: g }));
+      return activeGenders.map((g) => ({ ...base, gender: g }));
     });
 
     const sportConfig: Record<string, unknown> = {
@@ -315,7 +313,7 @@ export default function NewTournamentPage() {
             <Step3Categories
               categories={categories} setCategories={setCategories}
               tolerance={tolerance} setTolerance={setTolerance}
-              splitGenders={splitGenders} setSplitGenders={setSplitGenders}
+              genders={genders} setGenders={setGenders}
               ageGroupCount={Math.max(1, ageGroups.size)}
               handMul={hand === 'both' ? 2 : 1}
             />
@@ -334,6 +332,7 @@ export default function NewTournamentPage() {
               ageGroups={ageGroups}
               categoryCount={categories.length}
               handMul={hand === 'both' ? 2 : 1}
+              genderCount={Math.max(1, genders.size)}
               review={{
                 name,
                 poster: posterUrl,

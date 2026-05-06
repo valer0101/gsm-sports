@@ -3,17 +3,17 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../../_lib/icons';
 import { PRESET_WEIGHTS } from '../../_lib/constants';
-import { type WeightCat, newCatId } from '../../_lib/types';
+import { type Gender, type WeightCat, newCatId } from '../../_lib/types';
 import { Section, SectionTitle, Label, Helper } from '../fields/Section';
-import { Toggle } from '../fields/Toggle';
 
 export type Step3Props = {
   categories: WeightCat[];
   setCategories: (v: WeightCat[]) => void;
   tolerance: number;
   setTolerance: (v: number) => void;
-  splitGenders: boolean;
-  setSplitGenders: (v: boolean) => void;
+  /** Which genders compete in this tournament — at least one is required. */
+  genders: Set<Gender>;
+  setGenders: (v: Set<Gender>) => void;
   ageGroupCount: number;
   handMul: number;
 };
@@ -31,10 +31,20 @@ export function Step3Categories(p: Step3Props) {
     });
   }, [p.categories]);
 
-  const categoryUnits = p.splitGenders
-    ? p.categories.reduce((sum, c) => sum + (c.genders?.length || 2), 0)
-    : p.categories.length * 2;
-  const totalBrackets = categoryUnits * p.ageGroupCount * p.handMul;
+  const genderCount = Math.max(1, p.genders.size);
+  const totalBrackets = p.categories.length * genderCount * p.ageGroupCount * p.handMul;
+
+  const toggleGender = (g: Gender) => {
+    const next = new Set(p.genders);
+    if (next.has(g)) {
+      // Don't let the user clear both — at least one gender must compete.
+      if (next.size <= 1) return;
+      next.delete(g);
+    } else {
+      next.add(g);
+    }
+    p.setGenders(next);
+  };
 
   const togglePreset = (kg: number) => {
     const existingIdx = p.categories.findIndex(
@@ -183,12 +193,31 @@ export function Step3Categories(p: Step3Props) {
           </Section>
 
           <Section>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <SectionTitle inline>Same categories for men &amp; women</SectionTitle>
-                <Helper>When ON, every category creates one bracket per gender. Turn OFF to set categories per gender.</Helper>
-              </div>
-              <Toggle value={!p.splitGenders} onChange={(v) => p.setSplitGenders(!v)} />
+            <SectionTitle>Genders competing</SectionTitle>
+            <Helper>Each selected gender gets its own brackets per weight category. Uncheck to exclude a gender entirely (no brackets, no prize money).</Helper>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {(['male', 'female'] as const).map((g) => {
+                const active = p.genders.has(g);
+                const isOnly = active && p.genders.size === 1;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => toggleGender(g)}
+                    disabled={isOnly}
+                    title={isOnly ? 'At least one gender must compete' : undefined}
+                    className={[
+                      'px-4 py-2.5 rounded-md border text-sm font-medium transition-all flex items-center gap-2 disabled:cursor-not-allowed',
+                      active
+                        ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                        : 'bg-[var(--color-surface-2)] border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-text-primary)]',
+                    ].join(' ')}
+                  >
+                    {active && Icon.check('h-3.5 w-3.5')}
+                    <span>{g === 'male' ? 'Men' : 'Women'}</span>
+                  </button>
+                );
+              })}
             </div>
           </Section>
         </div>

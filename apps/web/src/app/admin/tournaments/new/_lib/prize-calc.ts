@@ -31,11 +31,16 @@ export function effectivePrizesForGroup(prizes: Prize[], group: AgeGroup): Prize
 }
 
 /**
- * Brackets per age group: weight categories × hand multiplier × 2 (M/F).
- * Each age group has this many brackets, each awarding the prize set.
+ * Brackets per age group: weight categories × hand multiplier × number of
+ * competing genders. With one gender (e.g. men only) the multiplier is 1;
+ * with both, it's 2.
  */
-export function bracketsPerGroup(categoryCount: number, handMul: number): number {
-  return categoryCount * handMul * 2;
+export function bracketsPerGroup(
+  categoryCount: number,
+  handMul: number,
+  genderCount: number,
+): number {
+  return categoryCount * handMul * genderCount;
 }
 
 /**
@@ -49,14 +54,14 @@ export function totalTournamentPayout(
   selectedAgeGroups: Set<AgeGroup>,
   categoryCount: number,
   handMul: number,
+  genderCount: number,
 ): number {
   const perBracket = (group: AgeGroup | null) =>
     sumMoney(group === null ? defaultPrizes(prizes) : effectivePrizesForGroup(prizes, group));
 
-  const bracketsForGroup = bracketsPerGroup(categoryCount, handMul);
+  const bracketsForGroup = bracketsPerGroup(categoryCount, handMul, genderCount);
 
   if (selectedAgeGroups.size === 0) {
-    // No age filtering — single pool, single bracket count.
     return perBracket(null) * bracketsForGroup;
   }
 

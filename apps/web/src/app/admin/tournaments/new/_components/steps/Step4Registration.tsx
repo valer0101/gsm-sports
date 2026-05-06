@@ -27,6 +27,8 @@ export type Step4Props = {
   categoryCount: number;
   /** 2 if both hands, else 1 — feeds the bracket-multiplier total. */
   handMul: number;
+  /** Number of genders competing (Step 3) — 1 or 2. */
+  genderCount: number;
   review: ReviewData;
   goToStep: (n: number) => void;
 };
@@ -69,14 +71,14 @@ export function Step4Registration(p: Step4Props) {
   // Tournament-wide total across every bracket, accounting for per-age-group
   // overrides falling back to the default pool.
   const tournamentTotal = useMemo(
-    () => totalTournamentPayout(p.prizes, p.ageGroups, p.categoryCount, p.handMul),
-    [p.prizes, p.ageGroups, p.categoryCount, p.handMul],
+    () => totalTournamentPayout(p.prizes, p.ageGroups, p.categoryCount, p.handMul, p.genderCount),
+    [p.prizes, p.ageGroups, p.categoryCount, p.handMul, p.genderCount],
   );
 
   const totalBrackets = useMemo(() => {
     const groups = Math.max(1, p.ageGroups.size);
-    return bracketsPerGroup(p.categoryCount, p.handMul) * groups;
-  }, [p.ageGroups.size, p.categoryCount, p.handMul]);
+    return bracketsPerGroup(p.categoryCount, p.handMul, p.genderCount) * groups;
+  }, [p.ageGroups.size, p.categoryCount, p.handMul, p.genderCount]);
 
   const tagForNew = (): { ageGroup?: AgeGroup } =>
     effectiveTab === null ? {} : { ageGroup: effectiveTab };
