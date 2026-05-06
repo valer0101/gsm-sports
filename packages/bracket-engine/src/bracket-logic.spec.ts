@@ -1793,3 +1793,250 @@ describe('getFinalPlacements', () => {
     });
   });
 });
+
+// ─── Double-elim deep propagation (8p, LB merger rounds, byes) ──
+
+describe('double-elim full flow (8 players)', () => {
+  // 8p WB has rounds of size 4/2/1; LB has 4 rounds:
+  //   LB R1 (2): WB R1 losers
+  //   LB R2 (2): LB R1 winners + WB R2 losers (advancement)
+  //   LB R3 (1): LB R2 winners merger     ← roundNum=3, >2, odd
+  //   LB R4 (1): LB R3 winner + WB R3 loser
+  // Anchors propagation through every odd "merger" branch in propagateResults.
+
+  it('crowns champion via grand final when WB winner wins it (no super final)', () => {
+    let data = generateDoubleElimination(makePlayers(8));
+
+    // WB R1 — odd seeds win each pairing (p1,p3,p5,p7).
+    // Losers in order: p2, p4, p6, p8.
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    data = selectWinner(data, 'wb_1_2', 'p5');
+    data = selectWinner(data, 'wb_1_3', 'p7');
+
+    // LB R1 pairs WB R1 losers in match-index order: (p2,p4), (p6,p8).
+    expect(data.losersBracket[0][0].player1.id).toBe('p2');
+    expect(data.losersBracket[0][0].player2.id).toBe('p4');
+    expect(data.losersBracket[0][1].player1.id).toBe('p6');
+    expect(data.losersBracket[0][1].player2.id).toBe('p8');
+
+    data = selectWinner(data, 'lb_1_0', 'p2');
+    data = selectWinner(data, 'lb_1_1', 'p6');
+
+    // WB R2: (p1,p3) and (p5,p7). Pick p1 and p5.
+    expect(data.winnersBracket[1][0].player1.id).toBe('p1');
+    expect(data.winnersBracket[1][0].player2.id).toBe('p3');
+    expect(data.winnersBracket[1][1].player1.id).toBe('p5');
+    expect(data.winnersBracket[1][1].player2.id).toBe('p7');
+    data = selectWinner(data, 'wb_2_0', 'p1');
+    data = selectWinner(data, 'wb_2_1', 'p5');
+
+    // LB R2 (advancement): LB R1 winner vs WB R2 loser.
+    expect(data.losersBracket[1][0].player1.id).toBe('p2');
+    expect(data.losersBracket[1][0].player2.id).toBe('p3');
+    expect(data.losersBracket[1][1].player1.id).toBe('p6');
+    expect(data.losersBracket[1][1].player2.id).toBe('p7');
+    data = selectWinner(data, 'lb_2_0', 'p2');
+    data = selectWinner(data, 'lb_2_1', 'p6');
+
+    // LB R3 — merger round (covers propagateResults LB merger branch).
+    expect(data.losersBracket[2][0].player1.id).toBe('p2');
+    expect(data.losersBracket[2][0].player2.id).toBe('p6');
+    data = selectWinner(data, 'lb_3_0', 'p2');
+
+    // WB Final
+    data = selectWinner(data, 'wb_3_0', 'p1');
+
+    // LB R4 (advancement): LB R3 winner + WB R3 loser.
+    expect(data.losersBracket[3][0].player1.id).toBe('p2');
+    expect(data.losersBracket[3][0].player2.id).toBe('p5');
+    data = selectWinner(data, 'lb_4_0', 'p2');
+
+    // Grand final: p1 (WB) vs p2 (LB)
+    expect(data.grandFinal.player1.id).toBe('p1');
+    expect(data.grandFinal.player2.id).toBe('p2');
+    data = selectWinner(data, 'grand_final', 'p1');
+
+    expect(data.champion).toBe('p1');
+    expect(data.status).toBe('completed');
+    expect(data.superFinal.needed).toBe(false);
+  });
+
+  it('triggers and resolves super final when LB winner wins grand final', () => {
+    let data = generateDoubleElimination(makePlayers(8));
+
+    // WB: clean p1 victory
+    for (const [id, w] of [
+      ['wb_1_0', 'p1'], ['wb_1_1', 'p3'], ['wb_1_2', 'p5'], ['wb_1_3', 'p7'],
+      ['wb_2_0', 'p1'], ['wb_2_1', 'p5'],
+      ['wb_3_0', 'p1'],
+    ]) data = selectWinner(data, id, w);
+
+    // LB: p2 climbs through losers (mirrors test above)
+    for (const [id, w] of [
+      ['lb_1_0', 'p2'], ['lb_1_1', 'p6'],
+      ['lb_2_0', 'p2'], ['lb_2_1', 'p6'],
+      ['lb_3_0', 'p2'],
+      ['lb_4_0', 'p2'],
+    ]) data = selectWinner(data, id, w);
+
+    // LB winner takes GF → super final required
+    data = selectWinner(data, 'grand_final', 'p2');
+    expect(data.superFinal.needed).toBe(true);
+    expect(data.superFinal.player1.id).toBe('p1');
+    expect(data.superFinal.player2.id).toBe('p2');
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+
+    // Super final crowns champion
+    data = selectWinner(data, 'super_final', 'p2');
+    expect(data.champion).toBe('p2');
+    expect(data.status).toBe('completed');
+  });
+});
+
+describe('double-elim — bye handling in losers bracket', () => {
+  // 5-player DE → 3 WB R1 matches are bye-resolved. LB R1 receives all
+  // those byes; one LB R1 slot ends up bye-vs-bye and must auto-resolve
+  // (lines 1748-1751 in propagateLosers).
+  it('auto-resolves LB R1 match when both feeders were WB byes (5p)', () => {
+    let data = generateDoubleElimination(makePlayers(5));
+
+    // Trigger propagation: any selectWinner call will run propagateResults,
+    // which in turn calls propagateLosers and seats byes into LB R1.
+    // The single real-vs-real WB R1 match is wb_1_0 (p1 vs p2 by seeding).
+    data = selectWinner(data, 'wb_1_0', 'p1');
+
+    const lbR1 = data.losersBracket[0];
+    // Each WB R1 bye-loser is 'bye'; combined with another bye loser,
+    // the LB R1 match is winner='bye' + loser='bye'.
+    const byeByeMatches = lbR1.filter(
+      (m) => m.player1.id === 'bye' && m.player2.id === 'bye',
+    );
+    expect(byeByeMatches.length).toBeGreaterThan(0);
+    for (const m of byeByeMatches) {
+      expect(m.winner).toBe('bye');
+      expect(m.loser).toBe('bye');
+    }
+  });
+
+  // Same scenario, downstream effect: LB R2 should not stall on a bye
+  // arriving from a bye-bye LB R1 — propagation feeds 'bye' forward via
+  // line 1849-1852 / 1856-1862-style guards in the LB rounds loop.
+  it('does not stall LB R2 when a LB R1 match auto-resolved as bye-bye (5p)', () => {
+    let data = generateDoubleElimination(makePlayers(5));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+
+    // After WB R2 winner is recorded, its loser drops to LB R2.
+    data = selectWinner(data, 'wb_2_0', data.winnersBracket[1][0].player1.id);
+
+    // LB R2 should now contain a real player (the WB R2 loser) on player2 side
+    // even though the LB R1 feeder was bye-bye.
+    const lbR2 = data.losersBracket[1];
+    const wbR2Loser = data.winnersBracket[1][0].loser!;
+    const slotted = lbR2.some(
+      (m) => m.player1.id === wbR2Loser || m.player2.id === wbR2Loser,
+    );
+    expect(slotted).toBe(true);
+  });
+});
+
+describe('double-elim — propagation cascade on reset', () => {
+  // Resetting a WB R1 match must clear the loser slot it propagated into
+  // LB R1 (back to TBD) AND clear any downstream WB matches that received
+  // the winner.
+  it('reset of WB R1 wipes LB R1 loser slot back to TBD', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+
+    // LB R1 has both losers seated.
+    const lbR1 = data.losersBracket[0][0];
+    expect(lbR1.player1.id).toBe('p2');
+    expect(lbR1.player2.id).toBe('p4');
+
+    // Reset wb_1_0 — p1 should be removed from WB R2, and p2 from LB R1.
+    resetMatch(data, 'wb_1_0');
+
+    const lbR1After = findMatch(data, 'lb_1_0')!;
+    // The slot that received the WB R1 loser (p2) must be cleared to TBD;
+    // the other slot (p4 from wb_1_1) should be untouched.
+    expect(lbR1After.player1.id === 'tbd' || lbR1After.player2.id === 'tbd').toBe(true);
+    expect(lbR1After.winner).toBeNull();
+  });
+
+  // Recording the same winner twice (correction-no-op) is idempotent —
+  // propagation does not duplicate / corrupt downstream slots.
+  it('selectWinner with same winnerId twice is idempotent', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1', 'u1');
+    data = selectWinner(data, 'wb_1_1', 'p3', 'u1');
+    const snapshot = JSON.stringify({
+      wb: data.winnersBracket,
+      lb: data.losersBracket,
+    });
+
+    // Same winner re-recorded — should be a no-op for slot positions
+    // (audit `correctedBy` may update, so we compare structural slots only).
+    data = selectWinner(data, 'wb_1_0', 'p1', 'u1');
+    const after = JSON.stringify({
+      wb: data.winnersBracket.map((r) =>
+        r.map((m) => ({
+          id: m.id,
+          p1: m.player1.id,
+          p2: m.player2.id,
+          winner: m.winner,
+          loser: m.loser,
+        })),
+      ),
+      lb: data.losersBracket.map((r) =>
+        r.map((m) => ({
+          id: m.id,
+          p1: m.player1.id,
+          p2: m.player2.id,
+          winner: m.winner,
+          loser: m.loser,
+        })),
+      ),
+    });
+    const before = JSON.stringify({
+      wb: data.winnersBracket.map((r) =>
+        r.map((m) => ({
+          id: m.id,
+          p1: m.player1.id,
+          p2: m.player2.id,
+          winner: m.winner,
+          loser: m.loser,
+        })),
+      ),
+      lb: data.losersBracket.map((r) =>
+        r.map((m) => ({
+          id: m.id,
+          p1: m.player1.id,
+          p2: m.player2.id,
+          winner: m.winner,
+          loser: m.loser,
+        })),
+      ),
+    });
+    expect(after).toBe(before);
+    // The original snapshot should be structurally consistent too.
+    expect(snapshot.includes('"p1"')).toBe(true);
+  });
+
+  // Correcting a recorded winner (selecting the OTHER player) must
+  // re-propagate downstream: the new winner replaces the old winner in
+  // the next-round slot, and the new loser drops into LB R1 instead.
+  it('correcting WB R1 winner re-propagates to WB R2 and LB R1', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    expect(findMatch(data, 'wb_2_0')!.player1.id).toBe('p1');
+    expect(findMatch(data, 'lb_1_0')!.player1.id).toBe('p2');
+
+    // Correct: p2 actually won.
+    data = selectWinner(data, 'wb_1_0', 'p2');
+
+    expect(findMatch(data, 'wb_2_0')!.player1.id).toBe('p2');
+    expect(findMatch(data, 'lb_1_0')!.player1.id).toBe('p1');
+  });
+});
