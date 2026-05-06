@@ -76,8 +76,16 @@ export default function NewTournamentPage() {
   const autoSlug = useMemo(() => slugify(name), [name]);
   const effectiveSlug = slugManual ? slug : autoSlug;
 
+  const endBeforeStart = !!endDate && !!startDate && endDate <= startDate;
+
   const canAdvance = (() => {
-    if (currentStep === 1) return name.trim().length >= 3 && !!sportId && !!startDate && !!venue.trim();
+    if (currentStep === 1) {
+      return name.trim().length >= 3
+        && !!sportId
+        && !!startDate
+        && !!venue.trim()
+        && !endBeforeStart;
+    }
     if (currentStep === 2) return !!competitionType && !!hand;
     if (currentStep === 3) return categories.length >= 1;
     return true;

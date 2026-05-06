@@ -123,12 +123,29 @@ export function Step1Basic(p: Step1Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
             <Label required>Start date &amp; time</Label>
-            <DateTimeInput value={p.startDate} onChange={p.setStartDate} />
+            <DateTimeInput
+              value={p.startDate}
+              onChange={(v) => {
+                p.setStartDate(v);
+                // If end is now before start, clear it.
+                if (p.endDate && v && p.endDate <= v) p.setEndDate('');
+              }}
+            />
           </div>
           <div>
             <Label>End date &amp; time</Label>
-            <DateTimeInput value={p.endDate} onChange={p.setEndDate} />
-            <Helper>Leave empty for single-day events.</Helper>
+            <DateTimeInput
+              value={p.endDate}
+              onChange={p.setEndDate}
+              min={p.startDate || undefined}
+              disabled={!p.startDate}
+              invalid={!!p.endDate && !!p.startDate && p.endDate <= p.startDate}
+            />
+            {p.endDate && p.startDate && p.endDate <= p.startDate ? (
+              <p className="mt-1.5 text-xs text-[var(--color-error)]">End must be after start.</p>
+            ) : (
+              <Helper>{p.startDate ? 'Leave empty for single-day events.' : 'Pick a start date first.'}</Helper>
+            )}
           </div>
         </div>
       </Section>
