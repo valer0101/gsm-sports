@@ -2,12 +2,18 @@
 
 :root {
   --color-primary: #C8102E;
+  --color-primary-hover: #E11D3A;
+  --color-primary-dim: rgba(200, 16, 46, 0.12);
   --color-secondary: #1A1A2E;
   --color-accent: #FFD700;
   --color-background: #0F0F1A;
   --color-surface: #1A1A2E;
+  --color-surface-2: #252538;
+  --color-border: #2E2E45;
+  --color-border-strong: #43435A;
   --color-text-primary: #FFFFFF;
   --color-text-secondary: #A0A0B0;
+  --color-text-muted: #6A6A80;
   --color-success: #22C55E;
   --color-error: #EF4444;
   --color-warning: #F59E0B;
@@ -17,4 +23,25 @@ body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@keyframes wizardStepIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wizardShake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-4px); }
+  40%      { transform: translateX(4px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+
+.wizard-step-in {
+  animation: wizardStepIn 240ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.wizard-shake {
+  animation: wizardShake 280ms cubic-bezier(0.2, 0, 0, 1);
 }
