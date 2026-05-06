@@ -1,27 +1,11 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import type { Sport } from '@/types/api';
 
-/**
- * Sports list. Same query key as elsewhere in the app — React Query
- * dedupes the request, so SportSelect and the orchestrator share one
- * cache entry.
- */
-export function useSports() {
-  return useQuery<Sport[]>({
-    queryKey: ['sports'],
-    queryFn: async () => {
-      const res = await api.get('/sports?limit=100');
-      // The endpoint returns either an array or `{ data: Sport[], meta }` —
-      // the existing /new form handles both, mirror that.
-      const body = res.data;
-      return Array.isArray(body) ? body : (body?.data ?? []);
-    },
-    staleTime: 5 * 60_000,
-  });
-}
+// `useSports` lives in `@/hooks/useAthletes` (same query key, same endpoint —
+// React Query dedupes). Re-export it from here so wizard files don't need to
+// know about the indirection, and we don't ship a third implementation.
+export { useSports } from '@/hooks/useAthletes';
 
 export function pickSportName(s: Sport | undefined): string {
   if (!s) return '';
