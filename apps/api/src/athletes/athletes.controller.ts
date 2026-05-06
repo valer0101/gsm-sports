@@ -16,12 +16,14 @@ import { CreateAthleteDto } from './dto/create-athlete.dto';
 import { UpdateAthleteDto } from './dto/update-athlete.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('Athletes')
 @Controller('v1/athletes')
 export class AthletesController {
   constructor(private readonly athletesService: AthletesService) {}
 
+  @Public()
   @Get()
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'country', required: false })
@@ -42,6 +44,7 @@ export class AthletesController {
     return this.athletesService.findAll({ sport, country, gender, hand, search, page, limit });
   }
 
+  @Public()
   @Get(':slug')
   findBySlug(@Param('slug') slug: string) {
     return this.athletesService.findBySlug(slug);

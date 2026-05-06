@@ -6,12 +6,14 @@ import { UpsertRankingDto } from './dto/upsert-ranking.dto';
 import { RecalculateRankingDto } from './dto/recalculate-ranking.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('Rankings')
 @Controller('v1/rankings')
 export class RankingsController {
   constructor(private readonly rankingsService: RankingsService) {}
 
+  @Public()
   @Get('world')
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'sportId', required: false })
@@ -46,6 +48,7 @@ export class RankingsController {
     });
   }
 
+  @Public()
   @Get('country/:country')
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'season', required: false, type: Number })
@@ -72,6 +75,7 @@ export class RankingsController {
     });
   }
 
+  @Public()
   @Get('athlete/:athleteId')
   @ApiQuery({ name: 'season', required: false, type: Number })
   findByAthlete(@Param('athleteId') athleteId: string, @Query('season') season?: number) {
