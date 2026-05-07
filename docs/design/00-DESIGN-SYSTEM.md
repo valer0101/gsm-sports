@@ -129,7 +129,8 @@ User priority on 2026-05-06: continue the redesign on bracket-related surfaces. 
 | 2 | `/tournaments/[slug]/arena` | **Live arena view** — projected on the venue screen | Public, full-screen layout (no app chrome). `ConditionalLayout` already bypasses chrome for `arena/*`. |
 | 3 | `/tournaments/[slug]/broadcast/[tableId]` | **OBS overlay** for a single table | Already has chroma-free version (PR #25). Could use a Combat Energy refresh for the dark-bg variant. |
 | 4 | `/operator/tournaments/[tournamentId]` | **Operator console** — running matches at a table | Live operational tool — minimalism + readability matter more than wow. |
-| 5 | `/admin/tournaments/[id]` | **Admin tournament detail / edit** | Reuse wizard primitives. Edit mode of the same shape. |
+| 5a | `/admin/tournaments/[id]` | **Admin tournament detail** (Combat Energy redesign) | Reuse wizard primitives for the read-only summary header. Adds `✏️ Редактировать` link to the new `/edit` route. |
+| 5b | `/admin/tournaments/[id]/edit` | **Admin tournament edit** (NEW route) | Reuses the create wizard verbatim — same 4 steps, same primitives — with `mode="edit"` and `initialData` preloaded from `useAdminTournament(id)`. Submit via `useUpdateTournament(id)`. See §7 for the full decision. |
 | 6 | `/admin/tournaments/[id]/check-in` | **QR check-in scanner** | Already PR #24. Smaller refresh. |
 
 **Suggested approach for each:**
@@ -157,7 +158,7 @@ User priority on 2026-05-06: continue the redesign on bracket-related surfaces. 
 ## 7. Open questions / known gaps for the next surface
 
 - **Toast library** — wizard uses inline error banner + `confirm()`. Next surfaces should consider sonner (most popular Next.js choice). Affects every page that mutates.
-- **Edit page** — wizard primitives are designed to be reusable for admin edit, but no edit page exists yet using them.
+- **Edit page (DECIDED 2026-05-07)** — admin tournament edit ships at its own route `/admin/tournaments/[id]/edit` and reuses the create wizard verbatim. The wizard component must be parameterized: extract to `_components/TournamentWizard.tsx` (or similar shared location) accepting `mode: 'create' | 'edit'`, `initialData?: Partial<Tournament>`, `onSubmit: (payload) => Promise`. The two route orchestrators become thin: `/new/page.tsx` passes `mode="create"` + `useCreateTournament().mutateAsync`; `/[id]/edit/page.tsx` fetches via `useAdminTournament(id)`, passes `mode="edit" initialData={tournament}` + `useUpdateTournament(id).mutateAsync`. Detail page (`/admin/tournaments/[id]`) gets a "✏️ Редактировать" link in the header to the edit route. **Inline editing on the detail page is rejected** — one URL one purpose; back button + dirty-guard work cleanly only when edit owns its own page. **Destructive actions stay on the detail page** (close registration, delete, generate brackets) — edit covers metadata only. This is the path for any "edit X" pattern across the app.
 - **Slug uniqueness check** — debounced `GET /admin/tournaments/check-slug` would be a small UX win in Step 1, deferred from this PR.
 - **Per-(age × weight) prize backend support** — wizard ships `ageGroup` + `weightCategoryId` on each prize entry into `sportConfig.prizes` JSONB, but the public tournament page doesn't yet parse that hierarchy. This connects to the `/tournaments/[slug]` redesign.
 - **Per-category gender override** — Step 3 has a tournament-level `Genders competing` toggle, but no per-category gender selection (the underlying type field exists, the UI was deferred).
