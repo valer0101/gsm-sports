@@ -22,8 +22,14 @@ env:
   NODE_VERSION: '20'
 
 jobs:
+  # NOTE: CodeQL upload requires GitHub Advanced Security on private repos.
+  # Without GHAS the analyze step runs (~4 min) and then fails on result
+  # upload with: "Advanced Security must be enabled for this repository to
+  # use code scanning." Re-enable by changing `if: false` to `if: true`
+  # once the repo is made public or GHAS is purchased.
   codeql:
     name: CodeQL
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
