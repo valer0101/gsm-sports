@@ -22,14 +22,9 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # NOTE: CodeQL upload requires GitHub Advanced Security on private repos.
-  # Without GHAS the analyze step runs (~4 min) and then fails on result
-  # upload with: "Advanced Security must be enabled for this repository to
-  # use code scanning." Re-enable by changing `if: false` to `if: true`
-  # once the repo is made public or GHAS is purchased.
+  # Repo is now public — CodeQL upload works without GHAS.
   codeql:
     name: CodeQL
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -51,14 +46,10 @@ jobs:
         with:
           category: '/language:${{ matrix.language }}'
 
-  # NOTE: actions/dependency-review-action requires GitHub Advanced Security
-  # on private repos (paid). When this repo is made public OR GHAS is enabled,
-  # the dependency-review job below can be re-enabled by changing `if: false`
-  # to `if: github.event_name == 'pull_request'`. Until then, npm-audit below
-  # provides equivalent vulnerability coverage.
+  # Repo is now public — dependency-review works without GHAS.
   dependency-review:
     name: Dependency review
-    if: false
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
