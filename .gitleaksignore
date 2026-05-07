@@ -1,0 +1,8 @@
+# Gitleaks ignore list — fingerprints of false positives.
+# Format: <commit-sha>:<file-path>:<rule-id>:<line-number>
+# See https://github.com/gitleaks/gitleaks#gitleaksignore
+
+# False positive: placeholder Telegram token in .env.example before the
+# placeholder was changed to a non-matching format. The original value
+# (1234567890:AABBCCDD...) was clearly a dummy, not a real token.
+5c04137978fbe075382f6f5a19a473cf251cb537:apps/api/.env.example:telegram-bot-api-token:28
