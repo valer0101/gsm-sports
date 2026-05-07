@@ -1,0 +1,26 @@
+# Default owner for everything in the repo.
+# Replace @valer0101 with team handle (e.g. @valer0101/maintainers) once a team exists.
+*                                @valer0101
+
+# Backend (NestJS API)
+/apps/api/                       @valer0101
+
+# Frontend (Next.js web app)
+/apps/web/                       @valer0101
+
+# Shared packages
+/packages/bracket-engine/        @valer0101
+/packages/shared-types/          @valer0101
+/packages/scheduler/             @valer0101
+/packages/countries/             @valer0101
+/packages/config/                @valer0101
+
+# Infrastructure & CI — extra scrutiny on these.
+/.github/                        @valer0101
+/docker-compose.yml              @valer0101
+/turbo.json                      @valer0101
+/tsconfig.base.json              @valer0101
+
+# Architecture docs — keep aligned with code changes.
+/docs/                           @valer0101
+/CLAUDE.md                       @valer0101

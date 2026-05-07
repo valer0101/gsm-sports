@@ -211,6 +211,7 @@ Detailed architecture docs are in `docs/`:
 - [Security & Auth](docs/07-SECURITY-AND-AUTH.md) — JWT flow, OAuth, RBAC
 - [Deployment](docs/08-DEPLOYMENT.md) — Docker, CI/CD, monitoring, scaling
 - [Testing Strategy](docs/09-TESTING-STRATEGY.md) — test pyramid, coverage goals
+- [CI / CD](docs/10-CI-CD.md) — GitHub Actions, branch protection, security scanning
 
 When making significant architectural changes, update the relevant doc in `docs/`.
 
@@ -227,6 +228,18 @@ When making significant architectural changes, update the relevant doc in `docs/
 - [ ] No hardcoded secrets or API keys
 - [ ] Public pages are server-rendered (SSR) for SEO
 - [ ] Changes comply with architecture docs in `docs/`
+
+## Testing & Quality Roadmap
+
+Order of work, agreed with the team. Do tasks in sequence, do not skip ahead.
+
+1. **CI/CD setup** — GitHub Actions (lint, typecheck, build, test, security). _Done in branch `claude/automate-code-review-merge-IsfGO`._
+2. **Bracket-engine coverage to 90%+** — `packages/bracket-engine` is critical business logic. Currently has 1 spec file, needs full coverage of `generateDoubleElimination()`, `selectWinner()`, `propagateResults()`.
+3. **Web unit/utility tests** — extend coverage in `apps/web` (only `slug.spec.ts` and `prize-calc.spec.ts` exist today).
+4. **Component tests on critical UI** — once auth and tournament-creation flows stabilize, add `@testing-library/react` tests on login form, registration form, tournament builder.
+5. **E2E with Playwright** — last. Only after MVP UI is frozen and at least one critical flow has shipped to prod. 3-5 scenarios max: login → create tournament → register athlete → run match → view bracket.
+
+Do NOT add Playwright/Cypress before step 4 is in progress — empty E2E suites in CI are cargo cult.
 
 ## Known Mistakes — Do Not Repeat
 

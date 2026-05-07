@@ -1,0 +1,45 @@
+name: PR lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    name: Conventional commit title
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Allowed types from CLAUDE.md.
+          types: |
+            feat
+            fix
+            chore
+            refactor
+            docs
+            test
+            style
+          # Allowed scopes from CLAUDE.md.
+          scopes: |
+            api
+            web
+            bracket
+            db
+            auth
+            i18n
+            ci
+            deps
+          # Scope is recommended but not required (e.g., docs-only changes).
+          requireScope: false
+          subjectPattern: ^[a-z].+[^.]$
+          subjectPatternError: |
+            PR title subject must start with lowercase and not end with a period.
+            Example: feat(api): add weight category endpoint

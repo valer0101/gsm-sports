@@ -25,7 +25,9 @@ export function useCurrentUser() {
     try {
       const raw = localStorage.getItem('gsm_user');
       if (raw) setInitialUser(JSON.parse(raw));
-    } catch {}
+    } catch {
+      // Corrupt or missing localStorage entry — fall through to network fetch.
+    }
     setMounted(true);
   }, []);
 

@@ -1,0 +1,96 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan to catch newly disclosed vulnerabilities in unchanged deps.
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # NOTE: CodeQL upload requires GitHub Advanced Security on private repos.
+  # Without GHAS the analyze step runs (~4 min) and then fails on result
+  # upload with: "Advanced Security must be enabled for this repository to
+  # use code scanning." Re-enable by changing `if: false` to `if: true`
+  # once the repo is made public or GHAS is purchased.
+  codeql:
+    name: CodeQL
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  # NOTE: actions/dependency-review-action requires GitHub Advanced Security
+  # on private repos (paid). When this repo is made public OR GHAS is enabled,
+  # the dependency-review job below can be re-enabled by changing `if: false`
+  # to `if: github.event_name == 'pull_request'`. Until then, npm-audit below
+  # provides equivalent vulnerability coverage.
+  dependency-review:
+    name: Dependency review
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Review dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Audit (high severity and above)
+        run: npm audit --audit-level=high --omit=dev
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

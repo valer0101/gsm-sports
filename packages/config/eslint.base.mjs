@@ -17,6 +17,10 @@ export default [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
+      // TypeScript handles undefined identifiers via the type checker;
+      // ESLint's no-undef would just duplicate that and cause false positives
+      // for ambient/global types like React, BeforeUnloadEvent, etc.
+      'no-undef': 'off',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',

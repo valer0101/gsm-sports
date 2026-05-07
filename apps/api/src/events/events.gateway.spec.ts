@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { vi } from 'vitest';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { EventsGateway } from './events.gateway';
 
 describe('EventsGateway', () => {
@@ -16,9 +18,16 @@ describe('EventsGateway', () => {
     leave: vi.fn(),
   };
 
+  const mockJwtService = { verify: vi.fn() };
+  const mockConfigService = { get: vi.fn().mockReturnValue('test-secret') };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [EventsGateway],
+      providers: [
+        EventsGateway,
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: ConfigService, useValue: mockConfigService },
+      ],
     }).compile();
 
     gateway = module.get<EventsGateway>(EventsGateway);

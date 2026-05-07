@@ -13,6 +13,7 @@
 | 07 | [Security & Auth](./07-SECURITY-AND-AUTH.md) | JWT flow, OAuth, RBAC, CORS, валидация, env variables |
 | 08 | [Deployment](./08-DEPLOYMENT.md) | Docker, CI/CD, окружения, мониторинг, бэкапы, scaling |
 | 09 | [Testing Strategy](./09-TESTING-STRATEGY.md) | Unit, Integration, E2E тесты, coverage goals |
+| 10 | [CI / CD](./10-CI-CD.md) | GitHub Actions workflows, branch protection, security scanning |
 
 ---
 
