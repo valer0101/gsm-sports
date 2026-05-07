@@ -24,8 +24,11 @@ Triggered on PR, push to `main`, and weekly (Mondays 06:00 Yerevan).
 
 Jobs:
 - **codeql** — GitHub's static analysis with `security-extended` queries
-- **dependency-review** — blocks PRs that introduce high-severity CVEs
+- **dependency-review** — *disabled by default* (`if: false`). Requires
+  GitHub Advanced Security on private repos; re-enable when the repo
+  becomes public or GHAS is enabled.
 - **npm-audit** — fails on high+ vulnerabilities in production deps
+  (covers the same ground as dependency-review for our purposes)
 - **secret-scan** — gitleaks scan of the full git history
 
 ### `pr-lint.yml` — PR title quality

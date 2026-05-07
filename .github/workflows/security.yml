@@ -45,9 +45,14 @@ jobs:
         with:
           category: '/language:${{ matrix.language }}'
 
+  # NOTE: actions/dependency-review-action requires GitHub Advanced Security
+  # on private repos (paid). When this repo is made public OR GHAS is enabled,
+  # the dependency-review job below can be re-enabled by changing `if: false`
+  # to `if: github.event_name == 'pull_request'`. Until then, npm-audit below
+  # provides equivalent vulnerability coverage.
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
