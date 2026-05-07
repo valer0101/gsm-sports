@@ -23,16 +23,12 @@ whole pipeline) and per-task Turbo cache.
 Triggered on PR, push to `main`, and weekly (Mondays 06:00 Yerevan).
 
 Jobs:
-- **codeql** — *disabled by default* (`if: false`). Static analysis with
-  `security-extended` queries. Requires GitHub Advanced Security to upload
-  results on private repos; re-enable once the repo becomes public or
-  GHAS is enabled.
-- **dependency-review** — *disabled by default* (`if: false`). Same GHAS
-  requirement as CodeQL.
+- **codeql** — GitHub's static analysis with `security-extended` and
+  `security-and-quality` queries. Free on public repos.
+- **dependency-review** — blocks PRs that introduce high-severity CVEs.
+  Free on public repos.
 - **npm-audit** — fails on high+ vulnerabilities in production deps.
-  Together with secret-scan this is our security floor until GHAS is
-  available.
-- **secret-scan** — gitleaks scan of the full git history
+- **secret-scan** — gitleaks scan of the full git history.
 
 ### `pr-lint.yml` — PR title quality
 Validates the PR title matches conventional commits:
@@ -72,10 +68,10 @@ These cannot be configured in code; an admin must do them in the repo settings.
   - ☑ Require branches to be up to date before merging
   - **Required checks** (search and add):
     - `CI Success` (from `ci.yml`)
+    - `CodeQL` (from `security.yml`)
     - `npm audit` (from `security.yml`)
     - `Secret scan` (from `security.yml`)
     - `Conventional commit title` (from `pr-lint.yml`)
-    - `CodeQL` — only after GHAS is enabled on this repo
 - ☑ Require conversation resolution before merging
 - ☑ Require linear history
 - ☑ Do not allow bypassing the above settings
