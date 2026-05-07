@@ -2497,34 +2497,28 @@ describe('propagateResults — synthetic bye-bye feeders', () => {
     expect(wbR2.loser).toBe('bye');
   });
 
-  it('LB advancement: BYE in slot 2 auto-resolves an LB advancement match', () => {
-    // Scenario: an LB R2 match that is supposed to receive a WB R2 loser,
-    // but the upstream LB R1 advanced as bye. We synthesise this by
-    // pre-marking the LB R1 match as bye-bye and triggering propagation.
-    const data = generateDoubleElimination(makePlayers(8));
-    // Drive WB through R1 cleanly (4 winners).
-    selectWinner(data, 'wb_1_0', 'p1');
-    selectWinner(data, 'wb_1_1', 'p3');
-    selectWinner(data, 'wb_1_2', 'p5');
-    selectWinner(data, 'wb_1_3', 'p7');
-    // Hand-mark the first LB R1 slot as bye-bye (synthetic — simulates
-    // a migrated or recovered bracket).
-    const lbR1 = data.losersBracket[0][0];
-    lbR1.player1 = { ...byePlayer };
-    lbR1.player2 = { ...byePlayer };
-    lbR1.winner = 'bye';
-    lbR1.loser = 'bye';
+  it('LB advancement auto-resolves when its LB-side feeder won by bye (5p)', () => {
+    // 5-player DE produces a bye-bye LB R1 match (winner='bye'). The LB R2
+    // advancement slot fed by that match ends up with player1=BYE. Once the
+    // matching WB R2 loser is propagated into player2, the auto-resolve
+    // loop (bracket-logic.ts:1895-1903) marks the LB R2 match as a walkover.
+    let data = generateDoubleElimination(makePlayers(5));
+    data = selectWinner(data, 'wb_1_0', 'p1');
 
-    // WB R2 winner triggers LB R2 propagation. The advancement match
-    // should auto-resolve when its LB-side feeder is bye and its
-    // WB-loser side is real (lines 1896-1902 in the LB rounds loop).
-    selectWinner(data, 'wb_2_0', 'p1');
-    const lbR2 = data.losersBracket[1][0];
-    // player1 came from LB R1 (bye-bye → still TBD, since merger logic
-    // doesn't propagate 'bye' winners as a player); player2 received the
-    // WB R2 loser (p3). The auto-resolve guard should leave winner null
-    // when a slot is TBD (no walkover from a TBD seat).
-    expect(lbR2.player2.id).toBe('p3');
+    // Resolve both WB R2 matches so every LB R2 player2 slot is filled.
+    const wbR2 = data.winnersBracket[1];
+    data = selectWinner(data, wbR2[0].id, wbR2[0].player1.id);
+    data = selectWinner(data, wbR2[1].id, wbR2[1].player1.id);
+
+    const byeAdv = data.losersBracket[1].find(
+      (m) =>
+        ((m.player1.id === 'bye' && m.player2.id !== 'bye' && m.player2.id !== 'tbd') ||
+          (m.player2.id === 'bye' && m.player1.id !== 'bye' && m.player1.id !== 'tbd')) &&
+        m.winner !== null,
+    );
+    expect(byeAdv).toBeDefined();
+    expect(byeAdv!.loser).toBe('bye');
+    expect(byeAdv!.winner).not.toBe('bye');
   });
 });
 
