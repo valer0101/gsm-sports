@@ -6,6 +6,7 @@ import { NewsService } from './news.service';
 import { News } from './entities/news.entity';
 
 const mockQueryBuilder = {
+  where: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
   addOrderBy: vi.fn().mockReturnThis(),
   skip: vi.fn().mockReturnThis(),
@@ -60,14 +61,14 @@ describe('NewsService', () => {
     expect(service).toBeDefined();
   });
 
-  // ── findAll ──────────────────────────────────────────────────────────────
+  // ── findPublished ────────────────────────────────────────────────────────
 
-  describe('findAll', () => {
+  describe('findPublished', () => {
     it('returns paginated items', async () => {
       const items = [mockNews({ status: 'published' })];
       mockQueryBuilder.getManyAndCount.mockResolvedValueOnce([items, 1]);
 
-      const result = await service.findAll();
+      const result = await service.findPublished();
 
       expect(result).toEqual({ items, total: 1 });
       expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('news');
@@ -76,7 +77,7 @@ describe('NewsService', () => {
     it('filters by category when provided', async () => {
       mockQueryBuilder.getManyAndCount.mockResolvedValueOnce([[], 0]);
 
-      await service.findAll('sport');
+      await service.findPublished('sport');
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('news.category = :category', {
         category: 'sport',
@@ -86,7 +87,7 @@ describe('NewsService', () => {
     it('returns empty list when no articles', async () => {
       mockQueryBuilder.getManyAndCount.mockResolvedValueOnce([[], 0]);
 
-      const result = await service.findAll();
+      const result = await service.findPublished();
 
       expect(result).toEqual({ items: [], total: 0 });
     });
