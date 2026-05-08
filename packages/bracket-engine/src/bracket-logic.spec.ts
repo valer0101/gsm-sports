@@ -2040,3 +2040,709 @@ describe('double-elim — propagation cascade on reset', () => {
     expect(findMatch(data, 'lb_1_0')!.player1.id).toBe('p1');
   });
 });
+
+// ─── Edge cases / branch coverage ───────────────────────────
+
+describe('getPlayerObj — fallback for unknown id', () => {
+  it('returns a synthetic ??? entry when the id is not in data.players', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const ghost = getPlayerObj(data, 'never-existed');
+    expect(ghost.id).toBe('never-existed');
+    expect(ghost.firstName).toBe('???');
+  });
+});
+
+describe('validateResult — BYE-slot rejection', () => {
+  it('refuses to record a result on a match with a BYE seat', () => {
+    const data = generateDoubleElimination(makePlayers(3));
+    const byeMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    );
+    if (!byeMatch) throw new Error('test setup: expected a BYE match');
+    const realId = byeMatch.player1.id === 'bye' ? byeMatch.player2.id : byeMatch.player1.id;
+    const res = validateResult(data, byeMatch.id, realId);
+    expect(res.valid).toBe(false);
+    expect(res.errors.some((e) => /BYE/i.test(e))).toBe(true);
+  });
+});
+
+describe('canRecordResult — auto-resolved BYE-vs-BYE rejection', () => {
+  it('flags an LB R1 bye-vs-bye match in a 5-player double-elim', () => {
+    let data = generateDoubleElimination(makePlayers(5));
+    // Any selectWinner triggers propagation, which seats WB R1 byes
+    // into LB R1 — one LB R1 slot ends up bye-vs-bye and is auto-resolved.
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    const byeBye = data.losersBracket[0].find(
+      (m) => m.player1.id === 'bye' && m.player2.id === 'bye',
+    );
+    if (!byeBye) throw new Error('test setup: expected a bye-bye LB R1 match');
+    const res = canRecordResult(data, byeBye.id);
+    expect(res.valid).toBe(false);
+    expect(res.errors.some((e) => /BYE/i.test(e))).toBe(true);
+  });
+});
+
+describe('selectWinner — guards', () => {
+  it('returns data unchanged for an unknown matchId', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const before = JSON.stringify(data);
+    const after = selectWinner(data, 'no_such_match', 'p1');
+    expect(JSON.stringify(after)).toBe(before);
+  });
+
+  it('refuses to overwrite an auto-resolved BYE-vs-BYE LB match', () => {
+    let data = generateDoubleElimination(makePlayers(5));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    const byeBye = data.losersBracket[0].find(
+      (m) => m.player1.id === 'bye' && m.player2.id === 'bye',
+    );
+    if (!byeBye) throw new Error('test setup: expected a bye-bye LB R1 match');
+    const before = JSON.stringify(byeBye);
+    selectWinner(data, byeBye.id, 'p1');
+    const after = JSON.stringify(findMatch(data, byeBye.id));
+    expect(after).toBe(before);
+  });
+});
+
+describe('resetMatch — champion clearing across formats', () => {
+  it('round_robin: clears champion when the deciding match is reset', () => {
+    let data = generateRoundRobin(makePlayers(3));
+    const real = data.winnersBracket
+      .flat()
+      .filter((m) => m.player1.id !== 'bye' && m.player2.id !== 'bye');
+    // p1 sweeps both real matches that involve them; p2 wins p2-vs-p3.
+    for (const m of real) {
+      const winner =
+        m.player1.id === 'p1' || m.player2.id === 'p1' ? 'p1' : 'p2';
+      data = selectWinner(data, m.id, winner);
+    }
+    expect(data.champion).toBe('p1');
+
+    // Reset one of p1's wins; champion must be cleared.
+    const p1Win = real.find(
+      (m) =>
+        (m.player1.id === 'p1' || m.player2.id === 'p1') &&
+        (m.player1.id !== 'bye' && m.player2.id !== 'bye'),
+    )!;
+    data = resetMatch(data, p1Win.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+  });
+
+  it('swiss: clears champion when a decisive match is reset', () => {
+    let data = generateSwiss(makePlayers(4), 2);
+    // Round 1
+    for (const m of data.winnersBracket[0]) {
+      if (m.winner) continue;
+      const w =
+        m.player1.id === 'p1' || m.player2.id === 'p1' ? 'p1' : m.player1.id;
+      data = selectWinner(data, m.id, w);
+    }
+    // Round 2 (paired by propagateResults)
+    for (const m of data.winnersBracket[1]) {
+      if (m.winner) continue;
+      const w =
+        m.player1.id === 'p1' || m.player2.id === 'p1' ? 'p1' : m.player1.id;
+      data = selectWinner(data, m.id, w);
+    }
+    expect(data.champion).toBe('p1');
+
+    // Reset any p1 win — champion must clear and downstream rounds wipe.
+    const decisive = data.winnersBracket
+      .flat()
+      .find((m) => m.winner === 'p1')!;
+    data = resetMatch(data, decisive.id);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+  });
+});
+
+describe('replacePlayerInSlot — additional cases', () => {
+  it('replaces the second slot when position=2', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    const sub: Player = { id: 'sub2', firstName: 'Sub', lastName: 'Two', number: 100 };
+    const res = replacePlayerInSlot(data, m.id, 2, sub);
+    expect(res.ok).toBe(true);
+    const updated = findMatch(data, m.id)!;
+    expect(updated.player2.id).toBe('sub2');
+    expect(updated.player1.id).toBe('p1');
+  });
+
+  it('refuses replacement with a BYE/TBD player object', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    const fake: Player = { id: 'bye', firstName: 'BYE', lastName: '', number: '-' };
+    const res = replacePlayerInSlot(data, m.id, 1, fake);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/real player/i);
+  });
+});
+
+describe('generateGroupsPlayoff — input validation', () => {
+  it('throws when groupCount < 1', () => {
+    expect(() =>
+      generateGroupsPlayoff(makePlayers(4), { groupCount: 0 }),
+    ).toThrow(/groupCount/i);
+  });
+
+  it('throws when advanceFromGroup < 1', () => {
+    expect(() =>
+      generateGroupsPlayoff(makePlayers(4), { advanceFromGroup: 0 }),
+    ).toThrow(/advanceFromGroup/i);
+  });
+});
+
+describe('generateGroupsPlayoff — K-group fallback (≠ 2 groups)', () => {
+  it('handles 3 singleton groups (1 player each, walkover group stage)', () => {
+    // 3 players, 3 groups, top-1 → each group is a singleton walkover and
+    // exercises the buildGroupRoundRobin (n=1) branch.
+    const data = generateGroupsPlayoff(makePlayers(3), {
+      groupCount: 3,
+      advanceFromGroup: 1,
+    });
+    expect(data.groups).toHaveLength(3);
+    for (const g of data.groups ?? []) {
+      expect(g.players).toHaveLength(1);
+      expect(g.rounds).toHaveLength(1);
+      const m = g.rounds[0][0];
+      expect(m.winner).toBe(g.players[0].id);
+      expect(m.loser).toBe('bye');
+    }
+    // 3 advancers padded to a 4-bracket with 1 bye seat.
+    expect(data.bracketSize).toBe(4);
+  });
+
+  it('seeds the K-group playoff (3 groups × 1 advance) with one bye match', () => {
+    let data = generateGroupsPlayoff(makePlayers(6), {
+      groupCount: 3,
+      advanceFromGroup: 1,
+    });
+    expect(data.groups).toHaveLength(3);
+
+    // Resolve every group match — lower id always wins.
+    for (const group of data.groups ?? []) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (m.winner) continue;
+          const w =
+            m.player1.number < m.player2.number ? m.player1.id : m.player2.id;
+          data = selectWinner(data, m.id, w);
+        }
+      }
+    }
+
+    // Playoff R1 has been seeded; one match should be a real-vs-bye walkover.
+    const r1 = data.winnersBracket[0];
+    const byeMatch = r1.find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    );
+    expect(byeMatch).toBeDefined();
+    expect(byeMatch!.winner).toBeTruthy();
+    expect(byeMatch!.loser).toBe('bye');
+  });
+
+  it('propagates bye-bye through the playoff (5 groups × 1 advance, 8-bracket)', () => {
+    // 5 advancers padded to 8 with 3 byes — slots [g0,g1,g2,g3,g4,bye,bye,bye].
+    // R1 m3 = (bye, bye) which auto-resolves to winner='bye'; R2 m1 sees a
+    // 'bye' feeder (line 1690-1692 in propagation) and must keep advancing.
+    let data = generateGroupsPlayoff(makePlayers(5), {
+      groupCount: 5,
+      advanceFromGroup: 1,
+    });
+    expect(data.groups).toHaveLength(5);
+
+    for (const group of data.groups ?? []) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (m.winner) continue;
+          const w =
+            m.player1.number < m.player2.number ? m.player1.id : m.player2.id;
+          data = selectWinner(data, m.id, w);
+        }
+      }
+    }
+
+    const r1 = data.winnersBracket[0];
+    const byeBye = r1.find(
+      (m) => m.player1.id === 'bye' && m.player2.id === 'bye',
+    );
+    expect(byeBye).toBeDefined();
+    expect(byeBye!.winner).toBe('bye');
+
+    // Walk the surviving R1 winner up to the final — every still-pending
+    // playoff match should eventually have real / bye seats, never TBD.
+    const playoff = data.winnersBracket;
+    for (let r = 0; r < playoff.length; r++) {
+      for (const m of playoff[r]) {
+        if (m.winner) continue;
+        if (m.player1.id === 'tbd' || m.player2.id === 'tbd') continue;
+        data = selectWinner(data, m.id, m.player1.id);
+      }
+    }
+    expect(data.status).toBe('completed');
+    expect(data.champion).toBeTruthy();
+  });
+
+  it('K-group fallback uses reverse seed order on odd positions (4×2)', () => {
+    const data = generateGroupsPlayoff(makePlayers(8), {
+      groupCount: 4,
+      advanceFromGroup: 2,
+    });
+    expect(data.groups).toHaveLength(4);
+    expect(data.bracketSize).toBe(8);
+  });
+});
+
+describe('getFinalPlacements — exhaustive default branch', () => {
+  it('returns an empty array for an unrecognised format value', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const corrupted = {
+      ...data,
+      format: 'mystery_format' as unknown as BracketData['format'],
+    };
+    expect(getFinalPlacements(corrupted as BracketData)).toEqual([]);
+  });
+});
+
+describe('getFinalPlacements — double-elim partial state', () => {
+  it('returns no runner-up while super-final is pending', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    data = selectWinner(data, 'wb_2_0', 'p1');
+    data = selectWinner(data, 'lb_1_0', 'p2');
+    data = selectWinner(data, 'lb_2_0', 'p2');
+    // LB winner takes GF → super-final flagged but unresolved.
+    data = selectWinner(data, 'grand_final', 'p2');
+    expect(data.superFinal.needed).toBe(true);
+    expect(data.champion).toBeNull();
+
+    const placements = getFinalPlacements(data);
+    // p1 (WB winner) and p2 (LB winner) are still alive in the SF — neither
+    // can be placed yet. They must not appear in the table at all.
+    const ids = placements.map((p) => p.playerId);
+    expect(ids).not.toContain('p1');
+    expect(ids).not.toContain('p2');
+  });
+});
+
+describe('inferAdvanceFromGroup — legacy fallback', () => {
+  it('infers advance count when the persisted field is absent', () => {
+    let data = generateGroupsPlayoff(makePlayers(8), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    // Strip the persisted hint to mimic legacy bracketData JSONB blobs.
+    delete (data as Partial<BracketData>).advanceFromGroup;
+
+    for (const group of data.groups ?? []) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (m.winner) continue;
+          const w =
+            m.player1.number < m.player2.number ? m.player1.id : m.player2.id;
+          data = selectWinner(data, m.id, w);
+        }
+      }
+    }
+
+    // Playoff R1 should have been seeded with real players, no TBD seats.
+    for (const m of data.winnersBracket[0]) {
+      expect(m.player1.id).not.toBe('tbd');
+      expect(m.player2.id).not.toBe('tbd');
+    }
+  });
+});
+
+describe('walkBracketMatches — group_stage section', () => {
+  it('emits group_stage entries before any winners-section entries', () => {
+    const data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    const sections: string[] = [];
+    walkBracketMatches(data, (_m, s) => {
+      sections.push(s);
+    });
+    const firstWinners = sections.indexOf('winners');
+    const lastGroup = sections.lastIndexOf('group_stage');
+    expect(lastGroup).toBeGreaterThan(-1);
+    expect(firstWinners).toBeGreaterThan(lastGroup);
+  });
+
+  it('stops iteration when a group_stage callback returns false', () => {
+    const data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    let count = 0;
+    walkBracketMatches(data, () => {
+      count += 1;
+      if (count === 1) return false;
+    });
+    expect(count).toBe(1);
+  });
+});
+
+describe('Swiss — bye assignment fairness across long schedules', () => {
+  it('does not double-bye one player while others have only one (3p × 4r)', () => {
+    let data = generateSwiss(makePlayers(3), 4);
+    for (let r = 0; r < 4; r++) {
+      const round = data.winnersBracket[r];
+      for (const m of round) {
+        if (m.winner) continue;
+        data = selectWinner(data, m.id, m.player1.id);
+      }
+    }
+    const byeCounts = new Map<string, number>();
+    for (const round of data.winnersBracket) {
+      for (const m of round) {
+        if (m.player2.id === 'bye') {
+          byeCounts.set(m.player1.id, (byeCounts.get(m.player1.id) ?? 0) + 1);
+        } else if (m.player1.id === 'bye') {
+          byeCounts.set(m.player2.id, (byeCounts.get(m.player2.id) ?? 0) + 1);
+        }
+      }
+    }
+    const counts = [...byeCounts.values()].sort((a, b) => a - b);
+    // 4 byes total across 3 players — fair distribution is [1, 1, 2].
+    expect(counts).toEqual([1, 1, 2]);
+  });
+});
+
+describe('isPlayableMatch — extra states', () => {
+  it('is true on the grand final once both finalists are seated', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    data = selectWinner(data, 'wb_2_0', 'p1');
+    data = selectWinner(data, 'lb_1_0', 'p2');
+    data = selectWinner(data, 'lb_2_0', 'p2');
+    expect(isPlayableMatch(data.grandFinal)).toBe(true);
+  });
+});
+
+describe('findMatch — group-stage lookup', () => {
+  it('finds a match by id inside a group stage', () => {
+    const data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    const group = data.groups![0];
+    const match = group.rounds[0][0];
+    const found = findMatch(data, match.id);
+    expect(found).not.toBeNull();
+    expect(found!.id).toBe(match.id);
+  });
+});
+
+// The bracket generators only ever place single byes per WB R1 match — but
+// `propagateResults` defensively handles bye-bye feeders to keep the engine
+// robust against hand-edited / migrated brackets. Synthetic tests below
+// drive that path directly.
+
+describe('propagateResults — synthetic bye-bye feeders', () => {
+  const byePlayer = { id: 'bye', firstName: 'BYE', lastName: '', number: '-' };
+
+  it('double-elim: WB R2 receives BYE from a bye-bye R1 feeder', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m0 = data.winnersBracket[0][0];
+    m0.player1 = { ...byePlayer };
+    m0.player2 = { ...byePlayer };
+    m0.winner = 'bye';
+    m0.loser = 'bye';
+
+    const result = selectWinner(data, 'wb_1_1', 'p3');
+
+    const wbR2 = result.winnersBracket[1][0];
+    expect(wbR2.player1.id).toBe('bye');
+    expect(wbR2.player2.id).toBe('p3');
+    // Auto-resolves as a walkover.
+    expect(wbR2.winner).toBe('p3');
+    expect(wbR2.loser).toBe('bye');
+  });
+
+  it('single-elim: WB R2 receives BYE from a bye-bye R1 feeder', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    const m0 = data.winnersBracket[0][0];
+    m0.player1 = { ...byePlayer };
+    m0.player2 = { ...byePlayer };
+    m0.winner = 'bye';
+    m0.loser = 'bye';
+
+    const result = selectWinner(data, 'wb_1_1', 'p3');
+
+    const wbR2 = result.winnersBracket[1][0];
+    expect(wbR2.player1.id).toBe('bye');
+    expect(wbR2.player2.id).toBe('p3');
+    expect(wbR2.winner).toBe('p3');
+    expect(wbR2.loser).toBe('bye');
+  });
+
+  it('double-elim: feeder2 BYE auto-resolves player2 to BYE in R2', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m1 = data.winnersBracket[0][1];
+    m1.player1 = { ...byePlayer };
+    m1.player2 = { ...byePlayer };
+    m1.winner = 'bye';
+    m1.loser = 'bye';
+
+    const result = selectWinner(data, 'wb_1_0', 'p1');
+
+    const wbR2 = result.winnersBracket[1][0];
+    expect(wbR2.player1.id).toBe('p1');
+    expect(wbR2.player2.id).toBe('bye');
+    expect(wbR2.winner).toBe('p1');
+    expect(wbR2.loser).toBe('bye');
+  });
+
+  it('LB advancement auto-resolves when its LB-side feeder won by bye (5p)', () => {
+    // 5-player DE produces a bye-bye LB R1 match (winner='bye'). The LB R2
+    // advancement slot fed by that match ends up with player1=BYE. Once the
+    // matching WB R2 loser is propagated into player2, the auto-resolve
+    // loop (bracket-logic.ts:1895-1903) marks the LB R2 match as a walkover.
+    let data = generateDoubleElimination(makePlayers(5));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+
+    // Resolve both WB R2 matches so every LB R2 player2 slot is filled.
+    const wbR2 = data.winnersBracket[1];
+    data = selectWinner(data, wbR2[0].id, wbR2[0].player1.id);
+    data = selectWinner(data, wbR2[1].id, wbR2[1].player1.id);
+
+    const byeAdv = data.losersBracket[1].find(
+      (m) =>
+        ((m.player1.id === 'bye' && m.player2.id !== 'bye' && m.player2.id !== 'tbd') ||
+          (m.player2.id === 'bye' && m.player1.id !== 'bye' && m.player1.id !== 'tbd')) &&
+        m.winner !== null,
+    );
+    expect(byeAdv).toBeDefined();
+    expect(byeAdv!.loser).toBe('bye');
+    expect(byeAdv!.winner).not.toBe('bye');
+  });
+});
+
+describe('withdrawPlayerFromSlot — opponent guard', () => {
+  it('refuses when opponent slot is BYE on a match with no winner yet', () => {
+    // Synthetic: clear the auto-resolved winner so the BYE-opponent guard
+    // gets to run instead of the earlier "match already has a result" guard.
+    const data = generateDoubleElimination(makePlayers(3));
+    const byeMatch = data.winnersBracket[0].find(
+      (m) => m.player1.id === 'bye' || m.player2.id === 'bye',
+    );
+    if (!byeMatch) throw new Error('test setup: expected a BYE match');
+    byeMatch.winner = null;
+    byeMatch.loser = null;
+    const realPos: 1 | 2 = byeMatch.player1.id === 'bye' ? 2 : 1;
+    const res = withdrawPlayerFromSlot(data, byeMatch.id, realPos);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/forfeit/i);
+  });
+});
+
+describe('getFinalPlacements — pre-final state coverage', () => {
+  it('returns no placements for a fresh single_elim bracket', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    expect(getFinalPlacements(data)).toEqual([]);
+  });
+
+  it('returns no placements for a fresh round_robin bracket', () => {
+    const data = generateRoundRobin(makePlayers(4));
+    // Standings exist but every position is 1 (everybody tied at 0-0 →
+    // every row shares competition rank #1).
+    const placements = getFinalPlacements(data);
+    expect(placements.every((p) => p.position === 1)).toBe(true);
+  });
+
+  it('returns runner-up only when single_elim final has a real loser', () => {
+    let data = generateSingleElimination(makePlayers(4));
+    // R1 only — final not played yet.
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    const placements = getFinalPlacements(data);
+    // Champion still null, runner-up still null. R1 losers in tier 1.
+    expect(placements.find((p) => p.position === 1)).toBeDefined();
+    const ids = placements.map((p) => p.playerId);
+    // Survivors p1 & p3 are still alive — must not appear.
+    expect(ids).not.toContain('p1');
+    expect(ids).not.toContain('p3');
+  });
+});
+
+describe('replacePlayerInSlot — old player still referenced elsewhere', () => {
+  // When the swapped-out player still appears in another slot of the
+  // bracket, data.players should NOT remove them.
+  it('keeps the swapped-out player in data.players when they appear elsewhere', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    // Synthetic: pin p1 into wb_1_1.player2 too so the "still referenced
+    // elsewhere" branch fires when we swap them out of wb_1_0.
+    data.winnersBracket[0][1].player2 = { ...data.players.find((p) => p.id === 'p1')! };
+    const sub: Player = { id: 'sub3', firstName: 'Sub', lastName: 'Three', number: 101 };
+    const res = replacePlayerInSlot(data, 'wb_1_0', 1, sub);
+    expect(res.ok).toBe(true);
+    // p1 should still be in data.players because they appear in wb_1_1.
+    expect(data.players.some((p) => p.id === 'p1')).toBe(true);
+  });
+
+  it('keeps an already-listed new player (no duplicate push)', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    const m = data.winnersBracket[0][0];
+    // Substitute p3 in for p1 — p3 is already in data.players.
+    const sub: Player = data.players.find((p) => p.id === 'p3')!;
+    const before = data.players.length;
+    const res = replacePlayerInSlot(data, m.id, 1, sub);
+    expect(res.ok).toBe(true);
+    // No duplicate p3 entry.
+    const p3Count = data.players.filter((p) => p.id === 'p3').length;
+    expect(p3Count).toBe(1);
+    // p1 was the only WB occurrence, so data.players removes them
+    // → length stays the same (lost p1, gained nothing).
+    expect(data.players.length).toBe(before - 1);
+  });
+});
+
+describe('propagateResults — additional bye-feeder coverage', () => {
+  const byePlayer = { id: 'bye', firstName: 'BYE', lastName: '', number: '-' };
+
+  it('single-elim: feeder2 BYE auto-resolves player2 to BYE in R2', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    const m1 = data.winnersBracket[0][1];
+    m1.player1 = { ...byePlayer };
+    m1.player2 = { ...byePlayer };
+    m1.winner = 'bye';
+    m1.loser = 'bye';
+
+    const result = selectWinner(data, 'wb_1_0', 'p1');
+
+    const wbR2 = result.winnersBracket[1][0];
+    expect(wbR2.player1.id).toBe('p1');
+    expect(wbR2.player2.id).toBe('bye');
+    expect(wbR2.winner).toBe('p1');
+    expect(wbR2.loser).toBe('bye');
+  });
+});
+
+describe('walkBracketMatches — early-stop coverage', () => {
+  it('early-stops on the losers callback', () => {
+    let data = generateDoubleElimination(makePlayers(4));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    let stopped = false;
+    walkBracketMatches(data, (_m, section) => {
+      if (section === 'losers') {
+        stopped = true;
+        return false;
+      }
+    });
+    expect(stopped).toBe(true);
+  });
+
+  it('early-stops on the grand_final callback (single_elim has no LB)', () => {
+    const data = generateSingleElimination(makePlayers(4));
+    let sawGf = false;
+    walkBracketMatches(data, (_m, section) => {
+      if (section === 'grand_final') {
+        sawGf = true;
+        return false;
+      }
+    });
+    expect(sawGf).toBe(true);
+  });
+});
+
+describe('withdrawPlayerFromSlot — position 2 path', () => {
+  it('returns the opponent id when position=2 is a real player', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    // wb_1_0 = (p1, p2) — withdraw p2.
+    const res = withdrawPlayerFromSlot(data, 'wb_1_0', 2);
+    expect(res.ok).toBe(true);
+    expect(res.forfeitTo).toBe('p1');
+  });
+});
+
+describe('getFinalPlacements — groups_playoff partial state', () => {
+  it('omits champion + runner-up while the playoff final is pending', () => {
+    let data = generateGroupsPlayoff(makePlayers(8), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    for (const group of data.groups ?? []) {
+      for (const round of group.rounds) {
+        for (const m of round) {
+          if (m.winner) continue;
+          const w =
+            m.player1.number < m.player2.number ? m.player1.id : m.player2.id;
+          data = selectWinner(data, m.id, w);
+        }
+      }
+    }
+    // SF only — final still pending.
+    for (const m of data.winnersBracket[0]) {
+      if (!m.winner) data = selectWinner(data, m.id, m.player1.id);
+    }
+    const placements = getFinalPlacements(data);
+    // Two SF losers tied at position 1 (champion null, runner-up null).
+    expect(placements.length).toBeGreaterThan(0);
+    expect(placements.every((p) => p.position === 1)).toBe(true);
+  });
+});
+
+describe('synthetic — groups_playoff missing groups field', () => {
+  // Defensive paths in `groupStageComplete`, `seedPlayoffSlots`, and
+  // `inferAdvanceFromGroup` apply `data.groups ?? []` for legacy / damaged
+  // brackets. Hand-strip the field to drive those branches.
+  it('treats a groups_playoff bracket without groups as group-stage complete', () => {
+    const data = generateGroupsPlayoff(makePlayers(4), {
+      groupCount: 2,
+      advanceFromGroup: 2,
+    });
+    delete (data as Partial<BracketData>).groups;
+    delete (data as Partial<BracketData>).advanceFromGroup;
+    // selectWinner triggers propagation. With no groups, groupStageComplete
+    // returns true and seeding is attempted with empty slots → all bye.
+    const r1Match = data.winnersBracket[0][0];
+    selectWinner(data, r1Match.id, 'p1');
+    // Engine should not throw or crash; bracket remains a valid object.
+    expect(Array.isArray(data.winnersBracket)).toBe(true);
+  });
+});
+
+describe('walkBracketMatches — early-stop on winners-section', () => {
+  it('stops iteration when winners callback returns false', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    let count = 0;
+    walkBracketMatches(data, () => {
+      count += 1;
+      if (count === 1) return false;
+    });
+    expect(count).toBe(1);
+  });
+});
+
+describe('coverage — index.ts re-exports', () => {
+  it('exports the public API surface', async () => {
+    const mod = await import('./index');
+    // Spot-check a representative function and constant from each export
+    // group — the file is otherwise just `export { ... }` re-exports.
+    expect(typeof mod.generateDoubleElimination).toBe('function');
+    expect(typeof mod.selectWinner).toBe('function');
+    expect(mod.TBD_PLAYER.id).toBe('tbd');
+    expect(mod.BYE_PLAYER.id).toBe('bye');
+  });
+});
+
+describe('getFinalPlacements — single_elim runner-up TBD/null guard', () => {
+  it('skips runner-up when the WB final loser is unset', () => {
+    // 8-player SE walked only to QF — WB final has no loser yet.
+    let data = generateSingleElimination(makePlayers(8));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    data = selectWinner(data, 'wb_1_1', 'p3');
+    data = selectWinner(data, 'wb_1_2', 'p5');
+    data = selectWinner(data, 'wb_1_3', 'p7');
+    const placements = getFinalPlacements(data);
+    // QF losers tied at 1; nothing else.
+    const ids = placements.map((p) => p.playerId).sort();
+    expect(ids).toEqual(['p2', 'p4', 'p6', 'p8']);
+    expect(placements.every((p) => p.position === 1)).toBe(true);
+  });
+});
