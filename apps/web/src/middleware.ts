@@ -9,7 +9,7 @@ import {
   pickLocaleFromAcceptLanguage,
 } from '@/i18n/config';
 
-async function getVerifiedPayload(token: string): Promise<{ roles?: string[] } | null> {
+export async function getVerifiedPayload(token: string): Promise<{ roles?: string[] } | null> {
   const secret = process.env.JWT_SECRET;
   if (!secret) return null;
   try {
@@ -34,7 +34,7 @@ function attachLocaleCookie(request: NextRequest, response: NextResponse): void 
   });
 }
 
-function requiresAuth(pathname: string): boolean {
+export function requiresAuth(pathname: string): boolean {
   return pathname.startsWith('/admin') || pathname.startsWith('/operator');
 }
 
