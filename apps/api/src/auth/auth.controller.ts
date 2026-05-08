@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Request, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -19,6 +20,10 @@ const COOKIE_OPTIONS = {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Brute-force gate: 10 attempts / 15 min / IP. Mirrors docs/04-API-DESIGN
+  // "Auth endpoints: 10 req / 15 min". Disable the default-bucket bypass
+  // so a register-then-login burst can't slip through the looser limit.
+  @Throttle({ auth: { limit: 10, ttl: 15 * 60_000 }, default: { limit: 10, ttl: 15 * 60_000 } })
   @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
@@ -28,6 +33,7 @@ export class AuthController {
     return safe;
   }
 
+  @Throttle({ auth: { limit: 10, ttl: 15 * 60_000 }, default: { limit: 10, ttl: 15 * 60_000 } })
   @Public()
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {

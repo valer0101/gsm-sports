@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule as NestScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
+import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { SportsModule } from './sports/sports.module';
 import { TournamentsModule } from './tournaments/tournaments.module';
@@ -50,6 +52,21 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
     // Cron / periodic tasks (MatchReminderTask in TelegramModule).
     NestScheduleModule.forRoot(),
 
+    // Rate limiting — global default + tighter buckets used by AuthController
+    // via `@Throttle({ ... })`. Two buckets:
+    //   `default`  — 100 req / minute / IP (general API; mirrors docs/04 spec).
+    //   `auth`     — 10 req / 15 minutes / IP (login + register; brute-force gate).
+    // Per-route overrides via `@Throttle({ auth: { ... } })`.
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'default', ttl: 60_000, limit: 100 },
+        { name: 'auth', ttl: 15 * 60_000, limit: 10 },
+      ],
+    }),
+
+    // Health probes — public, no auth required.
+    HealthModule,
+
     // Feature modules
     AuthModule,
     UsersModule,
@@ -73,6 +90,10 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
   providers: [
     // Global JWT guard — routes are protected by default; mark exceptions with @Public()
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Global rate-limit guard — applies the `default` throttler to every
+    // route; `@Throttle({ auth: ... })` opts a route into the stricter
+    // bucket (used by AuthController).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}
