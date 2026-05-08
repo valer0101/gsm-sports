@@ -69,7 +69,13 @@ export interface BracketData {
    *     then a single-elim playoff (in `winnersBracket`) seeded with the
    *     top-N from each group. Champion = playoff winner.
    */
-  format?: 'single_elim' | 'double_elim' | 'round_robin' | 'swiss' | 'groups_playoff';
+  format?:
+    | 'single_elim'
+    | 'double_elim'
+    | 'round_robin'
+    | 'swiss'
+    | 'groups_playoff'
+    | 'armfight';
 
   /**
    * Group stage for `groups_playoff` (Phase 3.3d). One entry per group;

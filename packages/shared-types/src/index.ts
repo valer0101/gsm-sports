@@ -13,7 +13,8 @@ export type BracketFormat =
   | 'double_elim'
   | 'round_robin'
   | 'swiss'
-  | 'groups_playoff';
+  | 'groups_playoff'
+  | 'armfight';
 
 /**
  * What data is recorded for a completed match. Determines which UI fields the

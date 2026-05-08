@@ -57,7 +57,7 @@ export const SPORT_CONFIG_PRESETS: Record<string, SportPreset> = {
   armwrestling: {
     categoriesType: 'weight',
     hasHands: true,
-    bracketFormats: ['double_elim', 'single_elim'],
+    bracketFormats: ['double_elim', 'single_elim', 'armfight'],
     defaultBracketFormat: 'double_elim',
     matchResultSchema: 'armwrestling',
     weighInRequired: true,

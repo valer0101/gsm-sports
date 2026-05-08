@@ -5,6 +5,7 @@ import {
   generateRoundRobin,
   generateSwiss,
   generateGroupsPlayoff,
+  generateArmfight,
   getRoundRobinStandings,
   getSwissStandings,
   getGroupStandings,
@@ -2716,6 +2717,130 @@ describe('walkBracketMatches — early-stop on winners-section', () => {
       if (count === 1) return false;
     });
     expect(count).toBe(1);
+  });
+});
+
+describe('generateArmfight', () => {
+  it('rejects fewer than 2 players', () => {
+    expect(() => generateArmfight(makePlayers(1))).toThrow(/exactly 2/i);
+    expect(() => generateArmfight([])).toThrow(/exactly 2/i);
+  });
+
+  it('rejects more than 2 players', () => {
+    expect(() => generateArmfight(makePlayers(3))).toThrow(/exactly 2/i);
+    expect(() => generateArmfight(makePlayers(8))).toThrow(/exactly 2/i);
+  });
+
+  it('builds a single-match bracket with format armfight', () => {
+    const data = generateArmfight(makePlayers(2));
+    expect(data.format).toBe('armfight');
+    expect(data.bracketSize).toBe(2);
+    expect(data.wbRounds).toBe(1);
+    expect(data.winnersBracket).toHaveLength(1);
+    expect(data.winnersBracket[0]).toHaveLength(1);
+    expect(data.losersBracket).toEqual([]);
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+  });
+
+  it('seeds players in order with seed=1 and seed=2', () => {
+    const data = generateArmfight(makePlayers(2));
+    expect(data.winnersBracket[0][0].player1.id).toBe('p1');
+    expect(data.winnersBracket[0][0].player2.id).toBe('p2');
+    expect(data.winnersBracket[0][0].player1.seed).toBe(1);
+    expect(data.winnersBracket[0][0].player2.seed).toBe(2);
+  });
+
+  it('grand_final and super_final stay TBD (never played for armfight)', () => {
+    const data = generateArmfight(makePlayers(2));
+    expect(data.grandFinal.player1.id).toBe('tbd');
+    expect(data.grandFinal.player2.id).toBe('tbd');
+    expect(data.superFinal.needed).toBe(false);
+  });
+
+  it('crowns champion when the single match is decided', () => {
+    let data = generateArmfight(makePlayers(2));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    expect(data.champion).toBe('p1');
+    expect(data.status).toBe('completed');
+  });
+
+  it('does not propagate winner anywhere — no LB / GF / SF', () => {
+    let data = generateArmfight(makePlayers(2));
+    data = selectWinner(data, 'wb_1_0', 'p2');
+    expect(data.losersBracket).toEqual([]);
+    expect(data.grandFinal.winner).toBeNull();
+    expect(data.superFinal.winner).toBeNull();
+    expect(data.superFinal.needed).toBe(false);
+  });
+
+  it('correction (selectWinner twice) updates champion and downstream stays clean', () => {
+    let data = generateArmfight(makePlayers(2));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    expect(data.champion).toBe('p1');
+    data = selectWinner(data, 'wb_1_0', 'p2');
+    expect(data.champion).toBe('p2');
+    expect(data.winnersBracket[0][0].loser).toBe('p1');
+  });
+
+  it('resetMatch clears champion and re-opens the bout', () => {
+    let data = generateArmfight(makePlayers(2));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    expect(data.champion).toBe('p1');
+    data = resetMatch(data, 'wb_1_0');
+    expect(data.champion).toBeNull();
+    expect(data.status).toBe('active');
+    expect(data.winnersBracket[0][0].winner).toBeNull();
+  });
+
+  it('getFinalPlacements: champion=1 + runner-up=2 once decided', () => {
+    let data = generateArmfight(makePlayers(2));
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    const placements = getFinalPlacements(data);
+    expect(placements).toHaveLength(2);
+    expect(placements[0]).toEqual({ playerId: 'p1', position: 1 });
+    expect(placements[1]).toEqual({ playerId: 'p2', position: 2 });
+  });
+
+  it('getFinalPlacements: empty before the bout is decided', () => {
+    const data = generateArmfight(makePlayers(2));
+    expect(getFinalPlacements(data)).toEqual([]);
+  });
+
+  it('walkBracketMatches visits exactly one match', () => {
+    const data = generateArmfight(makePlayers(2));
+    let count = 0;
+    walkBracketMatches(data, () => {
+      count += 1;
+    });
+    // 1 winners-section match + 1 grand_final = 2 (super_final.needed=false).
+    expect(count).toBe(2);
+  });
+
+  it('isPlayableMatch is true for fresh armfight, false once decided', () => {
+    let data = generateArmfight(makePlayers(2));
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(true);
+    data = selectWinner(data, 'wb_1_0', 'p1');
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(false);
+  });
+
+  it('findMatch returns the single armfight match by id', () => {
+    const data = generateArmfight(makePlayers(2));
+    const found = findMatch(data, 'wb_1_0');
+    expect(found).not.toBeNull();
+    expect(found!.id).toBe('wb_1_0');
+  });
+
+  it('preserves player metadata (firstName, lastName, photoUrl, etc.)', () => {
+    const players: Player[] = [
+      { id: 'a', firstName: 'Levon', lastName: 'Hakobyan', number: 7, photoUrl: 'https://x/y.jpg' },
+      { id: 'b', firstName: 'Garik', lastName: 'Petrosyan', number: 12 },
+    ];
+    const data = generateArmfight(players);
+    const m = data.winnersBracket[0][0];
+    expect(m.player1.firstName).toBe('Levon');
+    expect(m.player1.photoUrl).toBe('https://x/y.jpg');
+    expect(m.player2.lastName).toBe('Petrosyan');
   });
 });
 

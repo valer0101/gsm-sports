@@ -15,6 +15,7 @@ import {
   generateRoundRobin,
   generateSwiss,
   generateGroupsPlayoff,
+  generateArmfight,
   selectWinner,
   resetMatch as resetMatchInBracket,
   validateResult,
@@ -269,12 +270,22 @@ export class BracketsService {
     tournamentSportConfig: unknown,
   ): BracketFormat {
     // Resolution precedence (mirrors `assertAllWeighedIn` and the
-    // match-result validator): explicit DTO → per-tournament override →
-    // sport-wide default. An organizer can flip the format for a special
-    // event via `tournament.sportConfig.defaultBracketFormat` without
-    // touching the global sport config.
-    const tOverride = (tournamentSportConfig ?? {}) as Partial<SportConfig>;
-    const chosen = requested ?? tOverride.defaultBracketFormat ?? cfg.defaultBracketFormat;
+    // match-result validator): explicit DTO → competitionType armfight
+    // → per-tournament override → sport-wide default. An organizer can
+    // flip the format for a special event via
+    // `tournament.sportConfig.defaultBracketFormat` without touching the
+    // global sport config; or, if they picked the "armfight" competition
+    // type in the wizard, that overrides the format unconditionally
+    // (an armfight is a 1v1 title fight, never a bracket).
+    const tOverride = (tournamentSportConfig ?? {}) as Partial<SportConfig> & {
+      competitionType?: string;
+    };
+    const isArmfightTournament = tOverride.competitionType === 'armfight';
+    const chosen =
+      requested ??
+      (isArmfightTournament ? 'armfight' : undefined) ??
+      tOverride.defaultBracketFormat ??
+      cfg.defaultBracketFormat;
     if (requested && !isFormatAllowed(cfg, requested)) {
       throw new BadRequestException(
         `Bracket format '${requested}' is not allowed for this sport. ` +
@@ -291,7 +302,8 @@ export class BracketsService {
       chosen !== 'double_elim' &&
       chosen !== 'round_robin' &&
       chosen !== 'swiss' &&
-      chosen !== 'groups_playoff'
+      chosen !== 'groups_playoff' &&
+      chosen !== 'armfight'
     ) {
       throw new BadRequestException(`Bracket format '${chosen}' is not supported.`);
     }
@@ -308,6 +320,16 @@ export class BracketsService {
     if (format === 'round_robin') return generateRoundRobin(players);
     if (format === 'swiss') return generateSwiss(players);
     if (format === 'groups_playoff') return generateGroupsPlayoff(players);
+    if (format === 'armfight') {
+      // Armfight = single 1v1 title fight. Engine enforces exactly 2 players;
+      // we mirror that here as a friendlier API-level error before hitting it.
+      if (players.length !== 2) {
+        throw new BadRequestException(
+          'Armfight requires exactly 2 confirmed entries (no more, no less).',
+        );
+      }
+      return generateArmfight(players);
+    }
     return generateDoubleElimination(players);
   }
 

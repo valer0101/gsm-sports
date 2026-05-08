@@ -56,9 +56,9 @@ export class GenerateBracketDto {
    */
   @ApiProperty({
     required: false,
-    enum: ['single_elim', 'double_elim', 'round_robin', 'swiss', 'groups_playoff'],
+    enum: ['single_elim', 'double_elim', 'round_robin', 'swiss', 'groups_playoff', 'armfight'],
   })
   @IsOptional()
-  @IsIn(['single_elim', 'double_elim', 'round_robin', 'swiss', 'groups_playoff'])
+  @IsIn(['single_elim', 'double_elim', 'round_robin', 'swiss', 'groups_playoff', 'armfight'])
   bracketFormat?: BracketFormat;
 }

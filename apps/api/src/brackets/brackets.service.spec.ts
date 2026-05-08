@@ -75,6 +75,30 @@ vi.mock('@gsm/bracket-engine', () => ({
     champion: null,
     status: 'active',
   })),
+  generateArmfight: vi.fn(() => ({
+    format: 'armfight',
+    players: [],
+    bracketSize: 2,
+    wbRounds: 1,
+    winnersBracket: [
+      [
+        {
+          id: 'wb_1_0',
+          round: 1,
+          matchIndex: 0,
+          player1: { id: 'p1', firstName: 'A', lastName: 'B', number: 1 },
+          player2: { id: 'p2', firstName: 'C', lastName: 'D', number: 2 },
+          winner: null,
+          loser: null,
+        },
+      ],
+    ],
+    losersBracket: [],
+    grandFinal: { id: 'grand_final' },
+    superFinal: { id: 'super_final', needed: false },
+    champion: null,
+    status: 'active',
+  })),
   selectWinner: vi.fn((data: any) => ({ ...data, status: 'active' })),
   resetMatch: vi.fn((data: any) => ({ ...data, status: 'active' })),
   validateResult: vi.fn(() => ({ valid: true, errors: [] })),
@@ -608,6 +632,66 @@ describe('BracketsService', () => {
       );
 
       expect(generateSingleElimination).toHaveBeenCalled();
+    });
+
+    it('uses armfight when tournament.sportConfig.competitionType is armfight', async () => {
+      // The wizard stores `competitionType: 'armfight'` in `sportConfig` for
+      // 1v1 title fights. The service must auto-resolve to the armfight
+      // generator regardless of the sport-wide default.
+      const { generateArmfight, generateDoubleElimination } = await import(
+        '@gsm/bracket-engine'
+      );
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate({ tournamentId: 't1' }, 'org-1');
+
+      expect(generateArmfight).toHaveBeenCalled();
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
+
+    it('rejects armfight tournament with !=2 confirmed entries', async () => {
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await expect(service.generate({ tournamentId: 't1' }, 'org-1')).rejects.toThrow(
+        /exactly 2/i,
+      );
+    });
+
+    it('honors an explicit bracketFormat=armfight from the DTO (armwrestling allows it)', async () => {
+      const { generateArmfight } = await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate(
+        { tournamentId: 't1', bracketFormat: 'armfight' },
+        'org-1',
+      );
+
+      expect(generateArmfight).toHaveBeenCalled();
     });
   });
 
