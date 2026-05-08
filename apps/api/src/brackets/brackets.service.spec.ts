@@ -693,6 +693,53 @@ describe('BracketsService', () => {
 
       expect(generateArmfight).toHaveBeenCalled();
     });
+
+    it('rejects competitionType=armfight on a sport that does not allow armfight (boxing)', async () => {
+      // Boxing's SportPreset doesn't list `armfight` — flipping
+      // `competitionType: 'armfight'` on a boxing tournament must NOT
+      // silently dispatch to `generateArmfight`. The allow-list check
+      // applies to the auto-resolved format, not just the DTO request.
+      const { generateArmfight } = await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'boxing', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await expect(service.generate({ tournamentId: 't1' }, 'org-1')).rejects.toThrow(
+        /not allowed for this sport/i,
+      );
+      expect(generateArmfight).not.toHaveBeenCalled();
+    });
+
+    it('rejects per-tournament defaultBracketFormat that the sport does not allow', async () => {
+      // Mirror of the bug above for the `defaultBracketFormat` route:
+      // a chess tournament can't override into `double_elim` if the
+      // chess preset only allows swiss / round_robin / single_elim.
+      const { generateDoubleElimination } = await import('@gsm/bracket-engine');
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'chess', config: {} },
+          sportConfig: { defaultBracketFormat: 'double_elim' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await expect(service.generate({ tournamentId: 't1' }, 'org-1')).rejects.toThrow(
+        /not allowed for this sport/i,
+      );
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
   });
 
   describe('findById', () => {
