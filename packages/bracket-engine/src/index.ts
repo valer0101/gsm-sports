@@ -4,6 +4,7 @@ export {
   generateRoundRobin,
   generateSwiss,
   generateGroupsPlayoff,
+  generateArmfight,
   getRoundRobinStandings,
   getSwissStandings,
   getGroupStandings,

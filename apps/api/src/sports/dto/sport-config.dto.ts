@@ -21,6 +21,7 @@ const BRACKET_FORMATS = [
   'round_robin',
   'swiss',
   'groups_playoff',
+  'armfight',
 ] as const;
 const MATCH_RESULT_SCHEMAS = [
   'simple_winner',
