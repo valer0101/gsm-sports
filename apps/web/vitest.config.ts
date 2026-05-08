@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import path from 'node:path';
 
 /**
  * Web tests for pure-logic helpers (slug, prize-calc, etc.).
@@ -7,6 +8,11 @@ import { defineConfig } from 'vitest/config';
  * `@testing-library/react`.
  */
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
