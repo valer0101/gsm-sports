@@ -5,9 +5,45 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { ConditionalLayout } from '@/components/layout/ConditionalLayout';
 import './globals.css';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
+
+/**
+ * Site-wide metadata. Per-page Metadata exports inherit from this
+ * (Next merges shallow keys). `metadataBase` is required for
+ * absolute URLs in OG / Twitter tags — without it Next 14 logs a
+ * warning and downstream link previews break.
+ */
 export const metadata: Metadata = {
-  title: 'GSM Sports',
-  description: 'Multi-sport platform for tournaments, rankings, and athlete profiles',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    template: '%s · GSM Sports',
+    default: 'GSM Sports — Tournaments, Rankings, Athletes',
+  },
+  description:
+    'Multi-sport platform for combat-sport tournaments: brackets, weigh-ins, rankings, live results, and athlete profiles.',
+  applicationName: 'GSM Sports',
+  authors: [{ name: 'GSM Sports' }],
+  keywords: ['armwrestling', 'tournaments', 'brackets', 'sports', 'rankings'],
+  openGraph: {
+    title: 'GSM Sports',
+    description:
+      'Multi-sport platform for combat-sport tournaments: brackets, weigh-ins, rankings, live results.',
+    siteName: 'GSM Sports',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GSM Sports',
+    description: 'Tournaments, rankings, and athlete profiles for combat sports.',
+  },
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
