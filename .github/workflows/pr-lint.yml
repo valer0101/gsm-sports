@@ -37,6 +37,7 @@ jobs:
             i18n
             ci
             deps
+            deps-dev
           # Scope is recommended but not required (e.g., docs-only changes).
           requireScope: false
           subjectPattern: ^[a-z].+[^.]$
