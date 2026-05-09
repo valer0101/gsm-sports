@@ -41,6 +41,12 @@ export function useCurrentUser() {
     queryFn: async () => {
       try {
         const data = await api.get('/auth/me').then((r: any) => r.data);
+        // Persist the minimum needed to avoid a flash of "logged out" on
+        // first paint. Deliberately exclude `hasPassword` and any other
+        // auth-state metadata: even though they aren't secrets, CodeQL's
+        // js/clear-text-storage rule flags identifiers matching
+        // `password`/`token`/`secret`, and the React Query refetch on
+        // mount populates the field anyway.
         localStorage.setItem(
           'gsm_user',
           JSON.stringify({
@@ -49,7 +55,6 @@ export function useCurrentUser() {
             firstName: data.firstName,
             lastName: data.lastName,
             roles: data.roles,
-            hasPassword: data.hasPassword,
           }),
         );
         return data;
