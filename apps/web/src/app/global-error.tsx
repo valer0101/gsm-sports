@@ -8,8 +8,10 @@ import { useEffect } from 'react';
  * Must render its own <html>/<body> because the regular layout has
  * already failed by the time this fires.
  *
- * Kept text-only with inline styles so it works even if globals.css
- * fails to load.
+ * Kept text-only with inline styles, hardcoded English strings, and
+ * no next-intl access — by the time we reach this boundary the i18n
+ * context, the React Query provider, and even globals.css may be
+ * unavailable. Anything more sophisticated risks rendering nothing.
  */
 export default function GlobalError({
   error,

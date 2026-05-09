@@ -1,9 +1,17 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
+
+const PRIVACY_EMAIL =
+  process.env.NEXT_PUBLIC_PRIVACY_EMAIL ??
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ??
+  'hello@gsm-sports.example';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy · GSM Sports',
   description: 'How GSM Sports collects, stores, and processes personal data.',
-  robots: { index: true, follow: true },
+  // Placeholder copy stays out of the index until legal counsel signs
+  // off. Flip to `index: true` (and add to `sitemap.ts`) once finalized.
+  robots: { index: false, follow: false },
 };
 
 /**
@@ -11,12 +19,22 @@ export const metadata: Metadata = {
  * GDPR / Armenian data-protection law: lawful basis, retention, rights,
  * contact. Replace the body with finalised legal text before launch.
  */
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const t = await getTranslations('legal');
+
   return (
-    <main className="prose prose-zinc dark:prose-invert mx-auto max-w-3xl px-6 py-16">
+    <main className="prose prose-invert mx-auto max-w-3xl px-6 py-16">
+      <div
+        role="status"
+        className="not-prose mb-8 rounded-md border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-4 py-3 text-sm"
+      >
+        <p className="font-semibold text-[var(--color-warning)]">{t('draft_banner_title')}</p>
+        <p className="mt-1 text-[var(--color-text-secondary)]">{t('draft_banner_body')}</p>
+      </div>
+
       <h1>Privacy Policy</h1>
-      <p className="text-sm text-zinc-500">
-        Last updated: <time dateTime="2026-05-08">8 May 2026</time>
+      <p className="text-sm text-[var(--color-text-muted)]">
+        {t('last_updated')}: <time dateTime="2026-05-08">8 May 2026</time>
       </p>
 
       <p>
@@ -79,8 +97,8 @@ export default function PrivacyPage() {
         You can <strong>access</strong>, <strong>correct</strong>, or <strong>delete</strong>{' '}
         your account data from the Profile page at any time. You can request a machine-readable{' '}
         <strong>export</strong> of all data tied to your account by emailing{' '}
-        <a href="mailto:privacy@gsm-sports.example">privacy@gsm-sports.example</a>. You can lodge
-        a complaint with your local data-protection authority.
+        <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. You can lodge a complaint with
+        your local data-protection authority.
       </p>
 
       <h2>6. Cookies</h2>
@@ -104,14 +122,7 @@ export default function PrivacyPage() {
 
       <h2>9. Contact</h2>
       <p>
-        Privacy questions: <a href="mailto:privacy@gsm-sports.example">privacy@gsm-sports.example</a>
-      </p>
-
-      <hr />
-      <p className="text-xs text-zinc-500">
-        <strong>Note for the team:</strong> placeholder text. Update with the actual hosting
-        provider, sub-processors, and contact addresses before launch. Have local counsel review
-        before exposing to EU traffic at scale.
+        Privacy questions: <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>
       </p>
     </main>
   );

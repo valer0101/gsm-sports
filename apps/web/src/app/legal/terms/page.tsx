@@ -1,24 +1,47 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
+
+const LEGAL_EMAIL =
+  process.env.NEXT_PUBLIC_LEGAL_EMAIL ??
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ??
+  'hello@gsm-sports.example';
 
 export const metadata: Metadata = {
   title: 'Terms of Service · GSM Sports',
   description: 'Terms governing the use of the GSM Sports platform.',
-  robots: { index: true, follow: true },
+  // Placeholder copy is intentionally kept out of the search index until
+  // legal counsel signs off on the production text. Flip to `index: true`
+  // (and re-add to `sitemap.ts`) once finalized.
+  robots: { index: false, follow: false },
 };
 
 /**
  * Terms of Service — placeholder shell. Production text comes from
  * legal counsel (or a generator like termly.io) and replaces the
- * `<TermsContent />` body. Until then, this page exists so the footer
- * link, the registration consent checkbox, and the cookie banner can
- * already point at a stable URL.
+ * body. Until then, this page exists so the footer link, the
+ * registration consent checkbox, and the cookie banner can already
+ * point at a stable URL.
+ *
+ * The page uses `next-intl` `getTranslations` for the chrome (draft
+ * banner, "Last updated" label) but keeps the body text in English —
+ * full translations go in once the final wording is approved.
  */
-export default function TermsPage() {
+export default async function TermsPage() {
+  const t = await getTranslations('legal');
+
   return (
-    <main className="prose prose-zinc dark:prose-invert mx-auto max-w-3xl px-6 py-16">
+    <main className="prose prose-invert mx-auto max-w-3xl px-6 py-16">
+      <div
+        role="status"
+        className="not-prose mb-8 rounded-md border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-4 py-3 text-sm"
+      >
+        <p className="font-semibold text-[var(--color-warning)]">{t('draft_banner_title')}</p>
+        <p className="mt-1 text-[var(--color-text-secondary)]">{t('draft_banner_body')}</p>
+      </div>
+
       <h1>Terms of Service</h1>
-      <p className="text-sm text-zinc-500">
-        Last updated: <time dateTime="2026-05-08">8 May 2026</time>
+      <p className="text-sm text-[var(--color-text-muted)]">
+        {t('last_updated')}: <time dateTime="2026-05-08">8 May 2026</time>
       </p>
 
       <p>
@@ -37,8 +60,8 @@ export default function TermsPage() {
       <h2>2. Accounts</h2>
       <p>
         You are responsible for maintaining the confidentiality of your login credentials and for
-        all activity under your account. Notify us immediately at <a href="mailto:legal@gsm-sports.example">legal@gsm-sports.example</a>{' '}
-        if you suspect unauthorized access.
+        all activity under your account. Notify us immediately at{' '}
+        <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a> if you suspect unauthorized access.
       </p>
 
       <h2>3. Tournament participation</h2>
@@ -84,18 +107,7 @@ export default function TermsPage() {
 
       <h2>9. Contact</h2>
       <p>
-        Questions about these Terms: <a href="mailto:legal@gsm-sports.example">legal@gsm-sports.example</a>
-      </p>
-
-      <hr />
-      <p className="text-xs text-zinc-500">
-        <strong>Note for the team:</strong> this page is a placeholder. Replace with the final
-        legal text before public launch. Generators like{' '}
-        <a href="https://termly.io" target="_blank" rel="noopener noreferrer">
-          termly.io
-        </a>{' '}
-        produce a serviceable starting draft; for events involving paid registration or minors, a
-        local lawyer review is strongly recommended.
+        Questions about these Terms: <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>
       </p>
     </main>
   );

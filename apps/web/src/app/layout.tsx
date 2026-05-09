@@ -5,7 +5,22 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { ConditionalLayout } from '@/components/layout/ConditionalLayout';
 import './globals.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
+/**
+ * Production requires `NEXT_PUBLIC_SITE_URL`; falling through to localhost
+ * in a real build would point all canonical / OG / Twitter card URLs at
+ * `http://localhost:3001`, silently breaking link previews. Throw at
+ * module load so the misconfiguration is impossible to deploy by accident.
+ */
+function resolveSiteUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_SITE_URL must be set in production');
+  }
+  return 'http://localhost:3001';
+}
+
+const SITE_URL = resolveSiteUrl();
 
 /**
  * Site-wide metadata. Per-page Metadata exports inherit from this

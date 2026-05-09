@@ -1,4 +1,37 @@
 {
+  "footer": {
+    "tagline": "Tournaments, rankings, and athlete profiles for combat sports.",
+    "contact_label": "Contact",
+    "legal_label": "Legal",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "rights_reserved": "All rights reserved",
+    "telegram_label": "Telegram"
+  },
+  "cookie_banner": {
+    "label": "Cookie notice",
+    "message": "We use a few essential cookies to keep you signed in and remember your language. No tracking or ads.",
+    "privacy_link": "Privacy Policy",
+    "accept": "Got it",
+    "reject": "Reject"
+  },
+  "error_boundary": {
+    "title": "Something went wrong",
+    "body": "We hit an unexpected error. Try again, or head back to the homepage.",
+    "reference": "Reference",
+    "try_again": "Try again",
+    "go_home": "Go home"
+  },
+  "not_found": {
+    "title": "Page not found",
+    "body": "The link may be broken, or the page may have been removed. Check the URL or return to the homepage.",
+    "go_home": "Go to homepage"
+  },
+  "legal": {
+    "draft_banner_title": "Draft — pending legal review",
+    "draft_banner_body": "This page is a placeholder. Final wording will be reviewed by counsel before launch.",
+    "last_updated": "Last updated"
+  },
   "home": {
     "subtitle": "Բազմամարզական հարթակ մրցաշարերի, վարկանիշների և մարզիկների համար",
     "tournaments": "Մրցաշարեր",

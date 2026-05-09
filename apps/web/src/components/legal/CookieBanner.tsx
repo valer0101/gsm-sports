@@ -2,27 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 const COOKIE_KEY = 'gsm_cookie_consent';
 
+type Consent = 'accepted' | 'rejected';
+
 /**
- * Minimal cookie banner. We only set strictly-necessary cookies (session
- * token, locale, this dismissal flag) — no advertising / tracking — so a
- * single &ldquo;Got it&rdquo; affirmation is enough; no opt-in/opt-out
- * categories are needed today. When advertising or analytics cookies are
- * added later, expand this into a real consent UI (categories + revoke).
+ * Cookie banner. Today the platform sets only strictly-necessary cookies
+ * (session token, locale, this dismissal flag) — but we surface both
+ * Accept and Reject so the UI is GDPR-future-proof: the moment any
+ * non-essential cookie (Sentry session-replay, analytics, ads) ships,
+ * the consent gate is already in place. Storing the user's choice as
+ * `'rejected'` rather than just hiding the banner means downstream
+ * conditional-load helpers can read `localStorage` and skip non-essential
+ * scripts cleanly.
  *
- * Persists the dismissal in localStorage so the banner stays hidden across
- * sessions on the same device. Reads it via a deferred effect so server-
- * rendered HTML is consistent and there&apos;s no flash on hydration.
+ * The dismissal flag persists in localStorage so the banner stays hidden
+ * across sessions on the same device. We read it from a deferred effect
+ * so the SSR HTML is consistent and there's no flash on hydration.
  */
 export function CookieBanner() {
+  const t = useTranslations('cookie_banner');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(COOKIE_KEY);
-      if (stored !== 'accepted') setVisible(true);
+      if (stored !== 'accepted' && stored !== 'rejected') setVisible(true);
     } catch {
       // localStorage may be unavailable (private mode, sandboxed iframe).
       // Show the banner — being slightly annoying is better than skipping
@@ -33,9 +40,9 @@ export function CookieBanner() {
 
   if (!visible) return null;
 
-  const accept = () => {
+  const persist = (choice: Consent) => {
     try {
-      window.localStorage.setItem(COOKIE_KEY, 'accepted');
+      window.localStorage.setItem(COOKIE_KEY, choice);
     } catch {
       /* fall through — closing the banner is the user signal */
     }
@@ -45,28 +52,36 @@ export function CookieBanner() {
   return (
     <div
       role="region"
-      aria-label="Cookie notice"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95"
+      aria-label={t('label')}
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur"
     >
       <div className="mx-auto flex max-w-5xl flex-col items-start gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-zinc-700 dark:text-zinc-200">
-          We use a few essential cookies to keep you signed in and remember your language. No
-          tracking or ads.{' '}
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          {t('message')}{' '}
           <Link
             href="/legal/privacy"
-            className="font-semibold underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white"
+            className="font-semibold underline underline-offset-2 text-[var(--color-text-primary)] hover:text-[var(--color-primary)] transition-colors"
           >
-            Privacy Policy
+            {t('privacy_link')}
           </Link>
           .
         </p>
-        <button
-          type="button"
-          onClick={accept}
-          className="shrink-0 rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          Got it
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => persist('rejected')}
+            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] transition-colors"
+          >
+            {t('reject')}
+          </button>
+          <button
+            type="button"
+            onClick={() => persist('accepted')}
+            className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] transition-colors"
+          >
+            {t('accept')}
+          </button>
+        </div>
       </div>
     </div>
   );
