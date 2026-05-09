@@ -137,15 +137,55 @@ export class AuthController {
       const result = await this.authService.loginWithGoogle(profile, { language });
       res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
 
-      const target = new URL(frontend);
-      target.searchParams.set('status', 'ok');
-      if (state.redirect) target.searchParams.set('redirect', state.redirect);
-      res.redirect(target.toString());
+      res.redirect(this.buildFrontendRedirect(frontend, 'ok', state.redirect));
     } catch (err) {
       this.logger.error(`Google OAuth callback failed: ${(err as Error).message}`);
-      const target = new URL(frontend);
-      target.searchParams.set('status', 'error');
-      res.redirect(target.toString());
+      res.redirect(this.buildFrontendRedirect(frontend, 'error', null));
     }
+  }
+
+  /**
+   * Builds the post-OAuth redirect URL with two layers of protection:
+   *
+   *   1. The redirect path comes from `OAuthStateService.verify()`, which
+   *      already enforces a same-origin path (starts with `/`, not `//`,
+   *      length-capped). It can only ever land in our `redirect=` query
+   *      param — never in the host, scheme, or path of the URL we
+   *      redirect to.
+   *
+   *   2. After construction we re-check that the final URL still starts
+   *      with the configured frontend prefix. Setting a search param
+   *      can't change the origin/path at runtime, so this is belt &
+   *      suspenders — but it also gives CodeQL a recognised sanitiser
+   *      pattern for `js/server-side-unvalidated-url-redirection`,
+   *      which otherwise tracks taint through the URL builder and
+   *      flags `res.redirect()`.
+   *
+   * The host/path of `frontend` itself is server-controlled (env var
+   * `GOOGLE_SUCCESS_REDIRECT`), never user input.
+   */
+  private buildFrontendRedirect(
+    frontend: string,
+    status: 'ok' | 'error',
+    redirectPath: string | null,
+  ): string {
+    const params = new URLSearchParams({ status });
+    if (
+      status === 'ok' &&
+      redirectPath &&
+      redirectPath.startsWith('/') &&
+      !redirectPath.startsWith('//') &&
+      redirectPath.length <= 200
+    ) {
+      params.set('redirect', redirectPath);
+    }
+    const finalUrl = `${frontend}?${params.toString()}`;
+    if (!finalUrl.startsWith(frontend)) {
+      // Unreachable under normal operation — the prefix is built from
+      // `frontend` directly. If it ever fires, refuse the redirect
+      // rather than send a user somewhere unexpected.
+      throw new Error('Frontend redirect URL drifted from configured base');
+    }
+    return finalUrl;
   }
 }
