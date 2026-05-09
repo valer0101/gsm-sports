@@ -136,6 +136,26 @@ export class AdminService {
     this.logger.log(`Tournament deleted: ${id}`);
   }
 
+  /**
+   * Cancel a tournament (set status='cancelled', close registration). Refuses
+   * to act on tournaments that are already terminal (cancelled / completed)
+   * to keep the audit trail clean. The bracket-generated guard is
+   * intentionally not applied here — an organizer might need to cancel a
+   * live event mid-stream.
+   */
+  async cancelTournament(id: string, userId: string, userRoles: string[]): Promise<Tournament> {
+    const t = await this.getTournament(id, userId, userRoles);
+    if (['cancelled', 'completed'].includes(t.status)) {
+      throw new BadRequestException('Tournament is already cancelled or completed');
+    }
+    await this.tournamentsRepository.update(id, {
+      status: 'cancelled',
+      registrationOpen: false,
+    });
+    this.logger.log(`Tournament cancelled: ${id} by user ${userId}`);
+    return this.getTournament(id, userId, userRoles);
+  }
+
   /** Toggle registration open/closed */
   async toggleRegistration(id: string, userId: string, userRoles: string[]): Promise<Tournament> {
     const t = await this.getTournament(id, userId, userRoles);

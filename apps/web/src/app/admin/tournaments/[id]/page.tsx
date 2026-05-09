@@ -3,6 +3,7 @@
 import { useState, use } from 'react';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import {
   useAdminTournament,
   useToggleRegistration,
@@ -22,6 +23,9 @@ import {
   useAdminWithdrawPlayer,
   useAdminReassignEntry,
   useConfirmedEntries,
+  useUpdateTournament,
+  useDeleteTournament,
+  useCancelTournament,
 } from '@/hooks/useAdmin';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -53,19 +57,30 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   const t = useTranslations('admin_tournament');
   const tAdmin = useTranslations('admin');
   const locale = useLocale();
+  const router = useRouter();
   const { data: tournament, isLoading } = useAdminTournament(id);
+  const { data: confirmedRes } = useConfirmedEntries(id);
   const toggleReg = useToggleRegistration(id);
   const generateBrackets = useGenerateBrackets(id);
   const { data: operators } = useAdminOperators(id);
   const { data: brackets } = useAdminBrackets(id);
   const assignOp = useAssignOperator(id);
   const removeOp = useRemoveOperator(id);
+  const updateTournament = useUpdateTournament(id);
+  const cancelTournament = useCancelTournament(id);
+  const deleteTournament = useDeleteTournament();
 
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [operatorEmail, setOperatorEmail] = useState('');
   const [assignError, setAssignError] = useState('');
   const [selectedBracketId, setSelectedBracketId] = useState<string | null>(null);
   const [generateFormat, setGenerateFormat] = useState<SportBracketFormat | ''>('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [descriptionLocale, setDescriptionLocale] = useState<'ru' | 'en' | 'hy'>(
+    locale === 'en' || locale === 'hy' ? locale : 'ru',
+  );
 
   // Restrict the dropdown to formats that are BOTH allowed for the
   // sport AND have a generator landed today.
@@ -134,54 +149,98 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-6">
-      <Link
-        href="/admin"
-        className="inline-flex items-center gap-2 text-sm hover:text-white transition-colors"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
-        {t('back')}
-      </Link>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link
+          href="/admin"
+          className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+        >
+          {t('back')}
+        </Link>
+        {tournament.bracketGenerated ? (
+          <span
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] cursor-not-allowed"
+            title={t('edit_locked_after_bracket')}
+          >
+            ✏️ {t('edit_link')}
+          </span>
+        ) : (
+          <Link
+            href={`/admin/tournaments/${id}/edit`}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] transition-colors"
+          >
+            ✏️ {t('edit_link')}
+          </Link>
+        )}
+      </div>
 
       {/* Header */}
-      <div
-        className="rounded-2xl border border-white/10 p-6"
-        style={{ backgroundColor: 'var(--color-secondary)' }}
-      >
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-xl font-black text-white">{tournament.name}</h1>
-            <p
-              className="text-sm mt-1 inline-flex items-center gap-1.5 flex-wrap"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {tournament.city && <span>{tournament.city}{tournament.country ? ',' : ''}</span>}
-              {tournament.country && <CountryLabel value={tournament.country} />}
-              {(tournament.city || tournament.country) && <span>·</span>}
-              <span>{new Date(tournament.startDate).toLocaleDateString(locale)}</span>
-            </p>
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+        {tournament.posterUrl && (
+          <div
+            className="h-32 sm:h-40 w-full bg-cover bg-center"
+            style={{
+              backgroundImage: `linear-gradient(180deg, rgba(15,15,26,0.45) 0%, var(--color-surface) 100%), url(${tournament.posterUrl})`,
+            }}
+          />
+        )}
+        <div className="p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black text-[var(--color-text-primary)] tracking-tight">
+                {tournament.name}
+              </h1>
+              <p className="text-sm mt-1.5 inline-flex items-center gap-1.5 flex-wrap text-[var(--color-text-secondary)]">
+                {tournament.city && <span>{tournament.city}{tournament.country ? ',' : ''}</span>}
+                {tournament.country && <CountryLabel value={tournament.country} />}
+                {(tournament.city || tournament.country) && <span className="text-[var(--color-text-muted)]">·</span>}
+                <span>{new Date(tournament.startDate).toLocaleDateString(locale)}</span>
+              </p>
+            </div>
+            <StatusBadge status={tournament.status} tAdmin={tAdmin} />
           </div>
-          <StatusBadge status={tournament.status} tAdmin={tAdmin} />
-        </div>
 
-        {/* Stats */}
-        <dl className="grid grid-cols-3 gap-4 mt-5">
-          <Stat label={t('stat_format')} value={t('stat_format_value')} />
-          <Stat
-            label={t('stat_registration')}
-            value={
-              tournament.registrationOpen
-                ? t('stat_registration_open')
-                : t('stat_registration_closed')
-            }
-          />
-          <Stat
-            label={t('stat_bracket')}
-            value={
-              tournament.bracketGenerated ? t('stat_bracket_ready') : t('stat_bracket_pending')
-            }
-          />
-        </dl>
+          {/* Stats */}
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5 border-t border-[var(--color-border)]">
+            <Stat label={t('stat_format')} value={t('stat_format_value')} />
+            <Stat
+              label={t('stat_registration')}
+              value={
+                tournament.registrationOpen
+                  ? t('stat_registration_open')
+                  : t('stat_registration_closed')
+              }
+            />
+            <Stat
+              label={t('stat_bracket')}
+              value={
+                tournament.bracketGenerated ? t('stat_bracket_ready') : t('stat_bracket_pending')
+              }
+            />
+            <Stat
+              label={t('stat_participants')}
+              value={
+                tournament.maxParticipants
+                  ? `${confirmedRes?.data.length ?? 0} / ${tournament.maxParticipants}`
+                  : `${confirmedRes?.data.length ?? 0}`
+              }
+            />
+          </dl>
+        </div>
       </div>
+
+      {/* Tournament setup overview */}
+      <SetupOverview
+        tournament={tournament}
+        showDescription={showDescription}
+        setShowDescription={setShowDescription}
+        descriptionLocale={descriptionLocale}
+        setDescriptionLocale={setDescriptionLocale}
+        onToggleFeatured={() =>
+          updateTournament.mutate({ isFeatured: !tournament.isFeatured } as never)
+        }
+        toggleFeaturedPending={updateTournament.isPending}
+        t={t}
+      />
 
       {/* Registration control */}
       <Section title={t('manage_registration')}>
@@ -189,14 +248,12 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           <button
             disabled={!canToggleReg || toggleReg.isPending}
             onClick={() => toggleReg.mutate()}
-            className="px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-40"
-            style={{
-              backgroundColor: tournament.registrationOpen
-                ? 'rgba(239,68,68,0.15)'
-                : 'rgba(34,197,94,0.15)',
-              color: tournament.registrationOpen ? '#f87171' : '#86efac',
-              border: `1px solid ${tournament.registrationOpen ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
-            }}
+            className={[
+              'px-4 py-2.5 rounded-md text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+              tournament.registrationOpen
+                ? 'border border-[var(--color-error)]/40 bg-[var(--color-error)]/10 text-[var(--color-error)] hover:bg-[var(--color-error)]/15'
+                : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]',
+            ].join(' ')}
           >
             {toggleReg.isPending
               ? t('updating')
@@ -208,27 +265,24 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           {!tournament.registrationOpen && !tournament.bracketGenerated && (
             <button
               onClick={() => setShowGenerateConfirm(true)}
-              className="px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
-              style={{
-                backgroundColor: 'rgba(168,85,247,0.15)',
-                color: '#c084fc',
-                border: '1px solid rgba(168,85,247,0.3)',
-              }}
+              className="px-4 py-2.5 rounded-md text-sm font-bold border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-colors"
             >
               {t('generate_btn')}
             </button>
           )}
 
           {tournament.bracketGenerated && (
-            <span className="text-sm text-green-400">{t('bracket_generated_badge')}</span>
+            <span className="text-sm font-semibold text-[var(--color-success)]">
+              {t('bracket_generated_badge')}
+            </span>
           )}
         </div>
 
         {/* Generate confirm dialog */}
         {showGenerateConfirm && (
-          <div className="mt-4 p-4 rounded-xl border border-white/10 bg-white/5">
-            <p className="text-white font-semibold mb-1">{t('generate_confirm_title')}</p>
-            <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="mt-4 p-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+            <p className="text-[var(--color-text-primary)] font-semibold mb-1">{t('generate_confirm_title')}</p>
+            <p className="text-sm mb-4 text-[var(--color-text-secondary)]">
               {t('generate_confirm_desc')}
             </p>
 
@@ -239,10 +293,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             {formatOptions.length >= 1 &&
               (formatOptions.length > 1 || !defaultIsImplemented) && (
                 <div className="mb-4">
-                  <label
-                    className="block text-xs font-bold uppercase tracking-wider mb-1.5"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5 text-[var(--color-text-muted)]">
                     {t('format_label')}
                   </label>
                   <select
@@ -250,21 +301,21 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
                     onChange={(e) =>
                       setGenerateFormat(e.target.value as SportBracketFormat | '')
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-transparent border border-white/15 text-white text-sm outline-none focus:border-[var(--color-accent)]"
+                    className="w-full px-3 py-2 rounded-md bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm outline-none focus:border-[var(--color-primary)]"
                   >
                     {/* Only offer "Sport default" when the resolved default is
                         actually implementable — otherwise the empty submit
                         path would 400. The "default" label uses the
                         per-tournament override (mirrors the API resolver). */}
                     {defaultIsImplemented && (
-                      <option value="" className="bg-black">
+                      <option value="" className="bg-[var(--color-surface)]">
                         {t('format_default', {
                           name: t(`format_name_${resolvedDefault}`),
                         })}
                       </option>
                     )}
                     {formatOptions.map((f) => (
-                      <option key={f} value={f} className="bg-black">
+                      <option key={f} value={f} className="bg-[var(--color-surface)]">
                         {t(`format_name_${f}`)}
                       </option>
                     ))}
@@ -292,28 +343,26 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
                     },
                   );
                 }}
-                className="px-4 py-2 rounded-xl text-sm font-bold"
-                style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+                className="px-4 py-2 rounded-md text-sm font-bold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {generateBrackets.isPending ? t('generating') : t('confirm')}
               </button>
               <button
                 onClick={() => setShowGenerateConfirm(false)}
-                className="px-4 py-2 rounded-xl text-sm border border-white/10 hover:bg-white/5"
-                style={{ color: 'var(--color-text-secondary)' }}
+                className="px-4 py-2 rounded-md text-sm text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 {t('cancel')}
               </button>
             </div>
             {generateBrackets.isSuccess && (
-              <p className="mt-2 text-green-400 text-sm">
+              <p className="mt-2 text-sm text-[var(--color-success)]">
                 {t('generated_count', {
                   count: (generateBrackets.data as any)?.bracketsCreated ?? 0,
                 })}
               </p>
             )}
             {generateBrackets.error && (
-              <p className="mt-2 text-red-400 text-sm">
+              <p className="mt-2 text-sm text-[var(--color-error)]">
                 {generateErrorData?.code === 'WEIGH_IN_REQUIRED'
                   ? t('weigh_in_required_error', {
                       count: generateErrorData.unweighedEntryIds?.length ?? 0,
@@ -328,20 +377,20 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
       {/* Operators */}
       <Section title={t('operators_title')}>
         {operators && operators.length > 0 ? (
-          <div className="divide-y divide-white/5 mb-4">
+          <div className="divide-y divide-[var(--color-border)] mb-4">
             {operators.map((op) => (
               <div key={op.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-white font-medium">
+                  <p className="text-[var(--color-text-primary)] font-medium">
                     {op.user ? `${op.user.firstName} ${op.user.lastName}` : op.operatorId}
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
                     {op.user?.email}
                   </p>
                 </div>
                 <button
                   onClick={() => removeOp.mutate(op.operatorId)}
-                  className="text-xs px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-md text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-colors"
                 >
                   {t('remove_operator')}
                 </button>
@@ -349,13 +398,13 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             ))}
           </div>
         ) : (
-          <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="text-sm mb-4 text-[var(--color-text-secondary)]">
             {t('no_operators')}
           </p>
         )}
 
         {/* Assign form */}
-        <form onSubmit={handleAssignOperator} className="flex gap-2">
+        <form onSubmit={handleAssignOperator} className="flex flex-col sm:flex-row gap-2">
           <input
             type="email"
             value={operatorEmail}
@@ -365,18 +414,17 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             }}
             placeholder={t('operator_email_placeholder')}
             required
-            className="flex-1 px-4 py-2.5 rounded-xl bg-transparent border border-white/15 text-white text-sm outline-none focus:border-[var(--color-accent)] transition-colors"
+            className="flex-1 min-w-0 px-4 py-2.5 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm outline-none focus:border-[var(--color-primary)] transition-colors"
           />
           <button
             type="submit"
             disabled={assignOp.isPending}
-            className="px-4 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 transition-opacity"
-            style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+            className="px-4 py-2.5 rounded-md text-sm font-bold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {assignOp.isPending ? '...' : t('assign_btn')}
           </button>
         </form>
-        {assignError && <p className="mt-2 text-xs text-red-400">{assignError}</p>}
+        {assignError && <p className="mt-2 text-xs text-[var(--color-error)]">{assignError}</p>}
       </Section>
 
       {/* Registrations management — only available before bracket is generated */}
@@ -386,8 +434,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           action={
             <Link
               href={`/admin/tournaments/${id}/check-in`}
-              className="text-xs px-3 py-1.5 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
-              style={{ color: '#10b981' }}
+              className="text-xs px-3 py-1.5 rounded-md border border-[var(--color-success)]/40 bg-[var(--color-success)]/10 text-[var(--color-success)] hover:bg-[var(--color-success)]/15 transition-colors"
             >
               {t('scan_checkin_qr')}
             </Link>
@@ -422,24 +469,24 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           {/* Bracket selector */}
           {brackets.length > 1 && (
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-              {brackets.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => setSelectedBracketId(selectedBracketId === b.id ? null : b.id)}
-                  className="shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors"
-                  style={{
-                    borderColor:
-                      selectedBracketId === b.id ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
-                    color:
-                      selectedBracketId === b.id
-                        ? 'var(--color-accent)'
-                        : 'var(--color-text-secondary)',
-                  }}
-                >
-                  {b.name ?? b.weightCategory?.name ?? `Bracket`}
-                  {b.isLocked && ' 🔒'}
-                </button>
-              ))}
+              {brackets.map((b) => {
+                const active = selectedBracketId === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    onClick={() => setSelectedBracketId(active ? null : b.id)}
+                    className={[
+                      'shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors',
+                      active
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary-dim)] text-[var(--color-primary)]'
+                        : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]',
+                    ].join(' ')}
+                  >
+                    {b.name ?? b.weightCategory?.name ?? `Bracket`}
+                    {b.isLocked && ' 🔒'}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -447,8 +494,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
           {brackets.length === 1 && !selectedBracketId && (
             <button
               onClick={() => setSelectedBracketId(brackets[0].id)}
-              className="mb-4 px-4 py-2 rounded-xl text-sm border border-white/10 hover:bg-white/5 transition-colors"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="mb-4 px-4 py-2 rounded-md text-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] transition-colors"
             >
               {t('open_bracket_manager')} →
             </button>
@@ -465,13 +511,33 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         </Section>
       )}
 
+      {/* Danger zone — terminal actions */}
+      <DangerZone
+        canDelete={!['active', 'completed', 'cancelled'].includes(tournament.status)}
+        canCancel={!['cancelled', 'completed'].includes(tournament.status)}
+        showCancelConfirm={showCancelConfirm}
+        setShowCancelConfirm={setShowCancelConfirm}
+        showDeleteConfirm={showDeleteConfirm}
+        setShowDeleteConfirm={setShowDeleteConfirm}
+        cancelPending={cancelTournament.isPending}
+        deletePending={deleteTournament.isPending}
+        onCancel={() => cancelTournament.mutate(undefined, { onSuccess: () => setShowCancelConfirm(false) })}
+        onDelete={() =>
+          deleteTournament.mutate(id, {
+            onSuccess: () => router.push('/admin/tournaments'),
+          })
+        }
+        cancelError={(cancelTournament.error as any)?.response?.data?.message}
+        deleteError={(deleteTournament.error as any)?.response?.data?.message}
+        t={t}
+      />
+
       {/* View public page link */}
       <div className="text-center">
         <Link
           href={`/tournaments/${tournament.slug}`}
           target="_blank"
-          className="text-sm underline hover:text-white transition-colors"
-          style={{ color: 'var(--color-text-secondary)' }}
+          className="text-sm underline text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           {t('view_public')}
         </Link>
@@ -490,12 +556,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="rounded-2xl border border-white/10 p-6"
-      style={{ backgroundColor: 'var(--color-secondary)' }}
-    >
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <h2 className="font-bold text-white">{title}</h2>
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-text-primary)]">
+          {title}
+        </h2>
         {action}
       </div>
       {children}
@@ -506,13 +571,10 @@ function Section({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt
-        className="text-xs uppercase tracking-wider mb-1"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
+      <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)] mb-1">
         {label}
       </dt>
-      <dd className="text-sm font-semibold text-white">{value}</dd>
+      <dd className="text-sm font-semibold text-[var(--color-text-primary)]">{value}</dd>
     </div>
   );
 }
@@ -558,25 +620,18 @@ function RegistrationsManager({
         const isEditing = editingId === e.id;
         const pName = `${e.user?.firstName ?? ''} ${e.user?.lastName ?? ''}`.trim() || '—';
         return (
-          <div
-            key={e.id}
-            className="rounded-xl border border-white/8 p-3"
-            style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-          >
+          <div key={e.id} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-sm text-white font-medium flex items-center gap-2">
+                <p className="text-sm text-[var(--color-text-primary)] font-medium flex items-center gap-2">
                   {pName}
                   {e.status === 'checked_in' && (
-                    <span
-                      className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
-                      style={{ color: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' }}
-                    >
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full text-[var(--color-success)] bg-[var(--color-success)]/12">
                       ✓ {t('checked_in_badge')}
                     </span>
                   )}
                 </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="text-xs text-[var(--color-text-secondary)]">
                   {e.ageGroup ?? '—'} · {e.hand ?? '—'}
                   {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
                 </p>
@@ -587,11 +642,7 @@ function RegistrationsManager({
                   <button
                     disabled={undoCheckIn.isPending}
                     onClick={() => undoCheckIn.mutate(e.id)}
-                    className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
-                    style={{
-                      borderColor: 'rgba(239,68,68,0.3)',
-                      color: '#f87171',
-                    }}
+                    className="text-xs px-2 py-1 rounded-md border border-[var(--color-error)]/40 text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-colors disabled:opacity-50"
                   >
                     {t('undo_checkin_btn')}
                   </button>
@@ -599,11 +650,7 @@ function RegistrationsManager({
                   <button
                     disabled={checkIn.isPending}
                     onClick={() => checkIn.mutate(e.id)}
-                    className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
-                    style={{
-                      borderColor: 'rgba(16,185,129,0.3)',
-                      color: '#10b981',
-                    }}
+                    className="text-xs px-2 py-1 rounded-md border border-[var(--color-success)]/40 text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors disabled:opacity-50"
                   >
                     {t('checkin_btn')}
                   </button>
@@ -617,8 +664,7 @@ function RegistrationsManager({
                     setEditWeightKg(e.weightKg ? String(e.weightKg) : '');
                     setEditReason('');
                   }}
-                  className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                  style={{ color: '#60a5fa' }}
+                  className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] transition-colors"
                 >
                   {isEditing ? t('cancel') : t('reassign_btn')}
                 </button>
@@ -626,43 +672,43 @@ function RegistrationsManager({
             </div>
 
             {isEditing && (
-              <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+              <div className="mt-3 p-3 rounded-md bg-[var(--color-background)] border border-[var(--color-border)] space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={editAgeGroup}
                     onChange={(ev) => setEditAgeGroup(ev.target.value as typeof editAgeGroup)}
-                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                    className="px-2 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                   >
-                    <option value="" className="bg-black">
+                    <option value="" className="bg-[var(--color-surface)]">
                       {t('reassign_age_placeholder')}
                     </option>
-                    <option value="juniors" className="bg-black">juniors</option>
-                    <option value="adults" className="bg-black">adults</option>
-                    <option value="veterans" className="bg-black">veterans</option>
+                    <option value="juniors" className="bg-[var(--color-surface)]">juniors</option>
+                    <option value="adults" className="bg-[var(--color-surface)]">adults</option>
+                    <option value="veterans" className="bg-[var(--color-surface)]">veterans</option>
                   </select>
                   <select
                     value={editHand}
                     onChange={(ev) => setEditHand(ev.target.value as typeof editHand)}
-                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                    className="px-2 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                   >
-                    <option value="" className="bg-black">
+                    <option value="" className="bg-[var(--color-surface)]">
                       {t('reassign_hand_placeholder')}
                     </option>
-                    <option value="left" className="bg-black">left</option>
-                    <option value="right" className="bg-black">right</option>
+                    <option value="left" className="bg-[var(--color-surface)]">left</option>
+                    <option value="right" className="bg-[var(--color-surface)]">right</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={editWeightCategoryId}
                     onChange={(ev) => setEditWeightCategoryId(ev.target.value)}
-                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                    className="px-2 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                   >
-                    <option value="" className="bg-black">
+                    <option value="" className="bg-[var(--color-surface)]">
                       {t('reassign_cat_placeholder')}
                     </option>
                     {weightCategories.map((wc) => (
-                      <option key={wc.id} value={wc.id} className="bg-black">
+                      <option key={wc.id} value={wc.id} className="bg-[var(--color-surface)]">
                         {wc.name}
                       </option>
                     ))}
@@ -675,14 +721,14 @@ function RegistrationsManager({
                     value={editWeightKg}
                     onChange={(ev) => setEditWeightKg(ev.target.value)}
                     placeholder={t('reassign_weight_placeholder')}
-                    className="px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                    className="px-2 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                   />
                 </div>
                 <input
                   value={editReason}
                   onChange={(ev) => setEditReason(ev.target.value)}
                   placeholder={t('reassign_reason_placeholder')}
-                  className="w-full px-2 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                  className="w-full px-2 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                 />
                 <div className="flex gap-2">
                   <button
@@ -700,20 +746,19 @@ function RegistrationsManager({
                         onSuccess: () => setEditingId(null),
                       });
                     }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 disabled:opacity-40"
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {reassign.isPending ? '...' : t('save')}
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
-                    style={{ color: 'var(--color-text-secondary)' }}
+                    className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
                   >
                     {t('cancel')}
                   </button>
                 </div>
                 {reassign.error && (
-                  <p className="text-xs text-red-400">
+                  <p className="text-xs text-[var(--color-error)]">
                     {(reassign.error as any)?.response?.data?.message}
                   </p>
                 )}
@@ -870,11 +915,11 @@ function BracketManager({
     <div className="space-y-4">
       {/* Status bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="text-sm text-[var(--color-text-secondary)]">
           {t('modifications_count', { n: bracket.modificationCount ?? 0 })}
         </span>
         {bracket.lastModifiedAt && (
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-sm text-[var(--color-text-muted)]">
             · {new Date(bracket.lastModifiedAt).toLocaleString(locale)}
           </span>
         )}
@@ -883,11 +928,7 @@ function BracketManager({
         <button
           onClick={() => setConfirmStart(true)}
           disabled={startCategory.isPending || bracket.isLocked}
-          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
-          style={{
-            borderColor: 'rgba(16,185,129,0.4)',
-            color: '#10b981',
-          }}
+          className="ml-auto px-3 py-1.5 rounded-md text-xs font-bold border border-[var(--color-success)]/40 bg-[var(--color-success)]/10 text-[var(--color-success)] hover:bg-[var(--color-success)]/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {startCategory.isPending ? '...' : t('start_category_btn')}
         </button>
@@ -896,11 +937,12 @@ function BracketManager({
         <button
           onClick={() => lockMutation.mutate(!bracket.isLocked)}
           disabled={lockMutation.isPending}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
-          style={{
-            borderColor: bracket.isLocked ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)',
-            color: bracket.isLocked ? '#fbbf24' : 'var(--color-text-secondary)',
-          }}
+          className={[
+            'px-3 py-1.5 rounded-md text-xs font-bold border transition-colors disabled:opacity-50',
+            bracket.isLocked
+              ? 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)] hover:bg-[var(--color-warning)]/15'
+              : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]',
+          ].join(' ')}
         >
           {bracket.isLocked ? t('unlock_bracket') : t('lock_bracket')}
         </button>
@@ -908,8 +950,7 @@ function BracketManager({
         {/* Audit log */}
         <button
           onClick={() => setShowAudit((v) => !v)}
-          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5 transition-colors"
-          style={{ color: 'var(--color-text-secondary)' }}
+          className="px-3 py-1.5 rounded-md text-xs border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] transition-colors"
         >
           {showAudit ? t('audit_hide') : t('audit_show')}
         </button>
@@ -917,8 +958,8 @@ function BracketManager({
 
       {/* Start-category confirm + result */}
       {confirmStart && !startResult && (
-        <div className="rounded-xl p-3 border border-emerald-500/30 bg-emerald-500/5">
-          <p className="text-sm text-emerald-200 mb-2">{t('start_category_confirm')}</p>
+        <div className="rounded-md p-3 border border-[var(--color-success)]/40 bg-[var(--color-success)]/5">
+          <p className="text-sm text-[var(--color-text-primary)] mb-2">{t('start_category_confirm')}</p>
           <div className="flex gap-2">
             <button
               onClick={() =>
@@ -930,20 +971,19 @@ function BracketManager({
                 })
               }
               disabled={startCategory.isPending}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-200 disabled:opacity-50"
+              className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-success)]/20 text-[var(--color-success)] hover:bg-[var(--color-success)]/30 disabled:opacity-50 transition-colors"
             >
               {startCategory.isPending ? '...' : t('start_category_go')}
             </button>
             <button
               onClick={() => setConfirmStart(false)}
-              className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5 transition-colors"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
             >
               {t('cancel')}
             </button>
           </div>
           {startCategory.error && (
-            <p className="mt-2 text-xs text-red-400">
+            <p className="mt-2 text-xs text-[var(--color-error)]">
               {(startCategory.error as any)?.response?.data?.message ?? t('error')}
             </p>
           )}
@@ -952,34 +992,31 @@ function BracketManager({
 
       {startResult && (
         <div
-          className="rounded-xl p-3 border text-sm space-y-1"
-          style={{
-            borderColor: startResult.errors.length
-              ? 'rgba(239,68,68,0.4)'
-              : 'rgba(16,185,129,0.3)',
-            backgroundColor: startResult.errors.length
-              ? 'rgba(239,68,68,0.05)'
-              : 'rgba(16,185,129,0.05)',
-          }}
+          className={[
+            'rounded-md p-3 border text-sm space-y-1',
+            startResult.errors.length
+              ? 'border-[var(--color-error)]/40 bg-[var(--color-error)]/5'
+              : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/5',
+          ].join(' ')}
         >
           {!startResult.requireCheckIn ? (
-            <p style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-[var(--color-text-secondary)]">
               {t('start_category_not_required')}
             </p>
           ) : (
             <>
-              <p className="font-semibold text-white">
+              <p className="font-semibold text-[var(--color-text-primary)]">
                 {t('start_category_result', { n: startResult.withdrawn.length })}
               </p>
               {startResult.doubleNoShow.length > 0 && (
-                <p style={{ color: '#fbbf24' }}>
+                <p className="text-[var(--color-warning)]">
                   ⚠ {t('start_category_double_no_show', {
                     n: startResult.doubleNoShow.length,
                   })}
                 </p>
               )}
               {startResult.errors.length > 0 && (
-                <p className="text-red-400">
+                <p className="text-[var(--color-error)]">
                   ✗ {t('start_category_errors', { n: startResult.errors.length })}
                 </p>
               )}
@@ -987,8 +1024,7 @@ function BracketManager({
           )}
           <button
             onClick={() => setStartResult(null)}
-            className="text-xs underline"
-            style={{ color: 'var(--color-text-secondary)' }}
+            className="text-xs underline text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             {t('dismiss')}
           </button>
@@ -1001,10 +1037,7 @@ function BracketManager({
       {/* Editable unplayed matches — replace or withdraw */}
       {editableMatches.length > 0 && !bracket.isLocked && (
         <div>
-          <p
-            className="text-xs font-bold uppercase tracking-wider mb-2"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2 text-[var(--color-text-muted)]">
             {t('editable_matches')}
           </p>
           <div className="space-y-2">
@@ -1013,20 +1046,13 @@ function BracketManager({
               const withdrawHere = withdrawState?.matchId === match.id;
 
               return (
-                <div
-                  key={match.id}
-                  className="rounded-xl border border-white/8 p-3"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                >
+                <div key={match.id} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div>
-                      <span
-                        className="text-xs mr-2"
-                        style={{ color: 'var(--color-text-secondary)' }}
-                      >
+                      <span className="text-xs mr-2 text-[var(--color-text-muted)]">
                         {label}
                       </span>
-                      <span className="text-sm text-white">
+                      <span className="text-sm text-[var(--color-text-primary)]">
                         {pName(match.player1)} vs {pName(match.player2)}
                       </span>
                     </div>
@@ -1042,8 +1068,7 @@ function BracketManager({
                           setReplaceReason('');
                           setWithdrawState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#60a5fa' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[#60a5fa] hover:bg-[#60a5fa]/10 hover:border-[#60a5fa]/40 transition-colors"
                       >
                         {t('replace_p1', { name: match.player1.firstName })}
                       </button>
@@ -1058,8 +1083,7 @@ function BracketManager({
                           setReplaceReason('');
                           setWithdrawState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#60a5fa' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[#60a5fa] hover:bg-[#60a5fa]/10 hover:border-[#60a5fa]/40 transition-colors"
                       >
                         {t('replace_p2', { name: match.player2.firstName })}
                       </button>
@@ -1074,8 +1098,7 @@ function BracketManager({
                           setWithdrawReason('');
                           setReplaceState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#f87171' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-error)] hover:bg-[var(--color-error)]/10 hover:border-[var(--color-error)]/40 transition-colors"
                       >
                         {t('withdraw_p1', { name: match.player1.firstName })}
                       </button>
@@ -1090,8 +1113,7 @@ function BracketManager({
                           setWithdrawReason('');
                           setReplaceState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#f87171' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-error)] hover:bg-[var(--color-error)]/10 hover:border-[var(--color-error)]/40 transition-colors"
                       >
                         {t('withdraw_p2', { name: match.player2.firstName })}
                       </button>
@@ -1100,22 +1122,22 @@ function BracketManager({
 
                   {/* Replace form */}
                   {replaceHere && replaceState && (
-                    <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                      <p className="text-xs text-blue-300 mb-2">
+                    <div className="mt-3 p-3 rounded-md bg-[var(--color-background)] border border-[#60a5fa]/30">
+                      <p className="text-xs text-[#60a5fa] mb-2">
                         {t('replace_title', { name: replaceState.currentName })}
                       </p>
                       <select
                         value={replaceEntryId}
                         onChange={(e) => setReplaceEntryId(e.target.value)}
-                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                       >
-                        <option value="" className="bg-black">
+                        <option value="" className="bg-[var(--color-surface)]">
                           {t('replace_pick_placeholder')}
                         </option>
                         {confirmedEntries
                           .filter((e) => !placedEntryIds.has(e.id))
                           .map((e) => (
-                            <option key={e.id} value={e.id} className="bg-black">
+                            <option key={e.id} value={e.id} className="bg-[var(--color-surface)]">
                               {e.user?.firstName} {e.user?.lastName}
                               {e.weightKg ? ` · ${e.weightKg} ${t('kg_suffix')}` : ''}
                             </option>
@@ -1125,7 +1147,7 @@ function BracketManager({
                         value={replaceReason}
                         onChange={(e) => setReplaceReason(e.target.value)}
                         placeholder={t('replace_reason_placeholder')}
-                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                       />
                       <div className="flex gap-2">
                         <button
@@ -1145,20 +1167,19 @@ function BracketManager({
                               { onSuccess: () => setReplaceState(null) },
                             )
                           }
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 disabled:opacity-40"
+                          className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           {replacePlayer.isPending ? '...' : t('save')}
                         </button>
                         <button
                           onClick={() => setReplaceState(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
-                          style={{ color: 'var(--color-text-secondary)' }}
+                          className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
                         >
                           {t('cancel')}
                         </button>
                       </div>
                       {replacePlayer.error && (
-                        <p className="mt-2 text-xs text-red-400">
+                        <p className="mt-2 text-xs text-[var(--color-error)]">
                           {(replacePlayer.error as any)?.response?.data?.message}
                         </p>
                       )}
@@ -1167,8 +1188,8 @@ function BracketManager({
 
                   {/* Withdraw form */}
                   {withdrawHere && withdrawState && (
-                    <div className="mt-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
-                      <p className="text-xs text-red-300 mb-2">
+                    <div className="mt-3 p-3 rounded-md bg-[var(--color-background)] border border-[var(--color-error)]/30">
+                      <p className="text-xs text-[var(--color-error)] mb-2">
                         {t('withdraw_title', {
                           player: withdrawState.playerName,
                           opponent: withdrawState.opponentName,
@@ -1178,7 +1199,7 @@ function BracketManager({
                         value={withdrawReason}
                         onChange={(e) => setWithdrawReason(e.target.value)}
                         placeholder={t('withdraw_reason_placeholder')}
-                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                       />
                       <div className="flex gap-2">
                         <button
@@ -1195,20 +1216,19 @@ function BracketManager({
                               { onSuccess: () => setWithdrawState(null) },
                             )
                           }
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-300 disabled:opacity-40"
+                          className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           {withdrawPlayer.isPending ? '...' : t('save')}
                         </button>
                         <button
                           onClick={() => setWithdrawState(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
-                          style={{ color: 'var(--color-text-secondary)' }}
+                          className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
                         >
                           {t('cancel')}
                         </button>
                       </div>
                       {withdrawPlayer.error && (
-                        <p className="mt-2 text-xs text-red-400">
+                        <p className="mt-2 text-xs text-[var(--color-error)]">
                           {(withdrawPlayer.error as any)?.response?.data?.message}
                         </p>
                       )}
@@ -1224,10 +1244,7 @@ function BracketManager({
       {/* Played matches — can reset or correct */}
       {playedMatches.length > 0 && (
         <div>
-          <p
-            className="text-xs font-bold uppercase tracking-wider mb-2"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2 text-[var(--color-text-muted)]">
             {t('played_matches')}
           </p>
           <div className="space-y-2">
@@ -1237,25 +1254,18 @@ function BracketManager({
               const isCorrecting = correctState?.matchId === match.id;
 
               return (
-                <div
-                  key={match.id}
-                  className="rounded-xl border border-white/8 p-3"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                >
+                <div key={match.id} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div>
-                      <span
-                        className="text-xs mr-2"
-                        style={{ color: 'var(--color-text-secondary)' }}
-                      >
+                      <span className="text-xs mr-2 text-[var(--color-text-muted)]">
                         {label}
                       </span>
-                      <span className="text-sm text-white">
+                      <span className="text-sm text-[var(--color-text-primary)]">
                         {pName(match.player1)} vs {pName(match.player2)}
                       </span>
-                      <span className="text-xs ml-2 text-green-400">→ {winnerName}</span>
+                      <span className="text-xs ml-2 text-[var(--color-success)]">→ {winnerName}</span>
                       {match.correctedAt && (
-                        <span className="text-xs ml-2 text-yellow-400">{t('corrected_badge')}</span>
+                        <span className="text-xs ml-2 text-[var(--color-warning)]">{t('corrected_badge')}</span>
                       )}
                     </div>
                     <div className="flex gap-2">
@@ -1273,8 +1283,7 @@ function BracketManager({
                           setCorrectReason('');
                           setResetState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#c084fc' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 hover:border-[var(--color-accent)]/40 transition-colors"
                       >
                         {t('correct_result')}
                       </button>
@@ -1284,8 +1293,7 @@ function BracketManager({
                           setResetReason('');
                           setCorrectState(null);
                         }}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-                        style={{ color: '#f87171' }}
+                        className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-error)] hover:bg-[var(--color-error)]/10 hover:border-[var(--color-error)]/40 transition-colors"
                       >
                         {t('reset_match')}
                       </button>
@@ -1294,8 +1302,8 @@ function BracketManager({
 
                   {/* Reset form */}
                   {isResetting && (
-                    <div className="mt-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
-                      <p className="text-xs text-red-300 mb-2">
+                    <div className="mt-3 p-3 rounded-md bg-[var(--color-background)] border border-[var(--color-error)]/30">
+                      <p className="text-xs text-[var(--color-error)] mb-2">
                         {t.rich('reset_confirm', {
                           label,
                           strong: (chunks) => <strong>{chunks}</strong>,
@@ -1305,7 +1313,7 @@ function BracketManager({
                         value={resetReason}
                         onChange={(e) => setResetReason(e.target.value)}
                         placeholder={t('reset_reason_placeholder')}
-                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                       />
                       <div className="flex gap-2">
                         <button
@@ -1316,14 +1324,13 @@ function BracketManager({
                               { onSuccess: () => setResetState(null) },
                             )
                           }
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-300 disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {resetMatch.isPending ? '...' : t('reset_confirm_btn')}
                         </button>
                         <button
                           onClick={() => setResetState(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
-                          style={{ color: 'var(--color-text-secondary)' }}
+                          className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
                         >
                           {t('cancel')}
                         </button>
@@ -1333,8 +1340,8 @@ function BracketManager({
 
                   {/* Correct form */}
                   {isCorrecting && correctState && (
-                    <div className="mt-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                      <p className="text-xs text-purple-300 mb-2">
+                    <div className="mt-3 p-3 rounded-md bg-[var(--color-background)] border border-[var(--color-accent)]/30">
+                      <p className="text-xs text-[var(--color-accent)] mb-2">
                         {t.rich('correct_title', {
                           label,
                           strong: (chunks) => <strong>{chunks}</strong>,
@@ -1343,33 +1350,23 @@ function BracketManager({
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => setCorrectWinnerId(correctState.player1Id)}
-                          className="flex-1 py-2 rounded-lg text-xs border transition-colors"
-                          style={{
-                            borderColor:
-                              correctWinnerId === correctState.player1Id
-                                ? 'var(--color-accent)'
-                                : 'rgba(255,255,255,0.1)',
-                            color:
-                              correctWinnerId === correctState.player1Id
-                                ? 'var(--color-accent)'
-                                : 'var(--color-text-secondary)',
-                          }}
+                          className={[
+                            'flex-1 py-2 rounded-md text-xs border transition-colors',
+                            correctWinnerId === correctState.player1Id
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary-dim)] text-[var(--color-primary)]'
+                              : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]',
+                          ].join(' ')}
                         >
                           {correctState.player1Name}
                         </button>
                         <button
                           onClick={() => setCorrectWinnerId(correctState.player2Id)}
-                          className="flex-1 py-2 rounded-lg text-xs border transition-colors"
-                          style={{
-                            borderColor:
-                              correctWinnerId === correctState.player2Id
-                                ? 'var(--color-accent)'
-                                : 'rgba(255,255,255,0.1)',
-                            color:
-                              correctWinnerId === correctState.player2Id
-                                ? 'var(--color-accent)'
-                                : 'var(--color-text-secondary)',
-                          }}
+                          className={[
+                            'flex-1 py-2 rounded-md text-xs border transition-colors',
+                            correctWinnerId === correctState.player2Id
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary-dim)] text-[var(--color-primary)]'
+                              : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]',
+                          ].join(' ')}
                         >
                           {correctState.player2Name}
                         </button>
@@ -1378,7 +1375,7 @@ function BracketManager({
                         value={correctReason}
                         onChange={(e) => setCorrectReason(e.target.value)}
                         placeholder={t('correct_reason_placeholder')}
-                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg bg-transparent border border-white/10 text-white outline-none"
+                        className="w-full mb-2 px-3 py-1.5 text-xs rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
                       />
                       <div className="flex gap-2">
                         <button
@@ -1397,21 +1394,19 @@ function BracketManager({
                               { onSuccess: () => setCorrectState(null) },
                             )
                           }
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
-                          style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
+                          className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           {correctResult.isPending ? '...' : t('save')}
                         </button>
                         <button
                           onClick={() => setCorrectState(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-white/10 hover:bg-white/5"
-                          style={{ color: 'var(--color-text-secondary)' }}
+                          className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
                         >
                           {t('cancel')}
                         </button>
                       </div>
                       {correctResult.error && (
-                        <p className="mt-2 text-xs text-red-400">
+                        <p className="mt-2 text-xs text-[var(--color-error)]">
                           {(correctResult.error as any)?.response?.data?.message}
                         </p>
                       )}
@@ -1425,7 +1420,7 @@ function BracketManager({
       )}
 
       {playedMatches.length === 0 && (
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="text-sm text-[var(--color-text-secondary)]">
           {t('no_played_matches')}
         </p>
       )}
@@ -1454,33 +1449,30 @@ function AuditLogTable({
   };
 
   return (
-    <div className="rounded-xl border border-white/8 overflow-hidden">
-      <div
-        className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b border-white/5"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
+    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] overflow-hidden">
+      <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
         {t('audit_title')}
       </div>
-      <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+      <div className="divide-y divide-[var(--color-border)] max-h-64 overflow-y-auto">
         {logs.length === 0 && (
-          <p className="px-4 py-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="px-4 py-3 text-xs text-[var(--color-text-secondary)]">
             {t('audit_empty')}
           </p>
         )}
         {logs.map((log) => (
           <div key={log.id} className="px-4 py-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-white font-medium">
+              <p className="text-xs text-[var(--color-text-primary)] font-medium">
                 {actionLabel[log.action] ?? log.action}
-                {log.matchId && <span className="ml-1 text-gray-400">· {log.matchId}</span>}
+                {log.matchId && <span className="ml-1 text-[var(--color-text-muted)]">· {log.matchId}</span>}
               </p>
               {log.reason && (
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="text-xs mt-0.5 text-[var(--color-text-secondary)]">
                   {log.reason}
                 </p>
               )}
             </div>
-            <p className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-xs shrink-0 text-[var(--color-text-muted)]">
               {new Date(log.createdAt).toLocaleString(locale)}
             </p>
           </div>
@@ -1497,23 +1489,452 @@ function StatusBadge({
   status: string;
   tAdmin: ReturnType<typeof useTranslations>;
 }) {
-  const colorMap: Record<string, string> = {
-    draft: '#6b7280',
-    upcoming: '#3b82f6',
-    registration_open: '#22c55e',
-    registration_closed: '#f59e0b',
-    bracket_ready: '#a855f7',
-    active: '#ef4444',
-    completed: '#6b7280',
+  // Combat Energy maps every status to one of the semantic tokens
+  // (success/warning/error/primary/muted). `active` uses the sacred sport red
+  // — that's the only place on the page where it's allowed outside CTAs.
+  const tokenMap: Record<string, { bg: string; fg: string }> = {
+    draft: { bg: 'rgba(106,106,128,0.16)', fg: 'var(--color-text-muted)' },
+    upcoming: { bg: 'rgba(59,130,246,0.14)', fg: '#60a5fa' },
+    registration_open: { bg: 'rgba(34,197,94,0.14)', fg: 'var(--color-success)' },
+    registration_closed: { bg: 'rgba(245,158,11,0.14)', fg: 'var(--color-warning)' },
+    bracket_ready: { bg: 'rgba(255,215,0,0.14)', fg: 'var(--color-accent)' },
+    active: { bg: 'var(--color-primary-dim)', fg: 'var(--color-primary)' },
+    completed: { bg: 'rgba(106,106,128,0.16)', fg: 'var(--color-text-muted)' },
   };
-  const color = colorMap[status] ?? '#6b7280';
+  const { bg, fg } = tokenMap[status] ?? tokenMap.draft;
   const label = tAdmin(`status_${status}` as any, { defaultValue: status });
   return (
     <span
-      className="text-xs px-3 py-1 rounded-full font-medium shrink-0"
-      style={{ backgroundColor: color + '20', color }}
+      className="text-[10px] uppercase tracking-[0.12em] px-3 py-1 rounded-full font-bold shrink-0"
+      style={{ backgroundColor: bg, color: fg }}
     >
       {label}
     </span>
+  );
+}
+
+// ─── Setup overview (read-only summary of wizard config) ─────────
+
+type Tournament = NonNullable<ReturnType<typeof useAdminTournament>['data']>;
+
+function SetupOverview({
+  tournament,
+  showDescription,
+  setShowDescription,
+  descriptionLocale,
+  setDescriptionLocale,
+  onToggleFeatured,
+  toggleFeaturedPending,
+  t,
+}: {
+  tournament: Tournament;
+  showDescription: boolean;
+  setShowDescription: (v: boolean) => void;
+  descriptionLocale: 'ru' | 'en' | 'hy';
+  setDescriptionLocale: (v: 'ru' | 'en' | 'hy') => void;
+  onToggleFeatured: () => void;
+  toggleFeaturedPending: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const sc = (tournament.sportConfig ?? {}) as {
+    ageGroups?: Array<'juniors' | 'adults' | 'veterans'>;
+    hands?: string[];
+    entryFee?: { type?: 'free' | 'paid'; amount?: number | string | null; description?: string | null };
+    prizes?: Array<{
+      place: number;
+      type: string;
+      amount?: string | number;
+      description?: string;
+      // Optional override scope from the wizard: prize applies only to the
+      // matching age group / weight category. Both can be missing → applies
+      // to every bracket.
+      ageGroup?: 'juniors' | 'adults' | 'veterans';
+      weightCategoryId?: string;
+    }>;
+  };
+
+  const handLabel = (() => {
+    const hs = sc.hands ?? [];
+    if (hs.length >= 2) return t('setup_hand_both');
+    if (hs[0] === 'left') return t('setup_hand_left');
+    if (hs[0] === 'right') return t('setup_hand_right');
+    return t('setup_none');
+  })();
+
+  const ageLabel = (() => {
+    if (!sc.ageGroups || sc.ageGroups.length === 0) return t('setup_none');
+    return sc.ageGroups
+      .map((g) => t(`setup_age_${g}` as any, { defaultValue: g }))
+      .join(', ');
+  })();
+
+  const genders = Array.from(
+    new Set((tournament.weightCategories ?? []).map((c) => c.gender)),
+  ).filter((g) => g === 'male' || g === 'female');
+  const genderLabel = genders.length === 0
+    ? t('setup_none')
+    : genders.map((g) => t(`setup_gender_${g}` as any)).join(', ');
+
+  const sortedCats = [...(tournament.weightCategories ?? [])]
+    // De-dupe per (name, min, max) — API stores one row per gender.
+    .reduce<Array<{ name: string; min: number | null; max: number | null }>>((acc, c) => {
+      const min = c.minWeight !== null ? Number(c.minWeight) : null;
+      const max = c.maxWeight !== null ? Number(c.maxWeight) : null;
+      if (!acc.some((x) => x.name === c.name && x.min === min && x.max === max)) {
+        acc.push({ name: c.name, min, max });
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity));
+  const categoriesLabel = sortedCats.length === 0
+    ? t('setup_none')
+    : sortedCats
+        .map((c) => {
+          if (c.max === null && c.min === null) return c.name;
+          if (c.max === null) return `${c.min}+ kg`;
+          return `−${c.max} kg`;
+        })
+        .join(', ');
+
+  const fee = sc.entryFee;
+  const feeLabel = !fee || fee.type === 'free'
+    ? t('setup_entry_fee_free')
+    : `${fee.amount ?? '—'}${fee.description ? ` · ${fee.description}` : ''}`;
+
+  const PRIZE_ICONS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+  // Sort: unscoped (general) → age-only → age+weight → most specific. Within
+  // the same scope-tier, by age group then place. Gives a "general at top,
+  // overrides below" order without explicit section headers.
+  const sortedPrizes = [...(sc.prizes ?? [])].sort((a, b) => {
+    const aScope = (a.ageGroup ? 1 : 0) + (a.weightCategoryId ? 2 : 0);
+    const bScope = (b.ageGroup ? 1 : 0) + (b.weightCategoryId ? 2 : 0);
+    if (aScope !== bScope) return aScope - bScope;
+    const aAge = a.ageGroup ?? '';
+    const bAge = b.ageGroup ?? '';
+    if (aAge !== bAge) return aAge.localeCompare(bAge);
+    return a.place - b.place;
+  });
+
+  function formatPrizeAmount(p: { type: string; amount?: string | number; description?: string }): {
+    text: string;
+    isMoney: boolean;
+  } {
+    if (p.type === 'money' && p.amount != null) {
+      const n = typeof p.amount === 'number' ? p.amount : parseFloat(p.amount);
+      const formatted = Number.isFinite(n) ? n.toLocaleString() : String(p.amount);
+      return { text: formatted, isMoney: true };
+    }
+    return { text: p.description?.trim() || p.type, isMoney: false };
+  }
+
+  /**
+   * Resolve a prize's `weightCategoryId` to the API category's name.
+   *
+   * The wizard stores it as its client-side id (`c1`, `c2`, ...) in the
+   * `sportConfig.prizes` JSONB. The API saves the actual `weight_categories`
+   * rows with new UUIDs, but with `sortOrder` matching the wizard's array
+   * index. So we recover the link via `c<N>` → `sortOrder = N - 1`.
+   *
+   * Falls back to a direct UUID match (covers future-proofing if the wizard
+   * is reworked to store API ids) and to `null` if nothing matches.
+   */
+  function resolveWeightCategoryName(wcId: string | undefined): string | null {
+    if (!wcId) return null;
+    const cats = tournament.weightCategories ?? [];
+    const direct = cats.find((c) => c.id === wcId);
+    if (direct) return direct.name;
+    const m = wcId.match(/^c(\d+)$/);
+    if (m) {
+      const sortOrder = parseInt(m[1], 10) - 1;
+      const byOrder = cats.find((c) => c.sortOrder === sortOrder);
+      if (byOrder) return byOrder.name;
+    }
+    return null;
+  }
+
+  /**
+   * "70" → "−70 kg" (a max-weight class), "100+" → "100+ kg" (open class),
+   * "Absolute" → "Absolute" (named class). The wizard stores plain numbers
+   * for the standard case so we have to infer the meaning from shape.
+   */
+  function formatCategoryName(name: string): string {
+    if (/^\d+(\.\d+)?\+$/.test(name)) return `${name} kg`;
+    if (/^\d+(\.\d+)?$/.test(name)) return `−${name} kg`;
+    return name;
+  }
+
+  const descKey = `description${descriptionLocale.charAt(0).toUpperCase()}${descriptionLocale.slice(1)}` as
+    | 'descriptionRu'
+    | 'descriptionEn'
+    | 'descriptionHy';
+  const descText = (tournament[descKey] as string | null) ?? '';
+
+  return (
+    <Section title={t('setup_title')}>
+      <dl className="grid grid-cols-1 sm:grid-cols-[max-content_1fr] gap-x-6 gap-y-3 text-sm">
+        <SetupRow label={t('setup_age_groups')}>{ageLabel}</SetupRow>
+        <SetupRow label={t('setup_categories')}>{categoriesLabel}</SetupRow>
+        <SetupRow label={t('setup_genders')}>{genderLabel}</SetupRow>
+        <SetupRow label={t('setup_hand')}>{handLabel}</SetupRow>
+        <SetupRow label={t('setup_entry_fee')}>{feeLabel}</SetupRow>
+        <SetupRow label={t('setup_prizes')}>
+          {sortedPrizes.length === 0 ? (
+            <span className="text-[var(--color-text-muted)]">{t('setup_prizes_none')}</span>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {sortedPrizes.map((p, i) => {
+                const amount = formatPrizeAmount(p);
+                const ageLabel = p.ageGroup
+                  ? t(`setup_age_${p.ageGroup}` as any, { defaultValue: p.ageGroup })
+                  : null;
+                const wcRaw = resolveWeightCategoryName(p.weightCategoryId);
+                const wcLabel = wcRaw ? formatCategoryName(wcRaw) : null;
+                const scopeBits = [ageLabel, wcLabel].filter(Boolean) as string[];
+                return (
+                  <li key={i} className="flex items-baseline gap-2 flex-wrap text-sm">
+                    <span className="text-base leading-none" aria-hidden>
+                      {PRIZE_ICONS[p.place] ?? `${p.place}.`}
+                    </span>
+                    <span className="font-bold text-[var(--color-text-primary)] tabular-nums">
+                      {t('setup_prize_place', { n: p.place })}
+                    </span>
+                    <span
+                      className={
+                        amount.isMoney
+                          ? 'font-semibold text-[var(--color-accent)] tabular-nums'
+                          : 'text-[var(--color-text-primary)]'
+                      }
+                    >
+                      {amount.text}
+                    </span>
+                    {scopeBits.length > 0 && (
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        — {scopeBits.join(' · ')}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </SetupRow>
+        {tournament.streamUrl && (
+          <SetupRow label={t('setup_stream')}>
+            <a
+              href={tournament.streamUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] underline truncate inline-block max-w-full"
+            >
+              {tournament.streamUrl}
+            </a>
+          </SetupRow>
+        )}
+        <SetupRow label={t('setup_featured')}>
+          <button
+            type="button"
+            onClick={onToggleFeatured}
+            disabled={toggleFeaturedPending}
+            className={[
+              'inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-md border transition-colors disabled:opacity-50',
+              tournament.isFeatured
+                ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15'
+                : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]',
+            ].join(' ')}
+            aria-pressed={tournament.isFeatured}
+          >
+            <span aria-hidden className="text-sm leading-none">
+              {tournament.isFeatured ? '★' : '☆'}
+            </span>
+            <span>
+              {tournament.isFeatured ? t('setup_featured_on') : t('setup_featured_off')}
+            </span>
+          </button>
+        </SetupRow>
+      </dl>
+
+      {/* Description — collapsible with locale tabs */}
+      <div className="mt-5 pt-5 border-t border-[var(--color-border)]">
+        <button
+          type="button"
+          onClick={() => setShowDescription(!showDescription)}
+          className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+        >
+          <span aria-hidden>{showDescription ? '▾' : '▸'}</span>
+          <span>{showDescription ? t('setup_hide_description') : t('setup_show_description')}</span>
+        </button>
+        {showDescription && (
+          <div className="mt-3 space-y-3">
+            <div className="flex gap-1">
+              {(['ru', 'en', 'hy'] as const).map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => setDescriptionLocale(loc)}
+                  className={[
+                    'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-colors',
+                    descriptionLocale === loc
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-dim)] text-[var(--color-primary)]'
+                      : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]',
+                  ].join(' ')}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] p-4 text-sm leading-relaxed text-[var(--color-text-primary)]">
+              {descText.trim().length > 0 ? (
+                <div className="whitespace-pre-wrap">{descText}</div>
+              ) : (
+                <span className="text-[var(--color-text-muted)]">{t('setup_description_empty')}</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function SetupRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)] sm:pt-1">
+        {label}
+      </dt>
+      <dd className="text-[var(--color-text-primary)] min-w-0">{children}</dd>
+    </>
+  );
+}
+
+// ─── Danger zone — cancel + delete ───────────────────────────
+
+function DangerZone({
+  canDelete,
+  canCancel,
+  showCancelConfirm,
+  setShowCancelConfirm,
+  showDeleteConfirm,
+  setShowDeleteConfirm,
+  cancelPending,
+  deletePending,
+  onCancel,
+  onDelete,
+  cancelError,
+  deleteError,
+  t,
+}: {
+  canDelete: boolean;
+  canCancel: boolean;
+  showCancelConfirm: boolean;
+  setShowCancelConfirm: (v: boolean) => void;
+  showDeleteConfirm: boolean;
+  setShowDeleteConfirm: (v: boolean) => void;
+  cancelPending: boolean;
+  deletePending: boolean;
+  onCancel: () => void;
+  onDelete: () => void;
+  cancelError?: string;
+  deleteError?: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  // Hide the whole zone once both terminal actions are unavailable — there's
+  // nothing to do here, no point showing two greyed-out buttons.
+  if (!canCancel && !canDelete) return null;
+
+  return (
+    <div className="rounded-xl border border-[var(--color-error)]/30 bg-[var(--color-error)]/5 p-4 sm:p-6">
+      <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-error)] mb-4">
+        ⚠ {t('danger_zone_title')}
+      </h2>
+      <div className="space-y-4">
+        {canCancel && (
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                {t('cancel_tournament')}
+              </p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {t('cancel_tournament_help')}
+              </p>
+            </div>
+            {!showCancelConfirm ? (
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="px-4 py-2 rounded-md text-sm font-bold border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)] hover:bg-[var(--color-warning)]/15 transition-colors"
+              >
+                {t('cancel_tournament')}
+              </button>
+            ) : (
+              <div className="w-full p-3 rounded-md bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/40 space-y-3">
+                <p className="text-sm text-[var(--color-text-primary)]">{t('cancel_tournament_confirm')}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onCancel}
+                    disabled={cancelPending}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-warning)]/20 text-[var(--color-warning)] hover:bg-[var(--color-warning)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {cancelPending ? t('saving') : t('cancel_tournament')}
+                  </button>
+                  <button
+                    onClick={() => setShowCancelConfirm(false)}
+                    className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+                {cancelError && (
+                  <p className="text-xs text-[var(--color-error)]">{cancelError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {canDelete && (
+          <div className="flex items-start justify-between gap-4 flex-wrap pt-4 border-t border-[var(--color-error)]/20">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                {t('delete_tournament')}
+              </p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {t('delete_tournament_help')}
+              </p>
+            </div>
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 rounded-md text-sm font-bold border border-[var(--color-error)]/40 bg-[var(--color-error)]/10 text-[var(--color-error)] hover:bg-[var(--color-error)]/15 transition-colors"
+              >
+                {t('delete_tournament')}
+              </button>
+            ) : (
+              <div className="w-full p-3 rounded-md bg-[var(--color-error)]/10 border border-[var(--color-error)]/40 space-y-3">
+                <p className="text-sm text-[var(--color-text-primary)]">{t('delete_tournament_confirm')}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onDelete}
+                    disabled={deletePending}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {deletePending ? t('saving') : t('delete_tournament')}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] transition-colors"
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+                {deleteError && (
+                  <p className="text-xs text-[var(--color-error)]">{deleteError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
