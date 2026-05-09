@@ -286,9 +286,23 @@ export class BracketsService {
       (isArmfightTournament ? 'armfight' : undefined) ??
       tOverride.defaultBracketFormat ??
       cfg.defaultBracketFormat;
-    if (requested && !isFormatAllowed(cfg, requested)) {
+    // Validate the *resolved* format, not just `requested`. Auto-resolved
+    // values (from `competitionType` or `defaultBracketFormat` overrides)
+    // must also pass the sport's allow-list — otherwise an organizer
+    // could flip `competitionType: 'armfight'` on a boxing tournament
+    // and bypass the per-sport bracket-format allow-list. Mirrors
+    // `isFormatAllowed`'s purpose: "a chess organizer can't accidentally
+    // request `double_elim`."
+    if (!isFormatAllowed(cfg, chosen)) {
+      const source = requested
+        ? 'requested'
+        : isArmfightTournament
+          ? 'competitionType=armfight'
+          : tOverride.defaultBracketFormat
+            ? 'tournament default'
+            : 'sport default';
       throw new BadRequestException(
-        `Bracket format '${requested}' is not allowed for this sport. ` +
+        `Bracket format '${chosen}' (${source}) is not allowed for this sport. ` +
           `Allowed: ${cfg.bracketFormats.join(', ')}.`,
       );
     }
