@@ -1,3 +1,6 @@
+// @vitest-environment node
+// `jose` checks `instanceof Uint8Array` against the Node realm; jsdom owns its
+// own globals that fail that check, so this spec opts out of the jsdom default.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { SignJWT } from 'jose';
