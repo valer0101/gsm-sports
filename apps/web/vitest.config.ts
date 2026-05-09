@@ -2,10 +2,13 @@ import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
 /**
- * Web tests for pure-logic helpers (slug, prize-calc, etc.).
- * Components that touch React/Next/DOM aren't covered here yet — when
- * those tests arrive, switch to `environment: 'jsdom'` and add
- * `@testing-library/react`.
+ * Web tests cover both pure logic (slug, prize-calc, i18n config) and
+ * React components rendered with `@testing-library/react`. jsdom is the
+ * environment so DOM globals and `localStorage` are available; component
+ * specs live next to source as `*.spec.tsx`.
+ *
+ * `esbuild.jsx = 'automatic'` matches the Next.js compiler so component
+ * specs don't have to `import React`.
  */
 export default defineConfig({
   resolve: {
@@ -13,9 +16,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
     globals: true,
-    environment: 'node',
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.spec.ts', 'src/**/*.spec.tsx'],
   },
 });

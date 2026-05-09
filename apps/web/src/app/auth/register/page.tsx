@@ -59,7 +59,7 @@ export default function RegisterPage() {
           {t('register_subtitle')}
         </p>
 
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} noValidate className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Field label={t('first_name')} error={errors.firstName?.message}>
               <input

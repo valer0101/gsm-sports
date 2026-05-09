@@ -67,7 +67,7 @@ function LoginForm() {
           {t('login_subtitle')}
         </p>
 
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} noValidate className="space-y-4">
           <div>
             <label
               className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
