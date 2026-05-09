@@ -629,6 +629,21 @@
     "saved": "Сохранено",
     "save_error": "Ошибка сохранения"
   },
+  "profile_security": {
+    "title": "Пароль",
+    "first_set_description": "Вы вошли через Google. Задайте пароль, чтобы также входить по email.",
+    "change_description": "Регулярно меняйте пароль. Для подтверждения потребуется текущий.",
+    "current_password": "Текущий пароль",
+    "new_password": "Новый пароль",
+    "confirm_password": "Подтвердите пароль",
+    "submit": "Сохранить пароль",
+    "saving": "Сохраняем...",
+    "saved": "Пароль обновлён",
+    "field_required": "Обязательное поле",
+    "error_password_min": "Минимум 8 символов",
+    "error_passwords_mismatch": "Пароли не совпадают",
+    "error": "Не удалось сохранить пароль"
+  },
   "profile_telegram": {
     "section_label": "Уведомления в Telegram",
     "headline": "Получайте напоминания о матчах в Telegram",

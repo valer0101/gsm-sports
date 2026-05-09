@@ -27,6 +27,32 @@ export function useUpdateMe() {
   });
 }
 
+export interface SetPasswordPayload {
+  /** Required only if the user already has a password set. */
+  currentPassword?: string;
+  password: string;
+}
+
+/**
+ * First-set OR change of the password for the current user. Used by the
+ * Security section on /profile so a Google-only account can attach a
+ * password (or rotate an existing one). Invalidates `currentUser` so
+ * the UI flips from "Set password" to "Change password" without a
+ * manual reload.
+ */
+export function useSetPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SetPasswordPayload) => {
+      const res = await api.post('/auth/set-password', data);
+      return (res as { data: { message: string } }).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['currentUser'] });
+    },
+  });
+}
+
 /**
  * Upload an image to the shared /upload/image endpoint. Wrapping this in a
  * mutation keeps components free of direct axios calls, per CLAUDE.md:

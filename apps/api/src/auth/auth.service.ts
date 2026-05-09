@@ -225,7 +225,11 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.usersService.findById(userId);
+    // Use the password-aware lookup so we can surface a `hasPassword`
+    // boolean to the client without ever leaking the hash itself —
+    // the profile UI uses it to decide whether to render the
+    // "Set password" or "Change password" form for Google-only users.
+    const user = await this.usersService.findByIdWithPassword(userId);
     if (!user) throw new UnauthorizedException('User not found');
 
     return {
@@ -239,6 +243,7 @@ export class AuthService {
       city: user.city,
       language: user.language,
       isVerified: user.isVerified,
+      hasPassword: user.passwordHash !== null && user.passwordHash !== undefined,
     };
   }
 

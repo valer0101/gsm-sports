@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useTelegram';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { CountryPicker } from '@/components/ui/CountryPicker';
+import { PasswordSection } from './_PasswordSection';
 
 export function ProfilePageClient() {
   const t = useTranslations('profile');
@@ -132,6 +133,10 @@ export function ProfilePageClient() {
         >
           {isPending ? t('saving') : t('save')}
         </button>
+      </div>
+
+      <div className="mt-6">
+        <PasswordSection />
       </div>
 
       {/* Telegram notifications — opt-in. Hidden for anon visitors (they

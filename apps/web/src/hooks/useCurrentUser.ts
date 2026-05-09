@@ -11,6 +11,11 @@ export interface CurrentUser {
   lastName: string;
   roles: string[];
   avatarUrl: string | null;
+  // Surface this so the Security section can render either "Set password"
+  // (Google-only accounts) or "Change password" (everyone else). May be
+  // missing on cached entries from older builds — treat undefined as true
+  // since password-only accounts always have one set.
+  hasPassword?: boolean;
 }
 
 export function clearStoredUser() {
@@ -44,6 +49,7 @@ export function useCurrentUser() {
             firstName: data.firstName,
             lastName: data.lastName,
             roles: data.roles,
+            hasPassword: data.hasPassword,
           }),
         );
         return data;

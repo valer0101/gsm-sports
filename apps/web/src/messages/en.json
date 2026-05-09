@@ -628,6 +628,21 @@
     "saved": "Saved",
     "save_error": "Failed to save"
   },
+  "profile_security": {
+    "title": "Password",
+    "first_set_description": "You signed in with Google. Set a password if you want to be able to sign in with your email too.",
+    "change_description": "Update your password regularly. You'll need your current one to confirm.",
+    "current_password": "Current password",
+    "new_password": "New password",
+    "confirm_password": "Confirm password",
+    "submit": "Save password",
+    "saving": "Saving...",
+    "saved": "Password updated",
+    "field_required": "Required field",
+    "error_password_min": "Minimum 8 characters",
+    "error_passwords_mismatch": "Passwords do not match",
+    "error": "Couldn't save the password"
+  },
   "profile_telegram": {
     "section_label": "Telegram notifications",
     "headline": "Get match reminders in Telegram",
