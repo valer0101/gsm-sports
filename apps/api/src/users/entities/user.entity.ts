@@ -34,6 +34,10 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true, unique: true })
   phone: string | null;
 
+  @Index()
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
+  googleId: string | null;
+
   @Column({ type: 'date', nullable: true })
   dateOfBirth: Date | null;
 

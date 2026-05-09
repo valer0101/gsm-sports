@@ -22,6 +22,10 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { phone } });
   }
 
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { googleId } });
+  }
+
   /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { id } });

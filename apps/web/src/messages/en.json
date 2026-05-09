@@ -202,7 +202,13 @@
     "field_required": "Required field",
     "error_invalid_email": "Invalid email address",
     "error_password_min": "Minimum 8 characters",
-    "error_passwords_mismatch": "Passwords do not match"
+    "error_passwords_mismatch": "Passwords do not match",
+    "or_separator": "or",
+    "continue_with_google": "Continue with Google",
+    "register_with_google": "Sign up with Google",
+    "google_completing": "Signing you in via Google…",
+    "google_failed_title": "Google sign-in failed",
+    "google_error": "We couldn't complete Google sign-in. Please try again."
   },
   "admin": {
     "title": "Admin Panel",

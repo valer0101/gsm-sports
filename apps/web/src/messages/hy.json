@@ -202,7 +202,13 @@
     "field_required": "Պարտադիր դաշտ",
     "error_invalid_email": "Անվավեր email",
     "error_password_min": "Նվազագույնը 8 նիշ",
-    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում"
+    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում",
+    "or_separator": "կամ",
+    "continue_with_google": "Մուտք Google-ով",
+    "register_with_google": "Գրանցում Google-ով",
+    "google_completing": "Մուտք Google-ով…",
+    "google_failed_title": "Google մուտքը ձախողվեց",
+    "google_error": "Չհաջողվեց ավարտել Google մուտքը։ Փորձեք կրկին։"
   },
   "admin": {
     "title": "Ադմինի վահանակ",

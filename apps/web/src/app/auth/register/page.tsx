@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 type FormData = {
   firstName: string;
@@ -55,9 +56,17 @@ export default function RegisterPage() {
         style={{ backgroundColor: 'var(--color-secondary)' }}
       >
         <h1 className="text-2xl font-black text-white mb-2">{t('register_title')}</h1>
-        <p className="text-sm mb-8" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
           {t('register_subtitle')}
         </p>
+
+        <GoogleSignInButton label={t('register_with_google')} />
+
+        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
+          <span className="h-px flex-1 bg-white/10" />
+          <span>{t('or_separator')}</span>
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
 
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} noValidate className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
