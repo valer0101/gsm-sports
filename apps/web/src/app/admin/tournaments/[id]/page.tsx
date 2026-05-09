@@ -511,14 +511,26 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         </Section>
       )}
 
-      {/* Danger zone — terminal actions */}
+      {/* Danger zone — terminal actions.
+          Wrap the dialog setters so closing the dialog (setting to `false`)
+          also resets the corresponding mutation. Without this, a failed
+          attempt leaves `mutation.error` populated and the next time the
+          admin opens the same dialog they see a stale error from the
+          previous attempt. Opening (setting to `true`) is unwrapped — there
+          is nothing to reset yet. */}
       <DangerZone
         canDelete={!['active', 'completed', 'cancelled'].includes(tournament.status)}
         canCancel={!['cancelled', 'completed'].includes(tournament.status)}
         showCancelConfirm={showCancelConfirm}
-        setShowCancelConfirm={setShowCancelConfirm}
+        setShowCancelConfirm={(v) => {
+          if (!v) cancelTournament.reset();
+          setShowCancelConfirm(v);
+        }}
         showDeleteConfirm={showDeleteConfirm}
-        setShowDeleteConfirm={setShowDeleteConfirm}
+        setShowDeleteConfirm={(v) => {
+          if (!v) deleteTournament.reset();
+          setShowDeleteConfirm(v);
+        }}
         cancelPending={cancelTournament.isPending}
         deletePending={deleteTournament.isPending}
         onCancel={() => cancelTournament.mutate(undefined, { onSuccess: () => setShowCancelConfirm(false) })}
@@ -1586,13 +1598,14 @@ function SetupOverview({
       return acc;
     }, [])
     .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity));
+  const kg = t('kg_suffix');
   const categoriesLabel = sortedCats.length === 0
     ? t('setup_none')
     : sortedCats
         .map((c) => {
           if (c.max === null && c.min === null) return c.name;
-          if (c.max === null) return `${c.min}+ kg`;
-          return `−${c.max} kg`;
+          if (c.max === null) return `${c.min}+ ${kg}`;
+          return `−${c.max} ${kg}`;
         })
         .join(', ');
 
@@ -1656,11 +1669,13 @@ function SetupOverview({
   /**
    * "70" → "−70 kg" (a max-weight class), "100+" → "100+ kg" (open class),
    * "Absolute" → "Absolute" (named class). The wizard stores plain numbers
-   * for the standard case so we have to infer the meaning from shape.
+   * for the standard case so we have to infer the meaning from shape. The
+   * "kg" suffix comes from `t('kg_suffix')` (closure variable above) so the
+   * locale shows "кг" in Russian.
    */
   function formatCategoryName(name: string): string {
-    if (/^\d+(\.\d+)?\+$/.test(name)) return `${name} kg`;
-    if (/^\d+(\.\d+)?$/.test(name)) return `−${name} kg`;
+    if (/^\d+(\.\d+)?\+$/.test(name)) return `${name} ${kg}`;
+    if (/^\d+(\.\d+)?$/.test(name)) return `−${name} ${kg}`;
     return name;
   }
 
