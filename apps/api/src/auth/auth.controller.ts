@@ -21,9 +21,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   // Brute-force gate: 10 attempts / 15 min / IP. Mirrors docs/04-API-DESIGN
-  // "Auth endpoints: 10 req / 15 min". Disable the default-bucket bypass
-  // so a register-then-login burst can't slip through the looser limit.
-  @Throttle({ auth: { limit: 10, ttl: 15 * 60_000 }, default: { limit: 10, ttl: 15 * 60_000 } })
+  // "Auth endpoints: 10 req / 15 min". Overrides the global 100/min default
+  // throttler for this route only.
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
   @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
@@ -33,7 +33,7 @@ export class AuthController {
     return safe;
   }
 
-  @Throttle({ auth: { limit: 10, ttl: 15 * 60_000 }, default: { limit: 10, ttl: 15 * 60_000 } })
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
   @Public()
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {

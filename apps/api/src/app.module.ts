@@ -52,16 +52,19 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
     // Cron / periodic tasks (MatchReminderTask in TelegramModule).
     NestScheduleModule.forRoot(),
 
-    // Rate limiting — global default + tighter buckets used by AuthController
-    // via `@Throttle({ ... })`. Two buckets:
-    //   `default`  — 100 req / minute / IP (general API; mirrors docs/04 spec).
-    //   `auth`     — 10 req / 15 minutes / IP (login + register; brute-force gate).
-    // Per-route overrides via `@Throttle({ auth: { ... } })`.
+    // Rate limiting — single global bucket: 100 req / minute / IP (mirrors
+    // docs/04 spec). Tighter limits on brute-force-prone endpoints are applied
+    // per-route via `@Throttle({ default: { ... } })` (see AuthController).
+    //
+    // We deliberately use a single throttler: in @nestjs/throttler v6 the
+    // global ThrottlerGuard ANDs every entry of `throttlers: [...]` on every
+    // request unless explicitly skipped via `@SkipThrottle({ name })`. A
+    // second named bucket would silently apply to all routes — making the
+    // tightest limit the effective one everywhere. Probes, polling, and
+    // websocket handshakes would 429 within seconds. Per-route overrides
+    // are the safer pattern.
     ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'default', ttl: 60_000, limit: 100 },
-        { name: 'auth', ttl: 15 * 60_000, limit: 10 },
-      ],
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
     }),
 
     // Health probes — public, no auth required.
@@ -90,9 +93,10 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
   providers: [
     // Global JWT guard — routes are protected by default; mark exceptions with @Public()
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Global rate-limit guard — applies the `default` throttler to every
-    // route; `@Throttle({ auth: ... })` opts a route into the stricter
-    // bucket (used by AuthController).
+    // Global rate-limit guard — applies the default throttler to every
+    // route; per-route `@Throttle({ default: { ... } })` overrides the
+    // limit (e.g. AuthController tightens to 10 req / 15 min for brute-
+    // force-prone login/register).
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

@@ -1,5 +1,6 @@
 import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Public } from '../auth/public.decorator';
@@ -20,6 +21,7 @@ import { Public } from '../auth/public.decorator';
  *               from rotation until it recovers.
  */
 @ApiTags('health')
+@SkipThrottle()
 @Controller()
 export class HealthController {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
