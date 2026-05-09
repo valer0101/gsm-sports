@@ -196,7 +196,7 @@ apps/web/
 - Branch naming: `feature/<name>`, `fix/<name>`, `chore/<name>`
 - Commit format: `<type>(<scope>): <description>` (English, lowercase, no period, under 72 chars)
 - Types: `feat`, `fix`, `chore`, `refactor`, `docs`, `test`, `style`
-- Scopes: `api`, `web`, `bracket`, `db`, `auth`, `i18n`
+- Scopes: `api`, `web`, `bracket`, `db`, `auth`, `i18n`, `ci`, `deps`, `deps-dev` (last three reserved for tooling/Dependabot)
 - PR required for all merges to `main`.
 
 ## Architecture Documentation
