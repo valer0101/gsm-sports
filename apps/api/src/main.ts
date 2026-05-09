@@ -42,14 +42,38 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   const logger = new Logger('Bootstrap');
 
-  // Security headers — sensible defaults from helmet. CSP is left in
-  // permissive mode (`contentSecurityPolicy: false`) because the API
-  // serves uploaded user content via /uploads/ and Swagger UI inline
-  // scripts; the web app sets its own CSP at the Next.js layer.
+  // Security headers. Default CSP is enabled (CodeQL high-severity alert
+  // js/insecure-helmet-configuration fires on `contentSecurityPolicy: false`).
+  // The API responds with JSON for app routes and serves binary uploads
+  // from `/uploads/*`, so the only HTML consumer of CSP here is Swagger UI;
+  // its inline init script + style get a scoped relaxation a few lines below.
+  // `crossOriginResourcePolicy: cross-origin` keeps `/uploads/*` loadable
+  // from the web app on a different origin.
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'img-src': ["'self'", 'data:', 'blob:'],
+        },
+      },
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  // Swagger UI (swagger-ui-express) injects an inline initialiser script
+  // and inline styles, which the default CSP would block. Scope a relaxed
+  // CSP to `/api/docs` only — the rest of the API keeps the strict policy
+  // set above. This middleware overwrites the CSP header on matching paths.
+  app.use(
+    '/api/docs',
+    helmet.contentSecurityPolicy({
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'", 'https:'],
+        'img-src': ["'self'", 'data:', 'blob:'],
+      },
     }),
   );
 
