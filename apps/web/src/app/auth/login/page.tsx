@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 type FormData = { login: string; password: string };
 
@@ -119,6 +120,14 @@ function LoginForm() {
             {mutation.isPending ? t('submitting_login') : t('submit_login')}
           </button>
         </form>
+
+        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
+          <span className="h-px flex-1 bg-white/10" />
+          <span>{t('or_separator')}</span>
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <GoogleSignInButton />
 
         <p className="mt-6 text-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           {t('no_account')}{' '}

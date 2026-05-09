@@ -11,6 +11,11 @@ export interface CurrentUser {
   lastName: string;
   roles: string[];
   avatarUrl: string | null;
+  // Surface this so the Security section can render either "Set password"
+  // (Google-only accounts) or "Change password" (everyone else). May be
+  // missing on cached entries from older builds — treat undefined as true
+  // since password-only accounts always have one set.
+  hasPassword?: boolean;
 }
 
 export function clearStoredUser() {
@@ -36,6 +41,12 @@ export function useCurrentUser() {
     queryFn: async () => {
       try {
         const data = await api.get('/auth/me').then((r: any) => r.data);
+        // Persist the minimum needed to avoid a flash of "logged out" on
+        // first paint. Deliberately exclude `hasPassword` and any other
+        // auth-state metadata: even though they aren't secrets, CodeQL's
+        // js/clear-text-storage rule flags identifiers matching
+        // `password`/`token`/`secret`, and the React Query refetch on
+        // mount populates the field anyway.
         localStorage.setItem(
           'gsm_user',
           JSON.stringify({

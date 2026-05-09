@@ -76,36 +76,98 @@
 
 ## 2. Google OAuth Flow
 
+Реализация: `apps/api/src/auth/google.strategy.ts`,
+`apps/api/src/auth/google-auth.guard.ts`,
+`apps/api/src/auth/oauth-state.service.ts`,
+`apps/api/src/auth/auth.controller.ts` (`googleAuth`, `googleCallback`).
+
 ```
 ┌──────────┐         ┌──────────┐         ┌──────────┐
 │  Client  │         │  Backend │         │  Google  │
 └────┬─────┘         └────┬─────┘         └────┬─────┘
-     │                    │                    │
-     │ Клик "Войти через Google"               │
+     │ GET /auth/google?redirect=/admin/foo    │
      │───────────────────>│                    │
-     │                    │                    │
-     │ Redirect → Google OAuth                 │
+     │                    │ sign state JWT     │
+     │                    │ {redirect, exp 10m}│
+     │ 302 → Google OAuth (state=<jwt>)        │
      │<───────────────────│                    │
+     │ Consent screen ──────────────────────── >│
+     │<────────────── 302 /auth/google/callback?code&state│
      │                    │                    │
-     │ Авторизация в Google ──────────────────>│
-     │<────────────────── Redirect с code ─────│
-     │                    │                    │
-     │ GET /auth/google/callback?code=xxx      │
-     │───────────────────>│                    │
-     │                    │ Exchange code → token
+     │                    │ verify(state) JWT  │
+     │                    │ exchange code      │
      │                    │───────────────────>│
-     │                    │<───────────────────│
-     │                    │ Get user profile   │
-     │                    │───────────────────>│
-     │                    │<───────────────────│
-     │                    │                    │
-     │                    │ Find/Create user   │
-     │                    │ Link oauth_account │
-     │                    │ Issue JWT tokens   │
-     │                    │                    │
-     │ Set cookies + redirect to /             │
-     │<───────────────────│                    │
+     │                    │<───── tokens + profile (email_verified) ──│
+     │                    │ findOrLinkOrCreate │
+     │                    │ issue access_token │
+     │ 302 → ${GOOGLE_SUCCESS_REDIRECT}?status=ok&redirect=/admin/foo
+     │<───────────────────│ Set-Cookie access_token (httpOnly, lax)
 ```
+
+### 2.1 CSRF protection
+
+Параметр `state` — это **JWT, подписанный сервером** (`OAUTH_STATE_SECRET`,
+fallback на `JWT_ACCESS_SECRET`), TTL 10 минут. Структура:
+`{ type: 'oauth-state', redirect: string | null, exp }`. Discriminator
+`type` исключает реплей утёкшей сессионной куки в качестве `state` и наоборот.
+
+Атакующий не может подделать `state` без секрета, поэтому callback
+с фабрикованным или повторно использованным state'ом отвергается до
+вызова `loginWithGoogle()` и юзер уходит на фронт с `?status=error`.
+
+### 2.2 Open-redirect protection
+
+`OAuthStateService.sanitizeRedirect()` пропускает только same-origin
+пути (`/...`, без `//...`, длина ≤ 200). Абсолютные URL и
+protocol-relative дропаются и на write, и на read — два слоя обороны
+на случай, если злоумышленник подсовывает state через какую-то иную
+дыру.
+
+### 2.3 Email verification
+
+В `GoogleStrategy.validate()` мы отвергаем профиль, у которого
+`email_verified === false` (поле читается из `profile._json`). Это
+закрывает сценарий «Google Workspace с непроверенным алиасом».
+
+### 2.4 Account linking semantics
+
+Три ветки в `AuthService.loginWithGoogle()`:
+
+1. Найден `googleId` → логин.
+2. Найден email без `googleId` → линкуем `googleId`, ставим
+   `isVerified = true`. Аватар Google копируется только если у юзера
+   нет своего.
+3. Никого нет → создаём новый аккаунт с `passwordHash = null`,
+   `isVerified = true`, `language` берём из `Accept-Language`
+   (`ru | en | hy`, fallback `hy`).
+
+Конкурентные коллбэки (back-button или повторный POST) ловятся через
+PostgreSQL `unique_violation` (SQLSTATE 23505) на `googleId`/`email`:
+проигравший запрос пере-fetch'ит каноничный ряд и отдаст ту же
+сессию. Никаких 500-х на гонку.
+
+### 2.5 Setting a password later
+
+Google-only юзер (`passwordHash = null`) может поставить себе пароль
+через `POST /v1/auth/set-password` с тем же JWT-кукой. Если у юзера
+уже стоит пароль, в DTO обязательно требуется `currentPassword`,
+иначе `400`. Endpoint троттлится 5 запросов / 15 мин на IP — bcrypt
+дорогой, не даём DDoS'ить CPU.
+
+### 2.6 Configuration
+
+```
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=https://api.example.com/v1/auth/google/callback
+GOOGLE_SUCCESS_REDIRECT=https://example.com/auth/google/callback
+OAUTH_STATE_SECRET=<32+ bytes, отдельный от JWT_ACCESS_SECRET>
+```
+
+Без `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` стратегия
+не регистрируется (см. `auth.module.ts`) и приложение всё равно
+стартует — endpoint'ы вернут 500 с понятной строкой вместо краша
+на boot'е.
 
 ---
 

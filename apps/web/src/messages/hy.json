@@ -202,7 +202,13 @@
     "field_required": "Պարտադիր դաշտ",
     "error_invalid_email": "Անվավեր email",
     "error_password_min": "Նվազագույնը 8 նիշ",
-    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում"
+    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում",
+    "or_separator": "կամ",
+    "continue_with_google": "Մուտք Google-ով",
+    "register_with_google": "Գրանցում Google-ով",
+    "google_completing": "Մուտք Google-ով…",
+    "google_failed_title": "Google մուտքը ձախողվեց",
+    "google_error": "Չհաջողվեց ավարտել Google մուտքը։ Փորձեք կրկին։"
   },
   "admin": {
     "title": "Ադմինի վահանակ",
@@ -361,6 +367,21 @@
     "saving": "Պահպանվում է...",
     "saved": "Պահպանված է",
     "save_error": "Պահպանման սխալ"
+  },
+  "profile_security": {
+    "title": "Գաղտնաբառ",
+    "first_set_description": "Դուք մուտք գործեցիք Google-ով։ Սահմանեք գաղտնաբառ, որ կարողանաք մուտք գործել նաև email-ով։",
+    "change_description": "Պարբերաբար փոխեք գաղտնաբառը։ Հաստատման համար պետք կլինի ընթացիկ գաղտնաբառը։",
+    "current_password": "Ընթացիկ գաղտնաբառ",
+    "new_password": "Նոր գաղտնաբառ",
+    "confirm_password": "Հաստատեք գաղտնաբառը",
+    "submit": "Պահպանել գաղտնաբառը",
+    "saving": "Պահպանվում է...",
+    "saved": "Գաղտնաբառը թարմացված է",
+    "field_required": "Պարտադիր դաշտ",
+    "error_password_min": "Նվազագույնը 8 նիշ",
+    "error_passwords_mismatch": "Գաղտնաբառերը չեն համընկնում",
+    "error": "Չհաջողվեց պահպանել գաղտնաբառը"
   },
   "profile_telegram": {
     "section_label": "Telegram ծանուցումներ",

@@ -22,6 +22,10 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { phone } });
   }
 
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { googleId } });
+  }
+
   /** Returns user WITHOUT passwordHash — safe for all non-auth callers */
   async findById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { id } });
@@ -33,6 +37,20 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .where('user.email = :email', { email })
+      .getOne();
+  }
+
+  /**
+   * Used only by auth service — returns the user with passwordHash so
+   * the set-password flow can tell "no password set yet" (Google-only
+   * account) from "password set, current required" without leaking the
+   * hash through any other code path.
+   */
+  async findByIdWithPassword(id: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :id', { id })
       .getOne();
   }
 

@@ -202,7 +202,13 @@
     "field_required": "Обязательное поле",
     "error_invalid_email": "Некорректный email",
     "error_password_min": "Минимум 8 символов",
-    "error_passwords_mismatch": "Пароли не совпадают"
+    "error_passwords_mismatch": "Пароли не совпадают",
+    "or_separator": "или",
+    "continue_with_google": "Войти через Google",
+    "register_with_google": "Регистрация через Google",
+    "google_completing": "Входим через Google…",
+    "google_failed_title": "Не удалось войти через Google",
+    "google_error": "Не удалось завершить вход через Google. Попробуйте ещё раз."
   },
   "admin": {
     "title": "Панель администратора",
@@ -622,6 +628,21 @@
     "saving": "Сохранение...",
     "saved": "Сохранено",
     "save_error": "Ошибка сохранения"
+  },
+  "profile_security": {
+    "title": "Пароль",
+    "first_set_description": "Вы вошли через Google. Задайте пароль, чтобы также входить по email.",
+    "change_description": "Регулярно меняйте пароль. Для подтверждения потребуется текущий.",
+    "current_password": "Текущий пароль",
+    "new_password": "Новый пароль",
+    "confirm_password": "Подтвердите пароль",
+    "submit": "Сохранить пароль",
+    "saving": "Сохраняем...",
+    "saved": "Пароль обновлён",
+    "field_required": "Обязательное поле",
+    "error_password_min": "Минимум 8 символов",
+    "error_passwords_mismatch": "Пароли не совпадают",
+    "error": "Не удалось сохранить пароль"
   },
   "profile_telegram": {
     "section_label": "Уведомления в Telegram",
