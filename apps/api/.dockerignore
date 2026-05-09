@@ -1,0 +1,22 @@
+# Dev artefacts not needed in the image
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+*.log
+.git
+.github
+.vscode
+.idea
+coverage
+**/coverage
+.env
+.env.*
+!.env.example
+.turbo
+**/.turbo
+README.md
+docs
+*.md
