@@ -162,6 +162,62 @@ describe('AdminService', () => {
     });
   });
 
+  describe('cancelTournament', () => {
+    it('sets status=cancelled and closes registration on a non-terminal tournament', async () => {
+      mockTournamentsRepo.findOne
+        .mockResolvedValueOnce({ ...mockTournament, status: 'registration_open', registrationOpen: true })
+        .mockResolvedValueOnce({ ...mockTournament, status: 'cancelled', registrationOpen: false });
+      mockTournamentsRepo.update.mockResolvedValue({});
+      const result = await service.cancelTournament('tournament-1', 'organizer-1', ['organizer']);
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
+        status: 'cancelled',
+        registrationOpen: false,
+      });
+      expect(result.status).toBe('cancelled');
+    });
+
+    it('cancels even after the bracket has been generated (live-event safety hatch)', async () => {
+      mockTournamentsRepo.findOne
+        .mockResolvedValueOnce({
+          ...mockTournament,
+          status: 'bracket_ready',
+          bracketGenerated: true,
+        })
+        .mockResolvedValueOnce({ ...mockTournament, status: 'cancelled' });
+      mockTournamentsRepo.update.mockResolvedValue({});
+      await service.cancelTournament('tournament-1', 'organizer-1', ['organizer']);
+      expect(mockTournamentsRepo.update).toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for already-cancelled tournament', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, status: 'cancelled' });
+      await expect(
+        service.cancelTournament('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockTournamentsRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for already-completed tournament', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({ ...mockTournament, status: 'completed' });
+      await expect(
+        service.cancelTournament('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockTournamentsRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses when a non-organizer non-admin user calls (ownership check)', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        organizerId: 'someone-else',
+        status: 'upcoming',
+      });
+      await expect(
+        service.cancelTournament('tournament-1', 'organizer-1', ['organizer']),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTournamentsRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('toggleRegistration', () => {
     it('opens registration when closed', async () => {
       mockTournamentsRepo.findOne

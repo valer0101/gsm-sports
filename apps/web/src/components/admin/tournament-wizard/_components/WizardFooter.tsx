@@ -10,6 +10,7 @@ export function WizardFooter({
   onNext,
   onSubmit,
   isSubmitting = false,
+  mode = 'create',
 }: {
   currentStep: number;
   canAdvance: boolean;
@@ -17,6 +18,7 @@ export function WizardFooter({
   onNext: () => void;
   onSubmit?: () => void;
   isSubmitting?: boolean;
+  mode?: 'create' | 'edit';
 }) {
   const t = useTranslations('tournament_wizard');
 
@@ -25,6 +27,13 @@ export function WizardFooter({
     2: t('progress_categories'),
     3: t('progress_registration'),
   };
+
+  const submitFullLabel = mode === 'edit'
+    ? (isSubmitting ? t('footer_saving') : t('footer_save_changes'))
+    : (isSubmitting ? t('footer_creating') : t('footer_create'));
+  const submitShortLabel = mode === 'edit'
+    ? (isSubmitting ? t('footer_saving') : t('footer_save_changes_short'))
+    : (isSubmitting ? t('footer_creating') : t('footer_create_short'));
 
   return (
     <footer className="sticky bottom-0 z-30 py-3 sm:py-4 px-4 sm:px-6 bg-[var(--color-background)] border-t border-[var(--color-border)]">
@@ -67,8 +76,8 @@ export function WizardFooter({
             className="px-4 sm:px-6 py-2.5 text-sm font-bold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex-shrink-0 flex items-center gap-2"
           >
             {isSubmitting && <span className="h-3 w-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-            <span className="hidden sm:inline">{isSubmitting ? t('footer_creating') : t('footer_create')}</span>
-            <span className="sm:hidden">{isSubmitting ? t('footer_creating') : t('footer_create_short')}</span>
+            <span className="hidden sm:inline">{submitFullLabel}</span>
+            <span className="sm:hidden">{submitShortLabel}</span>
           </button>
         )}
       </div>

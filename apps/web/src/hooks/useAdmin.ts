@@ -56,6 +56,17 @@ export function useDeleteTournament() {
   });
 }
 
+export function useCancelTournament(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.patch(`/admin/tournaments/${id}/cancel`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'tournaments'] });
+    },
+  });
+}
+
 export function useToggleRegistration(id: string) {
   const qc = useQueryClient();
   return useMutation({

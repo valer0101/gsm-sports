@@ -85,6 +85,12 @@ export class AdminController {
   }
 
   @Roles('admin', 'organizer')
+  @Patch('tournaments/:id/cancel')
+  cancelTournament(@Param('id') id: string, @Request() req: any) {
+    return this.adminService.cancelTournament(id, req.user.sub, req.user.roles);
+  }
+
+  @Roles('admin', 'organizer')
   @Post('tournaments/:id/generate-brackets')
   generateBrackets(
     @Param('id') id: string,

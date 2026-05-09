@@ -8,14 +8,14 @@
 
 ## 1. What's done
 
-`/admin/tournaments/new` — 4-step wizard (Basic → Format → Categories → Registration & Prizes).
+`/admin/tournaments/new` and `/admin/tournaments/[id]/edit` — 4-step wizard (Basic → Format → Categories → Registration & Prizes), shared via [`TournamentWizard.tsx`](../../apps/web/src/components/admin/tournament-wizard/TournamentWizard.tsx).
 
 Highlights:
 - "Combat Energy" visual language (deep navy + signal red + gold) extending existing tokens in `globals.css`.
 - 4-step shell with animated transitions, shake-on-disabled-Next, focus management, mobile reflow.
 - Sub-page primitives split out for reuse: `Section`, `Label`, `Helper`, `TextInput`, `DateTimeInput`, `Toggle`, `BigChoiceCard`, `HandCard`, `PosterUpload`, `SportSelect`, `PlaceGroup`, `PrizeRow`, `ReviewBlock`, `WizardProgress`, `WizardFooter`.
-- Pure-logic helpers: `slug.ts` (Cyrillic transliterator), `prize-calc.ts` (override cascade across `(age × weight)`).
-- Vitest configured in `apps/web` for the first time; 28 tests cover the helpers.
+- Pure-logic helpers: `slug.ts` (Cyrillic transliterator), `prize-calc.ts` (override cascade across `(age × weight)`), `tournament-to-wizard-data.ts` (API → form mapper for edit mode — de-dupes per-gender weight category rows).
+- Vitest configured in `apps/web` for the first time; **33 tests** cover the helpers (slug, prize-calc, tournament-to-wizard-data).
 
 Spec: [`docs/design/admin-tournament-wizard.md`](./admin-tournament-wizard.md).
 
@@ -53,7 +53,7 @@ All in `apps/web/src/app/globals.css`. The wizard added the lower half of the ta
 
 ## 3. Reusable primitives
 
-All under `apps/web/src/app/admin/tournaments/new/_components/`. They are currently route-local (private folder), but **promote them to `apps/web/src/components/wizard/`** if a second surface needs them.
+All under `apps/web/src/components/admin/tournament-wizard/_components/` (promoted out of the route-local folder when the edit page started reusing them). The orchestrator [`TournamentWizard.tsx`](../../apps/web/src/components/admin/tournament-wizard/TournamentWizard.tsx) lives one level up — it accepts `mode: 'create' | 'edit'`, optional `initialData`, and `onSubmit`/`onCancel` callbacks so route pages stay thin.
 
 | Primitive | File | What it does |
 |---|---|---|
@@ -130,7 +130,7 @@ User priority on 2026-05-06: continue the redesign on bracket-related surfaces. 
 | 3 | `/tournaments/[slug]/broadcast/[tableId]` | **OBS overlay** for a single table | Already has chroma-free version (PR #25). Could use a Combat Energy refresh for the dark-bg variant. |
 | 4 | `/operator/tournaments/[tournamentId]` | **Operator console** — running matches at a table | Live operational tool — minimalism + readability matter more than wow. |
 | 5a | `/admin/tournaments/[id]` | **Admin tournament detail** (Combat Energy redesign) | Reuse wizard primitives for the read-only summary header. Adds `✏️ Редактировать` link to the new `/edit` route. |
-| 5b | `/admin/tournaments/[id]/edit` | **Admin tournament edit** (NEW route) | Reuses the create wizard verbatim — same 4 steps, same primitives — with `mode="edit"` and `initialData` preloaded from `useAdminTournament(id)`. Submit via `useUpdateTournament(id)`. See §7 for the full decision. |
+| 5b | `/admin/tournaments/[id]/edit` | **Admin tournament edit** | ✅ LANDED 2026-05-07. Reuses `TournamentWizard` with `mode="edit"`. Step 3 is read-only (see §7 known gap). Greyed-out "✏️ Редактировать" link added to detail page. |
 | 6 | `/admin/tournaments/[id]/check-in` | **QR check-in scanner** | Already PR #24. Smaller refresh. |
 
 **Suggested approach for each:**
@@ -158,7 +158,8 @@ User priority on 2026-05-06: continue the redesign on bracket-related surfaces. 
 ## 7. Open questions / known gaps for the next surface
 
 - **Toast library** — wizard uses inline error banner + `confirm()`. Next surfaces should consider sonner (most popular Next.js choice). Affects every page that mutates.
-- **Edit page (DECIDED 2026-05-07)** — admin tournament edit ships at its own route `/admin/tournaments/[id]/edit` and reuses the create wizard verbatim. The wizard component must be parameterized: extract to `_components/TournamentWizard.tsx` (or similar shared location) accepting `mode: 'create' | 'edit'`, `initialData?: Partial<Tournament>`, `onSubmit: (payload) => Promise`. The two route orchestrators become thin: `/new/page.tsx` passes `mode="create"` + `useCreateTournament().mutateAsync`; `/[id]/edit/page.tsx` fetches via `useAdminTournament(id)`, passes `mode="edit" initialData={tournament}` + `useUpdateTournament(id).mutateAsync`. Detail page (`/admin/tournaments/[id]`) gets a "✏️ Редактировать" link in the header to the edit route. **Inline editing on the detail page is rejected** — one URL one purpose; back button + dirty-guard work cleanly only when edit owns its own page. **Destructive actions stay on the detail page** (close registration, delete, generate brackets) — edit covers metadata only. This is the path for any "edit X" pattern across the app.
+- **Edit page (LANDED 2026-05-07)** — admin tournament edit ships at `/admin/tournaments/[id]/edit` and reuses [`TournamentWizard.tsx`](../../apps/web/src/components/admin/tournament-wizard/TournamentWizard.tsx) verbatim. The wizard accepts `mode: 'create' | 'edit'`, `initialData?: TournamentWizardInitialData`, `onSubmit(payload, { registrationOpenImmediately })`, optional `onCancel` and `isSubmitting`. Route orchestrators are thin: `/new/page.tsx` passes `mode="create"` + `useCreateTournament().mutateAsync`; `/[id]/edit/page.tsx` fetches via `useAdminTournament(id)`, runs the API → form mapper [`tournament-to-wizard-data.ts`](../../apps/web/src/components/admin/tournament-wizard/_lib/tournament-to-wizard-data.ts), and submits via `useUpdateTournament(id).mutateAsync`. Detail page (`/admin/tournaments/[id]`) shows a "✏️ Редактировать" link (greyed out if `bracketGenerated`). **Inline editing on the detail page was rejected** — one URL one purpose; back button + dirty-guard work cleanly only when edit owns its own page. **Destructive actions stay on the detail page** (close registration, delete, generate brackets) — edit covers metadata only. This is the path for any "edit X" pattern across the app.
+- **Categories are read-only in edit mode (KNOWN GAP)** — the backend [`updateTournament`](../../apps/api/src/admin/admin.service.ts#L120) silently strips `weightCategories` from the PATCH payload, and refuses any edit once `bracketGenerated`. The wizard surfaces both: step 3 is wrapped in a `<fieldset disabled>` with a Combat Energy warning banner in edit mode, and the edit route refuses to render if the bracket has been generated (showing a "tournament cannot be edited" notice instead). Lifting the limitation requires a backend change (smart upsert/delete of weight categories with cascade behavior for already-registered entries) — out of scope for the edit-page PR.
 - **Slug uniqueness check** — debounced `GET /admin/tournaments/check-slug` would be a small UX win in Step 1, deferred from this PR.
 - **Per-(age × weight) prize backend support** — wizard ships `ageGroup` + `weightCategoryId` on each prize entry into `sportConfig.prizes` JSONB, but the public tournament page doesn't yet parse that hierarchy. This connects to the `/tournaments/[slug]` redesign.
 - **Per-category gender override** — Step 3 has a tournament-level `Genders competing` toggle, but no per-category gender selection (the underlying type field exists, the UI was deferred).
