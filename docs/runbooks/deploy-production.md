@@ -92,7 +92,7 @@ SENTRY_DSN=https://...@sentry.io/...
      ssh production
      cd /srv/gsm
      git pull origin main
-     docker compose -f docker-compose.prod.yml up -d --build api
+     docker compose -f docker-compose.yml up -d --build api
      ```
    Watch the build logs for errors. Fail fast — don't deploy web until api is healthy.
 
@@ -140,11 +140,11 @@ The fastest rollback is **redeploy the previous image / commit**:
   ssh production
   cd /srv/gsm
   git checkout <previous-tag-or-sha>
-  docker compose -f docker-compose.prod.yml up -d --build
+  docker compose -f docker-compose.yml up -d --build
   ```
 
 If a database migration is the cause of failure:
-1. Check what changed: `npm run migration:show --workspace=@gsm/api`.
+1. Check what changed: `cd apps/api && npx typeorm migration:show -d src/data-source.ts` (no npm script wraps `migration:show` yet — only `generate`, `run`, and `revert` are exposed in `apps/api/package.json`).
 2. Revert the latest migration: `npm run migration:revert --workspace=@gsm/api`. Note: TypeORM `migration:revert` only undoes ONE migration — repeat if multiple new migrations were applied in this deploy.
 3. Redeploy the previous code.
 

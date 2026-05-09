@@ -29,7 +29,7 @@
 
 ## Current state — short version
 
-The project is a multi-sport tournament platform (armwrestling first, combat sports next). Core MVP is built: NestJS API with 18 modules, Next.js 15 web app with React Query, TypeORM + PostgreSQL, Telegram bot, full bracket engine for 6 formats (single elim, double elim, round robin, Swiss, groups + playoff, armfight), Socket.io live updates. CI/CD with GitHub Actions, security scans, dependabot.
+The project is a multi-sport tournament platform (armwrestling first, combat sports next). Core MVP is built: NestJS API with 19 modules, Next.js 15 web app with React Query, TypeORM + PostgreSQL, Telegram bot, full bracket engine for 6 formats (single elim, double elim, round robin, Swiss, groups + playoff, armfight), Socket.io live updates. CI/CD with GitHub Actions, security scans, dependabot.
 
 Coverage at time of writing: bracket-engine 98% / 90.4% branch · api 446 unit tests · web 104 unit tests · 0 E2E.
 

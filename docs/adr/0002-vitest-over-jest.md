@@ -40,7 +40,7 @@ Hard rules captured in `CLAUDE.md`:
 
 ## References
 
-- `packages/bracket-engine/vitest.config.ts` — package-level config.
-- `apps/api/vitest.config.ts`, `apps/web/vitest.config.ts`.
+- `apps/api/vitest.config.ts`, `apps/web/vitest.config.ts` — per-app configs.
+- `packages/bracket-engine` runs `vitest run` directly (auto-discovers `*.spec.ts`); no per-package config file needed.
 - `CLAUDE.md` → "Testing".
 - `docs/09-TESTING-STRATEGY.md`.
