@@ -466,6 +466,83 @@ export function generateSingleElimination(players: Player[]): BracketData {
   return result;
 }
 
+// ─── Armfight (one-off title fight) ─────────────────────────
+
+/**
+ * Build an armfight bracket — a single match between two named athletes,
+ * no bracket tree. Title fights, exhibition bouts, "match of the night".
+ *
+ * Reuses the standard `BracketData` shape so consumers (operator UI,
+ * audit log, websocket broadcast, …) work without branching:
+ *   - `format: 'armfight'`
+ *   - `winnersBracket: [[ one match ]]`
+ *   - `losersBracket: []`, `grandFinal` / `superFinal` TBD never reached
+ *   - Champion = winner of the single match; runner-up = its loser.
+ *
+ * Caller must pass exactly 2 real players. BYE / TBD seats are not
+ * meaningful here and rejected at the API boundary.
+ */
+export function generateArmfight(players: Player[]): BracketData {
+  if (players.length !== 2) {
+    throw new Error('Armfight requires exactly 2 players');
+  }
+
+  const [a, b] = players;
+  const match: Match = {
+    id: 'wb_1_0',
+    round: 1,
+    matchIndex: 0,
+    player1: { ...a, seed: 1 },
+    player2: { ...b, seed: 2 },
+    winner: null,
+    loser: null,
+  };
+
+  const grandFinal: GrandFinalMatch = {
+    id: 'grand_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+  };
+  const superFinal: SuperFinalMatch = {
+    id: 'super_final',
+    player1: makeTbd(),
+    player2: makeTbd(),
+    winner: null,
+    loser: null,
+    needed: false,
+  };
+
+  return {
+    format: 'armfight',
+    players: players.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      number: p.number,
+    })),
+    bracketSize: 2,
+    wbRounds: 1,
+    winnersBracket: [[match]],
+    losersBracket: [],
+    grandFinal,
+    superFinal,
+    champion: null,
+    status: 'active',
+  };
+}
+
+/** Finalize an armfight after a result is recorded — single match wins it all. */
+function finalizeArmfight(data: BracketData): void {
+  if (data.format !== 'armfight') return;
+  const match = data.winnersBracket[0]?.[0];
+  if (!match?.winner) return;
+  if (isBye(match.winner)) return;
+  data.champion = match.winner;
+  data.status = 'completed';
+}
+
 /** Shared single-elim "is the WB final done?" check used by the
  *  generator (bye walkover) and by `propagateResults` after each
  *  recordResult. */
@@ -1311,6 +1388,19 @@ export function getFinalPlacements(data: BracketData): FinalPlacement[] {
         },
         skipLastRoundLoserDuringWalk: true,
       });
+    case 'armfight': {
+      // One match: champion = winner, runner-up = loser. Either or both
+      // may be null while the bout is still pending.
+      const out: FinalPlacement[] = [];
+      const match = data.winnersBracket[0]?.[0];
+      if (data.champion && isReal(data.champion)) {
+        out.push({ playerId: data.champion, position: 1 });
+      }
+      if (match?.loser && isReal(match.loser)) {
+        out.push({ playerId: match.loser, position: out.length + 1 });
+      }
+      return out;
+    }
     default: {
       const exhaustive: never = format;
       void exhaustive;
@@ -1792,6 +1882,12 @@ export function propagateResults(data: BracketData): void {
   // then single-elim propagation through the playoff side.
   if (data.format === 'groups_playoff') {
     finalizeGroupsPlayoff(data);
+    return;
+  }
+
+  // Armfight: a single match decides everything. No bracket propagation.
+  if (data.format === 'armfight') {
+    finalizeArmfight(data);
     return;
   }
 
