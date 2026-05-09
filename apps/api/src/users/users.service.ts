@@ -40,6 +40,20 @@ export class UsersService {
       .getOne();
   }
 
+  /**
+   * Used only by auth service — returns the user with passwordHash so
+   * the set-password flow can tell "no password set yet" (Google-only
+   * account) from "password set, current required" without leaking the
+   * hash through any other code path.
+   */
+  async findByIdWithPassword(id: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
   /** Used only by auth service — explicitly selects passwordHash for bcrypt.compare */
   async findByPhoneWithPassword(phone: string): Promise<User | null> {
     return this.usersRepository

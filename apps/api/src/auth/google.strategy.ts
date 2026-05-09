@@ -51,6 +51,18 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       return;
     }
 
+    // `email_verified` lives on the raw OIDC claim payload. Refusing the
+    // login if Google itself doesn't vouch for the email closes the door
+    // on attackers who control a Google Workspace and bind unverified
+    // addresses to OAuth profiles.
+    const rawJson = (profile as Profile & { _json?: { email_verified?: boolean } })._json;
+    const emailVerified = profile.emails?.[0]?.verified ?? rawJson?.email_verified;
+    if (emailVerified === false) {
+      this.logger.warn(`Google profile ${profile.id} email not verified — rejecting`);
+      done(new Error('Google account email is not verified'), undefined);
+      return;
+    }
+
     const payload: GoogleProfilePayload = {
       googleId: profile.id,
       email: email.toLowerCase(),

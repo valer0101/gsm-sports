@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 /**
@@ -8,11 +9,27 @@ import { useTranslations } from 'next-intl';
  * the flow happens via redirects and the cookie set by the API
  * callback. NEXT_PUBLIC_API_URL stays the source of truth for the
  * API origin, falling back to the dev port.
+ *
+ * The current page's `?redirect=` (set by the auth middleware when a
+ * protected route bumps an unauthenticated user to /auth/login) is
+ * forwarded to the API, which folds it into the signed OAuth state
+ * and echoes it back on the callback. We only forward same-origin
+ * paths — the API's OAuthStateService re-validates the same rule.
  */
 export function GoogleSignInButton({ label }: { label?: string }) {
   const t = useTranslations('auth');
+  const searchParams = useSearchParams();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/v1';
-  const href = `${apiUrl.replace(/\/$/, '')}/auth/google`;
+
+  const rawRedirect = searchParams.get('redirect');
+  const safeRedirect =
+    rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : null;
+
+  const url = new URL(`${apiUrl.replace(/\/$/, '')}/auth/google`);
+  if (safeRedirect) url.searchParams.set('redirect', safeRedirect);
+  const href = url.toString();
 
   return (
     <a

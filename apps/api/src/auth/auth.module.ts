@@ -6,14 +6,22 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
+import { GoogleAuthGuard } from './google-auth.guard';
+import { OAuthStateService } from './oauth-state.service';
 import { UsersModule } from '../users/users.module';
 
 /**
  * Google OAuth requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.
- * Without them passport-google-oauth20 throws on construction, so we
- * only register the strategy when both are present. The /auth/google*
- * endpoints will then 500 with "Unknown authentication strategy" if
- * called — surface a clear log so the misconfig is obvious.
+ * Without them passport-google-oauth20 throws inside its constructor
+ * (an empty clientID is fatal), so we conditionally include the
+ * strategy provider. Reading `process.env` here — instead of going
+ * through `ConfigService` — is intentional: providers must be decided
+ * at module-compile time, before DI is wired up.
+ *
+ * The state service and guard are always registered so the
+ * /auth/google* endpoints can fail cleanly (passport raises
+ * "Unknown authentication strategy" → caught by the controller and
+ * turned into a friendly error redirect) instead of crashing on boot.
  */
 function googleStrategyProviders(): Provider[] {
   const hasGoogle = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
@@ -40,7 +48,13 @@ function googleStrategyProviders(): Provider[] {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, ...googleStrategyProviders()],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    OAuthStateService,
+    GoogleAuthGuard,
+    ...googleStrategyProviders(),
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

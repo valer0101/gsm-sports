@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +20,17 @@ type FormData = {
   confirmPassword: string;
 };
 
+// GoogleSignInButton uses useSearchParams to forward the redirect path,
+// which Next.js requires to live inside a Suspense boundary.
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const t = useTranslations('auth');
   const router = useRouter();
 
