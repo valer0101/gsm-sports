@@ -22,29 +22,13 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # Repo is now public — CodeQL upload works without GHAS.
-  codeql:
-    name: CodeQL
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [javascript-typescript]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          queries: security-extended,security-and-quality
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: '/language:${{ matrix.language }}'
+  # CodeQL is handled by GitHub's "Default setup" at the repo level
+  # (Settings → Code security → Code scanning). We deliberately do not
+  # define a CodeQL job here — including any github/codeql-action step
+  # while default setup is enabled disables this entire workflow,
+  # taking npm-audit / secret-scan / dependency-review down with it.
+  # Switch to advanced setup if you want custom queries beyond the
+  # default suite, then move the codeql job back here.
 
   # Repo is now public — dependency-review works without GHAS.
   dependency-review:
@@ -85,3 +69,4 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
