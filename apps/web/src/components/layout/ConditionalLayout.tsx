@@ -2,6 +2,8 @@
 
 import { usePathname } from 'next/navigation';
 import { Navbar } from './Navbar';
+import { SiteFooter } from './SiteFooter';
+import { CookieBanner } from '../legal/CookieBanner';
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -28,17 +30,8 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     >
       {!isAdmin && <Navbar />}
       <main className="flex-1">{children}</main>
-      {!isAdmin && (
-        <footer
-          className="border-t border-white/10 py-6 text-center text-sm"
-          style={{
-            color: 'var(--color-text-secondary)',
-            backgroundColor: 'var(--color-secondary)',
-          }}
-        >
-          © {new Date().getFullYear()} GSM Sports. All rights reserved.
-        </footer>
-      )}
+      {!isAdmin && <SiteFooter />}
+      {!isAdmin && <CookieBanner />}
     </div>
   );
 }
