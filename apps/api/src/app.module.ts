@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule as NestScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
+import { PinoLoggerModule } from './observability/logger.module';
 import { UsersModule } from './users/users.module';
 import { SportsModule } from './sports/sports.module';
 import { TournamentsModule } from './tournaments/tournaments.module';
@@ -27,6 +28,11 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
 
 @Module({
   imports: [
+    // Structured JSON logging via pino. Replaces ad-hoc Logger usage in
+    // production with a queryable stream. Goes first so every other
+    // module is wired against the pino logger from the start.
+    PinoLoggerModule,
+
     // Environment variables
     ConfigModule.forRoot({
       isGlobal: true,
