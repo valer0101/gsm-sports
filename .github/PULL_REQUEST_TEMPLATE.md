@@ -52,6 +52,12 @@ Closes #
 - [ ] No hardcoded secrets or API keys
 - [ ] Changes comply with architecture docs in `docs/`
 
+### Documentation
+- [ ] `docs/STATUS.md` updated if a row's status flag changed
+- [ ] Relevant numbered doc (`docs/0X-*.md`) updated if architecture / API / schema changed
+- [ ] New ADR added to `docs/adr/` for any non-obvious architectural decision
+- [ ] New runbook added to `docs/runbooks/` for any new operational procedure
+
 ## Notes for reviewer
 
 <!-- Anything the reviewer should know: tradeoffs, follow-ups, known limits. -->
