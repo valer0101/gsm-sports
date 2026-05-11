@@ -138,6 +138,12 @@ jobs:
         env:
           # Next.js needs at least placeholder envs to build successfully.
           NEXT_TELEMETRY_DISABLED: '1'
+          # apps/web/src/app/layout.tsx fails fast in production mode if
+          # NEXT_PUBLIC_SITE_URL is unset (intentional deploy-safety gate).
+          # `next build` always runs in production mode, so CI passes a
+          # placeholder so the build can complete; real deploys must set
+          # the production value via the hosting platform.
+          NEXT_PUBLIC_SITE_URL: 'https://gsm-sports.example'
 
   test:
     name: Tests (unit)
