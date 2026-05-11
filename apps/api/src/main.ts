@@ -1,3 +1,8 @@
+// Load .env into process.env before any module is evaluated — AuthModule
+// gates GoogleStrategy on process.env at decorator time, which runs during
+// import resolution (before ConfigModule.forRoot()).
+import 'dotenv/config';
+
 // Sentry must be initialised BEFORE NestFactory.create — its node SDK
 // monkey-patches `http`/`https` to capture outgoing requests and
 // unhandled exceptions. Loading order matters.
