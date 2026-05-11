@@ -1,7 +1,14 @@
+// Sentry must be initialised BEFORE NestFactory.create — its node SDK
+// monkey-patches `http`/`https` to capture outgoing requests and
+// unhandled exceptions. Loading order matters.
+import { initSentry } from './observability/sentry';
+const sentryActive = initSentry();
+
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { join } from 'path';
 import helmet from 'helmet';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -9,6 +16,7 @@ const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { SportsService } from './sports/sports.service';
 import { UsersService } from './users/users.service';
+import { SentryExceptionFilter } from './observability/sentry-exception.filter';
 
 /**
  * Build the CORS allow-list. Production-safe rules:
@@ -33,14 +41,26 @@ function buildCorsOrigins(): string[] {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
   // Trust the first proxy hop so `req.ip` reflects the client (not the
   // load balancer) — required for ThrottlerGuard to bucket by client IP
   // when the API runs behind Railway / Render / Cloudflare.
   app.set('trust proxy', 1);
-  const logger = new Logger('Bootstrap');
+
+  // Replace Nest's default console logger with pino. `bufferLogs: true`
+  // above held boot-time logs in memory until pino is bound; flushing
+  // here makes early logs land in the JSON stream like everything else.
+  app.useLogger(app.get(PinoLogger));
+  const logger = app.get(PinoLogger);
+
+  // Sentry exception filter — silently swallows nothing, just observes
+  // 5xx + non-HttpException errors and forwards to Sentry. Registered
+  // alongside Nest's default filter via re-throw.
+  app.useGlobalFilters(new SentryExceptionFilter());
 
   // Security headers. Default CSP is enabled (CodeQL high-severity alert
   // js/insecure-helmet-configuration fires on `contentSecurityPolicy: false`).
@@ -111,6 +131,9 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`GSM Sports API running on http://localhost:${port}`);
   logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  if (sentryActive) {
+    logger.log('Sentry error reporting enabled');
+  }
 
   // Seed default sports (arm wrestling) if table is empty
   const sportsService = app.get(SportsService);
