@@ -26,4 +26,13 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       state: this.oauthState.sign({ redirect: rawRedirect }),
     };
   }
+
+  // Swallow auth failures (e.g. user clicked "Cancel" on Google's consent
+  // screen → ?error=access_denied) so the callback controller can run its
+  // try/catch and redirect to a friendly frontend error page. Without this
+  // override the guard throws UnauthorizedException before the controller
+  // method ever executes, dumping a stack trace at the user.
+  handleRequest<TUser = unknown>(_err: unknown, user: TUser): TUser {
+    return user;
+  }
 }
