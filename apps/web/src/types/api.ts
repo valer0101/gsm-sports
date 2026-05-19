@@ -92,6 +92,7 @@ export interface Tournament {
   isLive: boolean;
   posterUrl: string | null;
   streamUrl: string | null;
+  armfightVideoUrl: string | null;
   sport: Sport | null;
   weightCategories: WeightCategory[];
   sportConfig: Record<string, any> | null;

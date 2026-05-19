@@ -1080,5 +1080,26 @@
     "ordinal_2nd": "2-е место",
     "ordinal_3rd": "3-е место",
     "ordinal_nth": "{n}-е место"
+  },
+  "armfight": {
+    "main_event": "Главное событие",
+    "watch_video": "Смотреть видео",
+    "main_event_title": "Главный армфайт",
+    "main_event_helper": "Единственное отмеченное главное событие выделяется на главной, на странице вида спорта и в списке турниров.",
+    "video_section": "Видео / YouTube",
+    "video_helper": "Запись или ссылка на YouTube, показывается после завершения события.",
+    "video_url_label": "Видео / YouTube",
+    "video_url_placeholder": "https://youtube.com/watch?v=...",
+    "video_url_invalid": "Невалидный URL.",
+    "starts_in": "старт через",
+    "cta_bracket": "Смотреть сетку",
+    "cta_details": "Подробнее о событии",
+    "upcoming_title": "Ближайшие армфайты",
+    "none_soon": "Пока нет запланированных армфайтов",
+    "live": "Сейчас в эфире",
+    "days": "дн",
+    "hours": "ч",
+    "minutes": "мин",
+    "seconds": "сек"
   }
 }

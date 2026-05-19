@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Icon } from '../../_lib/icons';
-import { type AgeGroup, type Prize, type EntryFeeType, type ReviewData, type WeightCat, categoryLabel, newPrizeId } from '../../_lib/types';
+import { type AgeGroup, type CompetitionType, type Prize, type EntryFeeType, type ReviewData, type WeightCat, categoryLabel, newPrizeId } from '../../_lib/types';
 import { AGE_GROUPS } from '../../_lib/constants';
 import { sumMoney, totalTournamentPayout, bracketsPerPair } from '../../_lib/prize-calc';
 import { Section, SectionTitle, Label, Helper } from '../fields/Section';
@@ -21,6 +21,9 @@ export type Step4Props = {
   prizes: Prize[]; setPrizes: (v: Prize[]) => void;
   streamUrl: string; setStreamUrl: (v: string) => void;
   isFeatured: boolean; setIsFeatured: (v: boolean) => void;
+  /** Picked in Step 2 — the main-event toggle & video link are armfight-only. */
+  competitionType: CompetitionType;
+  armfightVideoUrl: string; setArmfightVideoUrl: (v: string) => void;
   maxParticipants: string; setMaxParticipants: (v: string) => void;
   /** Picked in Step 2 — drives the per-age-group prize tabs. */
   ageGroups: Set<AgeGroup>;
@@ -36,6 +39,8 @@ export type Step4Props = {
 
 export function Step4Registration(p: Step4Props) {
   const t = useTranslations('tournament_wizard');
+  const ta = useTranslations('armfight');
+  const isArmfight = p.competitionType === 'armfight';
 
   const ageLabelLower = (id: AgeGroup): string =>
     id === 'juniors' ? t('age_juniors').toLowerCase()
@@ -148,6 +153,7 @@ export function Step4Registration(p: Step4Props) {
     try { new URL(u); return true; } catch { return false; }
   };
   const urlValid = isValidUrl(p.streamUrl);
+  const videoUrlValid = isValidUrl(p.armfightVideoUrl);
 
   return (
     <div className="space-y-8">
@@ -403,15 +409,46 @@ export function Step4Registration(p: Step4Props) {
         </div>
       </Section>
 
-      <Section>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <SectionTitle inline>{t('featured_title')}</SectionTitle>
-            <Helper>{t('featured_helper')}</Helper>
+      {isArmfight && (
+        <Section>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <SectionTitle inline>{ta('main_event_title')}</SectionTitle>
+              <Helper>{ta('main_event_helper')}</Helper>
+            </div>
+            <Toggle value={p.isFeatured} onChange={p.setIsFeatured} />
           </div>
-          <Toggle value={p.isFeatured} onChange={p.setIsFeatured} />
-        </div>
-      </Section>
+
+          <div className="mt-6">
+            <SectionTitle>{ta('video_section')}</SectionTitle>
+            <Helper>{ta('video_helper')}</Helper>
+            <div className="mt-4">
+              <Label>{ta('video_url_label')}</Label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none">
+                  {Icon.video()}
+                </div>
+                <input
+                  type="url"
+                  value={p.armfightVideoUrl}
+                  onChange={(e) => p.setArmfightVideoUrl(e.target.value)}
+                  placeholder={ta('video_url_placeholder')}
+                  className={[
+                    'w-full h-12 pl-10 pr-10 bg-[var(--color-surface-2)] border focus:ring-4 focus:outline-none rounded-md transition-all placeholder:text-[var(--color-text-muted)]',
+                    videoUrlValid === false ? 'border-[var(--color-error)] focus:border-[var(--color-error)] focus:ring-[var(--color-error)]/20'
+                    : videoUrlValid === true ? 'border-[var(--color-success)] focus:border-[var(--color-success)] focus:ring-[var(--color-success)]/20'
+                    : 'border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-[var(--color-primary-dim)]',
+                  ].join(' ')}
+                />
+                {videoUrlValid === true && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-success)]">{Icon.check()}</div>
+                )}
+              </div>
+              {videoUrlValid === false && <div className="mt-1.5 text-xs text-[var(--color-error)]">{ta('video_url_invalid')}</div>}
+            </div>
+          </div>
+        </Section>
+      )}
 
       <ReviewBlock
         review={p.review}

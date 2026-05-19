@@ -30,3 +30,15 @@ export async function fetchWorldRankings(
     return undefined;
   }
 }
+
+export async function fetchFeaturedArmfight(): Promise<Tournament | null> {
+  try {
+    const res = await fetch(`${API_URL}/tournaments/featured-armfight`, {
+      next: { revalidate: 30 },
+    });
+    if (res.status === 204 || !res.ok) return null;
+    return (await res.json()) as Tournament;
+  } catch {
+    return null;
+  }
+}

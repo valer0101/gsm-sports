@@ -9,9 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
+  Res,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { IsString, IsEnum, IsNumber, Min, Max, IsOptional, IsUUID } from 'class-validator';
@@ -88,16 +90,30 @@ export class TournamentsController {
   @ApiQuery({ name: 'sport', required: false })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'country', required: false })
+  @ApiQuery({ name: 'format', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(
     @Query('sport') sport?: string,
     @Query('status') status?: string,
     @Query('country') country?: string,
+    @Query('format') format?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.tournamentsService.findAll({ sport, status, country, page, limit });
+    return this.tournamentsService.findAll({ sport, status, country, format, page, limit });
+  }
+
+  @Public()
+  @Get('featured-armfight')
+  @HttpCode(HttpStatus.OK)
+  async featuredArmfight(@Res({ passthrough: true }) res: Response) {
+    const t = await this.tournamentsService.findFeaturedArmfight();
+    if (!t) {
+      res.status(HttpStatus.NO_CONTENT);
+      return undefined;
+    }
+    return t;
   }
 
   @Public()

@@ -128,6 +128,11 @@ export class CreateTournamentDto {
   @IsUrl({ require_tld: false })
   streamUrl?: string;
 
+  @ApiProperty({ required: false, description: 'Recording / YouTube link shown post-event' })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  armfightVideoUrl?: string;
+
   /** Arm wrestling specific config: competitionType, ageGroups, hands, entryFee */
   @ApiProperty({ required: false })
   @IsOptional()
