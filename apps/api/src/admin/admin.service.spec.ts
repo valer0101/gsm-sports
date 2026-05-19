@@ -218,6 +218,34 @@ describe('AdminService', () => {
     });
   });
 
+  describe('updateTournament — promo fields after bracket', () => {
+    it('allows isFeatured / armfightVideoUrl / streamUrl when bracketGenerated, ignoring other fields', async () => {
+      const t = { ...mockTournament, id: 'tid', bracketGenerated: true, organizerId: 'u1' };
+      mockTournamentsRepo.findOne.mockResolvedValue(t);
+      mockTournamentsRepo.update.mockResolvedValue(undefined);
+
+      await service.updateTournament(
+        'tid',
+        { isFeatured: true, armfightVideoUrl: 'https://youtu.be/x', name: 'HACK' } as any,
+        'u1',
+        ['admin'],
+      );
+
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tid', {
+        isFeatured: true,
+        armfightVideoUrl: 'https://youtu.be/x',
+      });
+    });
+
+    it('still rejects non-promo edits when bracketGenerated', async () => {
+      const t = { ...mockTournament, id: 'tid', bracketGenerated: true, organizerId: 'u1' };
+      mockTournamentsRepo.findOne.mockResolvedValue(t);
+      await expect(
+        service.updateTournament('tid', { name: 'New' } as any, 'u1', ['admin']),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('toggleRegistration', () => {
     it('opens registration when closed', async () => {
       mockTournamentsRepo.findOne
