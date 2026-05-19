@@ -25,6 +25,7 @@ interface FindAllOptions {
   sport?: string;
   status?: string;
   country?: string;
+  format?: string;
   page?: number;
   limit?: number;
 }
@@ -50,7 +51,7 @@ export class TournamentsService {
   // ─── Tournaments CRUD ────────────────────────────────────────────────────────
 
   async findAll(options: FindAllOptions = {}) {
-    const { sport, status, country, page = 1, limit = 20 } = options;
+    const { sport, status, country, format, page = 1, limit = 20 } = options;
     const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
@@ -65,6 +66,13 @@ export class TournamentsService {
     if (sport) qb.andWhere('sport.slug = :sport', { sport });
     if (status) qb.andWhere('t.status = :status', { status });
     if (country) qb.andWhere('t.country = :country', { country });
+    if (format === 'armfight') {
+      qb.andWhere("(t.format = :fmt OR t.sportConfig ->> 'competitionType' = :fmt)", {
+        fmt: 'armfight',
+      });
+    } else if (format) {
+      qb.andWhere('t.format = :fmt', { fmt: format });
+    }
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit: take, totalPages: Math.ceil(total / take) } };
@@ -86,6 +94,28 @@ export class TournamentsService {
     });
     if (!tournament) throw new NotFoundException(`Tournament #${id} not found`);
     return tournament;
+  }
+
+  /**
+   * The single "main event" armfight for promo surfaces. Reuses the generic
+   * `isFeatured` flag (admin-set). Excludes terminal events so a finished/
+   * cancelled flagged tournament drops out automatically. Soonest by
+   * startDate when several are flagged. Null when none.
+   */
+  async findFeaturedArmfight(): Promise<Tournament | null> {
+    const qb = this.tournamentsRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.sport', 'sport')
+      .andWhere('t.isFeatured = :f', { f: true })
+      .andWhere(
+        "(t.format = :fmt OR t.sportConfig ->> 'competitionType' = :fmt)",
+        { fmt: 'armfight' },
+      )
+      .andWhere('t.status NOT IN (:...terminal)', {
+        terminal: ['completed', 'cancelled'],
+      })
+      .orderBy('t.startDate', 'ASC');
+    return (await qb.getOne()) ?? null;
   }
 
   async create(dto: CreateTournamentDto, organizerId: string): Promise<Tournament> {
