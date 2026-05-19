@@ -100,6 +100,11 @@ State derived from `startDate` + tournament status. **Live** = `startDate` reach
 
 Per-event content shown: admin **poster** (background art — not data-driven "X vs Y", since an event has many pairs), **event title** (tournament name), **weight category / title** badge, **city**, **date/time**, **countdown**.
 
+**Optional fields render only when set — no empty badges or placeholders** (`CLAUDE.md`: no empty states):
+- The gold **weight / title badge** is shown **only if** a weight category and/or title is set for the event. If neither is set, the badge is omitted entirely and the layout closes the gap (it does not reserve empty space).
+- Same rule for **city**: omitted if not provided.
+- This conditional rendering is covered by component tests (badge present / absent).
+
 CTA buttons in hero (MVP default):
 - Primary: **"Участники и сетка"** → tournament bracket page.
 - Secondary: **"Подробнее о событии"** → public tournament page.
@@ -128,7 +133,7 @@ Backend (`apps/api`, `*.spec.ts`, repos mocked via `getRepositoryToken()`):
 
 Frontend (`apps/web`, Vitest already wired; component pattern from PR #96):
 - `useCountdown` pure logic: boundaries (0, elapsed/live, large day counts), zero-padding, ICU plurals (1 день / 2 дня / 5 дней).
-- Component tests: hero states (upcoming / live / finished-hidden / no-featured); mini-card shows video button only when `armfight_video_url` present.
+- Component tests: hero states (upcoming / live / finished-hidden / no-featured); weight/title badge present vs. absent; city present vs. absent; mini-card shows video button only when `armfight_video_url` present.
 
 Migration verified to apply and revert.
 
