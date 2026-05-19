@@ -60,6 +60,7 @@ export interface TournamentWizardInitialData {
   prizes?: Prize[];
   streamUrl?: string;
   isFeatured?: boolean;
+  armfightVideoUrl?: string;
   maxParticipants?: string;
 }
 
@@ -79,6 +80,7 @@ export type TournamentWizardPayload = {
   isFeatured: boolean;
   posterUrl?: string;
   streamUrl?: string;
+  armfightVideoUrl?: string;
   sportConfig: Record<string, unknown>;
   weightCategories?: Array<{
     name: string;
@@ -170,6 +172,7 @@ export function TournamentWizard({
   const [prizes, setPrizes] = useState<Prize[]>(initialData?.prizes ?? []);
   const [streamUrl, setStreamUrl] = useState(initialData?.streamUrl ?? '');
   const [isFeatured, setIsFeatured] = useState(initialData?.isFeatured ?? false);
+  const [armfightVideoUrl, setArmfightVideoUrl] = useState(initialData?.armfightVideoUrl ?? '');
   const [maxParticipants, setMaxParticipants] = useState(initialData?.maxParticipants ?? '');
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -280,9 +283,17 @@ export function TournamentWizard({
       descriptionRu: description.ru || undefined,
       descriptionEn: description.en || undefined,
       descriptionHy: description.hy || undefined,
-      isFeatured,
+      // "Main event" is an armfight-only concept; never flag a non-armfight
+      // tournament even if the toggle was set before the type was changed.
+      isFeatured: competitionType === 'armfight' ? isFeatured : false,
       posterUrl: posterUrl || undefined,
       streamUrl: streamUrl || undefined,
+      // The backend validates this with @IsUrl, which rejects '' — omit it
+      // when empty (and it only makes sense for armfight).
+      armfightVideoUrl:
+        competitionType === 'armfight' && armfightVideoUrl.trim()
+          ? armfightVideoUrl.trim()
+          : undefined,
       sportConfig,
       weightCategories: includeWeightCategories ? weightCategories : undefined,
     };
@@ -455,6 +466,8 @@ export function TournamentWizard({
               prizes={prizes} setPrizes={setPrizes}
               streamUrl={streamUrl} setStreamUrl={setStreamUrl}
               isFeatured={isFeatured} setIsFeatured={setIsFeatured}
+              competitionType={competitionType}
+              armfightVideoUrl={armfightVideoUrl} setArmfightVideoUrl={setArmfightVideoUrl}
               maxParticipants={maxParticipants} setMaxParticipants={setMaxParticipants}
               ageGroups={ageGroups}
               categories={categories}

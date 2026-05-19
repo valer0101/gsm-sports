@@ -156,6 +156,7 @@ export function tournamentToWizardData(t: Tournament): TournamentWizardInitialDa
     prizes: mapPrizes(sc.prizes),
     streamUrl: t.streamUrl ?? '',
     isFeatured: t.isFeatured,
+    armfightVideoUrl: t.armfightVideoUrl ?? '',
     maxParticipants: t.maxParticipants != null ? String(t.maxParticipants) : '',
   };
 }
