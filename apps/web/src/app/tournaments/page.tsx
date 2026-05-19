@@ -1,4 +1,6 @@
 import type { PaginatedResponse, Tournament } from '@/types/api';
+import { fetchFeaturedArmfight } from '@/lib/api-server';
+import { MainArmfightMiniCard } from '@/components/armfight/MainArmfightMiniCard';
 import { TournamentsPageClient } from './_TournamentsPageClient';
 
 async function fetchInitialTournaments(): Promise<PaginatedResponse<Tournament> | undefined> {
@@ -15,5 +17,13 @@ async function fetchInitialTournaments(): Promise<PaginatedResponse<Tournament> 
 
 export default async function TournamentsPage() {
   const initialData = await fetchInitialTournaments();
-  return <TournamentsPageClient initialData={initialData} />;
+  const featured = await fetchFeaturedArmfight();
+  return (
+    <>
+      <div className="max-w-6xl mx-auto px-4 pt-6">
+        <MainArmfightMiniCard tournament={featured} />
+      </div>
+      <TournamentsPageClient initialData={initialData} />
+    </>
+  );
 }

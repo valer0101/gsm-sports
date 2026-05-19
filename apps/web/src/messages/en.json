@@ -1079,5 +1079,19 @@
     "ordinal_2nd": "2nd place",
     "ordinal_3rd": "3rd place",
     "ordinal_nth": "{n}th place"
+  },
+  "armfight": {
+    "main_event": "Main event",
+    "watch_video": "Watch video",
+    "starts_in": "starts in",
+    "cta_bracket": "View bracket",
+    "cta_details": "Event details",
+    "upcoming_title": "Upcoming armfights",
+    "none_soon": "No armfights scheduled yet",
+    "live": "Live now",
+    "days": "days",
+    "hours": "hours",
+    "minutes": "min",
+    "seconds": "sec"
   }
 }

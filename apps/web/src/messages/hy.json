@@ -1080,5 +1080,19 @@
     "ordinal_2nd": "2nd place",
     "ordinal_3rd": "3rd place",
     "ordinal_nth": "{n}th place"
+  },
+  "armfight": {
+    "main_event": "Գլխավոր մրցում",
+    "watch_video": "Դիտել տեսանյութը",
+    "starts_in": "մեկնարկը՝",
+    "cta_bracket": "Դիտել ցանցը",
+    "cta_details": "Մանրամասներ",
+    "upcoming_title": "Առաջիկա արմֆայթներ",
+    "none_soon": "Դեռ պլանավորված արմֆայթ չկա",
+    "live": "Ուղիղ եթերում",
+    "days": "օր",
+    "hours": "ժամ",
+    "minutes": "րոպե",
+    "seconds": "վրկ"
   }
 }
