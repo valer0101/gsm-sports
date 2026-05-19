@@ -14,6 +14,7 @@ interface TournamentsParams {
   sport?: string;
   status?: string;
   country?: string;
+  format?: string;
   page?: number;
   limit?: number;
 }
@@ -175,5 +176,32 @@ export function usePendingMatches(tournamentId: string) {
         .then((r: { data: any }) => r.data),
     enabled: !!tournamentId,
     refetchInterval: 15_000, // refresh every 15s in case of updates
+  });
+}
+
+// ─── Armfight discovery hooks ─────────────────────────────
+
+export function useFeaturedArmfight(options?: { initialData?: Tournament | null }) {
+  return useQuery<Tournament | null>({
+    queryKey: ['featured-armfight'],
+    queryFn: () =>
+      api
+        .get('/tournaments/featured-armfight')
+        .then((r: { status: number; data: any }) => (r.status === 204 ? null : r.data)),
+    initialData: options?.initialData,
+    staleTime: 60_000,
+  });
+}
+
+export function useUpcomingArmfights(options?: {
+  initialData?: PaginatedResponse<Tournament>;
+}) {
+  return useQuery<PaginatedResponse<Tournament>>({
+    queryKey: ['tournaments', { format: 'armfight', status: 'upcoming' }],
+    queryFn: () =>
+      api
+        .get('/tournaments', { params: { format: 'armfight', limit: 50 } })
+        .then((r: { data: any }) => r.data),
+    initialData: options?.initialData,
   });
 }

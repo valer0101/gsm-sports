@@ -28,6 +28,7 @@ function makeTournament(overrides: Partial<Tournament>): Tournament {
     isLive: false,
     posterUrl: null,
     streamUrl: null,
+    armfightVideoUrl: null,
     sport: { id: 's1', slug: 'armwrestling' } as Tournament['sport'],
     weightCategories: [],
     sportConfig: null,
