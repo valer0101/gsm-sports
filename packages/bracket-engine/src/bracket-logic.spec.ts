@@ -21,8 +21,9 @@ import {
   replacePlayerInSlot,
   withdrawPlayerFromSlot,
   isArmfightBoutResult,
+  recordLeg,
 } from './bracket-logic';
-import type { Player, BracketData, ArmfightPairSpec } from './types';
+import type { Player, BracketData, ArmfightPairSpec, ArmfightBoutResult } from './types';
 
 function makePlayers(count: number): Player[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -2913,5 +2914,122 @@ describe('isArmfightBoutResult', () => {
     expect(isArmfightBoutResult({ hand: 'right' })).toBe(false); // missing legs/score/status
     expect(isArmfightBoutResult({ hand: 'middle', legs: [], scoreA: 0, scoreB: 0, status: 'pending' })).toBe(false);
     expect(isArmfightBoutResult({ hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'wat' })).toBe(false);
+  });
+});
+
+describe('recordLeg — validations', () => {
+  it('throws when bout not found', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => recordLeg(data, 'wb_1_99', 1, 'p1', 'pin')).toThrow(/not found/i);
+  });
+
+  it('throws when data.format !== "armfight"', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    expect(() => recordLeg(data, 'wb_1_0', 1, 'p1', 'pin')).toThrow(/armfight/i);
+  });
+
+  it('throws when winnerId is not one of the two players in the bout', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => recordLeg(data, 'wb_1_0', 1, 'p99', 'pin')).toThrow(/winner/i);
+  });
+
+  it('throws when legIndex is out of order', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => recordLeg(data, 'wb_1_0', 2, 'p1', 'pin')).toThrow(/legIndex/i);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    expect(() => recordLeg(data, 'wb_1_0', 1, 'p1', 'pin')).toThrow(/legIndex/i);
+    expect(() => recordLeg(data, 'wb_1_0', 3, 'p1', 'pin')).toThrow(/legIndex/i);
+  });
+
+  it('throws when winType is invalid', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() =>
+      recordLeg(data, 'wb_1_0', 1, 'p1', 'sneeze' as unknown as 'pin'),
+    ).toThrow(/winType/i);
+  });
+
+  it('rejects appending a leg to a completed bout', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin'); // 3-0 → completed
+    expect(() => recordLeg(data, 'wb_1_0', 4, 'p1', 'pin')).toThrow(/closed|completed/i);
+  });
+});
+
+describe('recordLeg — behaviour', () => {
+  it('leg 1 → status in_progress, scoreA = 1', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    const r = data.winnersBracket[0][0].result as ArmfightBoutResult;
+    expect(r.status).toBe('in_progress');
+    expect(r.scoreA).toBe(1);
+    expect(r.scoreB).toBe(0);
+    expect(r.legs).toHaveLength(1);
+    expect(r.legs[0]).toMatchObject({ index: 1, winnerId: 'p1', winType: 'pin' });
+  });
+
+  it('3-0 path → status completed, match.winner = A, match.loser = B', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    const m = data.winnersBracket[0][0];
+    expect((m.result as ArmfightBoutResult).status).toBe('completed');
+    expect(m.winner).toBe('p1');
+    expect(m.loser).toBe('p2');
+  });
+
+  it('3-1 path (4 legs)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 4, 'p1', 'pin');
+    const r = data.winnersBracket[0][0].result as ArmfightBoutResult;
+    expect(r.status).toBe('completed');
+    expect(r.scoreA).toBe(3);
+    expect(r.scoreB).toBe(1);
+    expect(r.legs).toHaveLength(4);
+  });
+
+  it('3-2 path (full 5 legs)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 4, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 5, 'p1', 'pin');
+    const r = data.winnersBracket[0][0].result as ArmfightBoutResult;
+    expect(r.status).toBe('completed');
+    expect(r.legs).toHaveLength(5);
+    expect(data.winnersBracket[0][0].winner).toBe('p1');
+  });
+
+  it('player B wins 2-3', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 4, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 5, 'p2', 'pin');
+    expect(data.winnersBracket[0][0].winner).toBe('p2');
+  });
+
+  it('all three winType values are accepted', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'foul');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'dq');
+    const types = (data.winnersBracket[0][0].result as ArmfightBoutResult).legs.map((l) => l.winType);
+    expect(types).toEqual(['pin', 'foul', 'dq']);
+  });
+
+  it('writes enteredBy / enteredAt when supplied', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin', { enteredBy: 'ref-1', enteredAt: '2026-05-20T12:00:00Z' });
+    const leg = (data.winnersBracket[0][0].result as ArmfightBoutResult).legs[0];
+    expect(leg.enteredBy).toBe('ref-1');
+    expect(leg.enteredAt).toBe('2026-05-20T12:00:00Z');
   });
 });

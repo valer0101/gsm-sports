@@ -11,6 +11,8 @@ import {
   ArmfightPairSpec,
   ArmfightBoutResult,
   ArmfightHand,
+  LegWinType,
+  RecordLegOptions,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -599,6 +601,75 @@ export function isArmfightBoutResult(x: unknown): x is ArmfightBoutResult {
   if (typeof r.scoreA !== 'number' || typeof r.scoreB !== 'number') return false;
   if (typeof r.status !== 'string' || !STATUSES.has(r.status)) return false;
   return true;
+}
+
+const WIN_TYPES = new Set<string>(['pin', 'foul', 'dq']);
+
+/**
+ * Append a leg result to a pending / in_progress armfight bout. Mutates
+ * `data` in place. Decides the bout when a side reaches 3 leg wins —
+ * sets match.winner/loser and result.status accordingly.
+ *
+ * Throws on:
+ *   - bout not found
+ *   - data.format !== 'armfight'
+ *   - bout already completed or walkover
+ *   - winnerId not in {player1.id, player2.id}
+ *   - legIndex !== legs.length + 1
+ *   - winType not in {'pin','foul','dq'}
+ *   - legIndex > 5
+ */
+export function recordLeg(
+  data: BracketData,
+  boutId: string,
+  legIndex: number,
+  winnerId: string,
+  winType: LegWinType,
+  options?: RecordLegOptions,
+): void {
+  if (data.format !== 'armfight') {
+    throw new Error('recordLeg: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`recordLeg: bout '${boutId}' not found`);
+
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`recordLeg: bout '${boutId}' has no armfight result payload`);
+  }
+  if (r.status === 'completed' || r.status === 'walkover') {
+    throw new Error(`recordLeg: bout '${boutId}' is closed (status=${r.status})`);
+  }
+  if (winnerId !== match.player1.id && winnerId !== match.player2.id) {
+    throw new Error(`recordLeg: winnerId '${winnerId}' is not a player in this bout`);
+  }
+  if (!WIN_TYPES.has(winType)) {
+    throw new Error(`recordLeg: invalid winType '${String(winType)}'`);
+  }
+  if (legIndex !== r.legs.length + 1) {
+    throw new Error(`recordLeg: legIndex ${legIndex} is out of order (expected ${r.legs.length + 1})`);
+  }
+  if (legIndex > 5) {
+    throw new Error('recordLeg: bo5 has at most 5 legs');
+  }
+
+  r.legs.push({
+    index: legIndex,
+    winnerId,
+    winType,
+    enteredBy: options?.enteredBy ?? null,
+    enteredAt: options?.enteredAt ?? new Date().toISOString(),
+  });
+  if (winnerId === match.player1.id) r.scoreA += 1;
+  else r.scoreB += 1;
+
+  if (r.scoreA === 3 || r.scoreB === 3) {
+    r.status = 'completed';
+    match.winner = r.scoreA === 3 ? match.player1.id : match.player2.id;
+    match.loser = r.scoreA === 3 ? match.player2.id : match.player1.id;
+  } else {
+    r.status = 'in_progress';
+  }
 }
 
 /** Shared single-elim "is the WB final done?" check used by the
