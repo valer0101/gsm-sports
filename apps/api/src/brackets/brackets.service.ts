@@ -820,7 +820,13 @@ export class BracketsService {
       // can flip the schema for a special-format event without touching
       // the global sport config.
       const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
-      const matchResultSchema = tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
+      // Bracket format overrides the per-tournament / per-sport schema:
+      // an armfight bracket always uses 'armfight_bo5' regardless of what
+      // the surrounding tournament's sport says.
+      const isArmfight = (bracket.bracketData as any)?.format === 'armfight';
+      const matchResultSchema = isArmfight
+        ? ('armfight_bo5' as const)
+        : (tOverride.matchResultSchema ?? sportCfg.matchResultSchema);
       const resultErrors = validateMatchResult(dto.result, matchResultSchema, existingMatch);
       if (resultErrors.length > 0) {
         throw new BadRequestException({

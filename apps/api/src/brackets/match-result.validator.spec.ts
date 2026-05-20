@@ -229,6 +229,57 @@ describe('validateMatchResult', () => {
     });
   });
 
+  describe('validateMatchResult — armfight_bo5', () => {
+    const match = {
+      id: 'wb_1_0',
+      player1: { id: 'p1', firstName: 'A', lastName: '1', number: '1' },
+      player2: { id: 'p2', firstName: 'B', lastName: '2', number: '2' },
+      winner: null, loser: null, round: 1, matchIndex: 0,
+    } as any;
+
+    it('accepts a valid pending payload', () => {
+      expect(
+        validateMatchResult(
+          { schema: 'armfight_bo5', hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'pending' },
+          'armfight_bo5',
+          match,
+        ),
+      ).toEqual([]);
+    });
+
+    it('rejects when schema discriminator does not match', () => {
+      const errs = validateMatchResult(
+        { schema: 'armwrestling', hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'pending' },
+        'armfight_bo5',
+        match,
+      );
+      expect(errs.join(' ')).toMatch(/schema/);
+    });
+
+    it('rejects when shape is wrong', () => {
+      const errs = validateMatchResult(
+        { schema: 'armfight_bo5', hand: 'middle' },
+        'armfight_bo5',
+        match,
+      );
+      expect(errs.length).toBeGreaterThan(0);
+    });
+
+    it('rejects a leg whose winnerId is not a player in this match', () => {
+      const errs = validateMatchResult(
+        {
+          schema: 'armfight_bo5',
+          hand: 'right',
+          legs: [{ index: 1, winnerId: 'GHOST', winType: 'pin' }],
+          scoreA: 1, scoreB: 0, status: 'in_progress',
+        },
+        'armfight_bo5',
+        match,
+      );
+      expect(errs.join(' ')).toMatch(/winnerId/);
+    });
+  });
+
   describe('simple_winner', () => {
     it('accepts just the schema field', () => {
       expect(

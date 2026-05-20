@@ -112,6 +112,15 @@ vi.mock('@gsm/bracket-engine', () => ({
   })),
   replacePlayerInSlot: vi.fn(() => ({ ok: true })),
   withdrawPlayerFromSlot: vi.fn(() => ({ ok: true, forfeitTo: 'p2' })),
+  isArmfightBoutResult: vi.fn((x: unknown) => {
+    if (!x || typeof x !== 'object') return false;
+    const r = x as Record<string, unknown>;
+    if (typeof r.hand !== 'string' || (r.hand !== 'left' && r.hand !== 'right')) return false;
+    if (!Array.isArray(r.legs)) return false;
+    if (typeof r.scoreA !== 'number' || typeof r.scoreB !== 'number') return false;
+    if (typeof r.status !== 'string') return false;
+    return true;
+  }),
 }));
 
 // Builder that mimics TypeORM's createQueryBuilder().update().set().where().execute()
@@ -942,6 +951,40 @@ describe('BracketsService', () => {
 
     // ─── Phase 3.2: sport-specific result detail ─────────────
     describe('result detail validation', () => {
+      function makeArmfightBracketData() {
+        return {
+          format: 'armfight' as const,
+          players: [
+            { id: 'p1', firstName: 'A', lastName: '1', number: '1' },
+            { id: 'p2', firstName: 'B', lastName: '2', number: '2' },
+          ],
+          bracketSize: 2,
+          wbRounds: 1,
+          winnersBracket: [[{
+            id: 'wb_1_0', round: 1, matchIndex: 0,
+            player1: { id: 'p1', firstName: 'A', lastName: '1', number: '1' },
+            player2: { id: 'p2', firstName: 'B', lastName: '2', number: '2' },
+            winner: null, loser: null,
+            result: { hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'pending' },
+          }]],
+          losersBracket: [],
+          grandFinal: {
+            id: 'gf',
+            player1: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+            player2: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+            winner: null, loser: null,
+          },
+          superFinal: {
+            id: 'sf',
+            player1: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+            player2: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+            winner: null, loser: null, needed: false,
+          },
+          champion: null,
+          status: 'active' as const,
+        };
+      }
+
       const armwrestlingBracket = () =>
         makeBracket({
           tournament: {
@@ -1057,6 +1100,33 @@ describe('BracketsService', () => {
           'org-1',
           undefined,
         );
+      });
+
+      it('resolves matchResultSchema to "armfight_bo5" when bracketData.format === "armfight"', async () => {
+        const { findMatch } = await import('@gsm/bracket-engine');
+        vi.mocked(findMatch).mockReturnValueOnce({
+          id: 'wb_1_0',
+          winner: null,
+          player1: { id: 'p1' },
+          player2: { id: 'p2' },
+        } as any);
+        const tournament = makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        });
+        const bracket = makeBracket({
+          tournament,
+          bracketData: makeArmfightBracketData() as any,
+        });
+        repo.findOne.mockResolvedValue(bracket);
+        await expect(
+          service.recordResult(
+            bracket.id,
+            { matchId: 'wb_1_0', winnerId: 'p1', result: { schema: 'armwrestling' } } as any,
+            tournament.organizerId,
+            ['organizer'],
+          ),
+        ).rejects.toThrow(/armfight_bo5/);
       });
 
       it('explicit null is forwarded so the engine clears the prior payload', async () => {
