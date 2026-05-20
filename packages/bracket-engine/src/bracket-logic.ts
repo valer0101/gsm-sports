@@ -1592,17 +1592,11 @@ export function getFinalPlacements(data: BracketData): FinalPlacement[] {
         skipLastRoundLoserDuringWalk: true,
       });
     case 'armfight': {
-      // One match: champion = winner, runner-up = loser. Either or both
-      // may be null while the bout is still pending.
-      const out: FinalPlacement[] = [];
-      const match = data.winnersBracket[0]?.[0];
-      if (data.champion && isReal(data.champion)) {
-        out.push({ playerId: data.champion, position: 1 });
-      }
-      if (match?.loser && isReal(match.loser)) {
-        out.push({ playerId: match.loser, position: out.length + 1 });
-      }
-      return out;
+      // Fight card has no event-level ranking — bouts are independent
+      // (sub-project B decision §2.1). Per-pair winners live on each
+      // Match.winner; consumers that want them iterate winnersBracket[0]
+      // directly.
+      return [];
     }
     default: {
       const exhaustive: never = format;

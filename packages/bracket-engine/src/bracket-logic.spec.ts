@@ -3236,3 +3236,23 @@ describe('finalizeArmfight (via propagateResults)', () => {
     expect(data.status).toBe('completed');
   });
 });
+
+describe('getFinalPlacements — armfight', () => {
+  it('returns [] for an active armfight (no bouts decided)', () => {
+    const data = generateArmfight([makePair('p1', 'p2'), makePair('p3', 'p4')]);
+    expect(getFinalPlacements(data)).toEqual([]);
+  });
+
+  it('returns [] for a fully completed armfight card (no event-level ranking)', () => {
+    // Deliberate change from the legacy behaviour where a 1-pair armfight
+    // returned champion=1 / runner-up=2. A fight card has no ranking —
+    // bouts are independent (decision §2.1).
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    propagateResults(data);
+    expect(data.status).toBe('completed');
+    expect(getFinalPlacements(data)).toEqual([]);
+  });
+});
