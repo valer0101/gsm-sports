@@ -823,7 +823,7 @@ export class BracketsService {
       // Bracket format overrides the per-tournament / per-sport schema:
       // an armfight bracket always uses 'armfight_bo5' regardless of what
       // the surrounding tournament's sport says.
-      const isArmfight = (bracket.bracketData as any)?.format === 'armfight';
+      const isArmfight = data.format === 'armfight';
       const matchResultSchema = isArmfight
         ? ('armfight_bo5' as const)
         : (tOverride.matchResultSchema ?? sportCfg.matchResultSchema);
