@@ -2088,8 +2088,27 @@ export function propagateResults(data: BracketData): void {
     return;
   }
 
-  // Armfight: a single match decides everything. No bracket propagation.
+  // Armfight (fight card): each bout is independent. Reconcile any bout
+  // whose result is closed but whose match.winner is still null (e.g.
+  // after rehydration from persisted JSONB), then finalize.
   if (data.format === 'armfight') {
+    const round = data.winnersBracket[0] ?? [];
+    for (const m of round) {
+      const r = m.result as ArmfightBoutResult | null | undefined;
+      if (!isArmfightBoutResult(r)) continue;
+      if ((r.status === 'completed' || r.status === 'walkover') && m.winner == null) {
+        if (r.scoreA > r.scoreB) {
+          m.winner = m.player1.id;
+          m.loser = m.player2.id;
+        } else if (r.scoreB > r.scoreA) {
+          m.winner = m.player2.id;
+          m.loser = m.player1.id;
+        }
+        // Tied score + status === 'walkover' would need an explicit
+        // winnerId persisted somewhere; not produced by recordLeg/
+        // forfeitBout so we leave it untouched.
+      }
+    }
     finalizeArmfight(data);
     return;
   }

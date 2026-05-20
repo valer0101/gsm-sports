@@ -24,6 +24,7 @@ import {
   recordLeg,
   forfeitBout,
   getBoutScore,
+  propagateResults,
 } from './bracket-logic';
 import type { Player, BracketData, ArmfightPairSpec, ArmfightBoutResult } from './types';
 
@@ -3168,5 +3169,70 @@ describe('getBoutScore', () => {
   it('throws when bout not found', () => {
     const data = generateArmfight([makePair('p1', 'p2')]);
     expect(() => getBoutScore(data, 'wb_1_99')).toThrow(/not found/i);
+  });
+});
+
+describe('finalizeArmfight (via propagateResults)', () => {
+  it('multi-pair: bracket stays active while any bout is pending/in_progress', () => {
+    const data = generateArmfight([makePair('p1','p2'), makePair('p3','p4'), makePair('p5','p6')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin'); // bout 0 done
+    propagateResults(data);
+    expect(data.status).toBe('active');
+    expect(data.champion).toBeNull();
+  });
+
+  it('multi-pair: bracket completes only when every bout is completed or walkover', () => {
+    const data = generateArmfight([makePair('p1','p2'), makePair('p3','p4'), makePair('p5','p6')]);
+    // bout 0: 3-0
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    // bout 1: walkover
+    forfeitBout(data, 'wb_1_1', 'p3');
+    // bout 2: 3-2
+    recordLeg(data, 'wb_1_2', 1, 'p5', 'pin');
+    recordLeg(data, 'wb_1_2', 2, 'p6', 'pin');
+    recordLeg(data, 'wb_1_2', 3, 'p5', 'pin');
+    recordLeg(data, 'wb_1_2', 4, 'p6', 'pin');
+    recordLeg(data, 'wb_1_2', 5, 'p5', 'pin');
+    propagateResults(data);
+    expect(data.status).toBe('completed');
+    expect(data.champion).toBeNull(); // no event-level champion
+  });
+
+  it('propagate is defensive: completed result.status with null match.winner gets reconciled', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    // Simulate an externally-rehydrated bout: result completed but
+    // winner not yet propagated to match.winner.
+    const m = data.winnersBracket[0][0];
+    m.result = { hand: 'right', legs: [
+      { index: 1, winnerId: 'p1', winType: 'pin' },
+      { index: 2, winnerId: 'p1', winType: 'pin' },
+      { index: 3, winnerId: 'p1', winType: 'pin' },
+    ], scoreA: 3, scoreB: 0, status: 'completed' };
+    m.winner = null;
+    m.loser = null;
+    propagateResults(data);
+    expect(m.winner).toBe('p1');
+    expect(m.loser).toBe('p2');
+    expect(data.status).toBe('completed');
+  });
+
+  it('propagate is defensive: scoreB > scoreA after rehydrate sets winner to player2', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    const m = data.winnersBracket[0][0];
+    m.result = { hand: 'right', legs: [
+      { index: 1, winnerId: 'p2', winType: 'pin' },
+      { index: 2, winnerId: 'p2', winType: 'pin' },
+      { index: 3, winnerId: 'p2', winType: 'pin' },
+    ], scoreA: 0, scoreB: 3, status: 'completed' };
+    m.winner = null;
+    m.loser = null;
+    propagateResults(data);
+    expect(m.winner).toBe('p2');
+    expect(m.loser).toBe('p1');
+    expect(data.status).toBe('completed');
   });
 });
