@@ -26,7 +26,8 @@ export type MatchResultSchema =
   | 'armwrestling' // winnerId + victoryType + fouls + round durations
   | 'score' // winnerId + team scores per period (football, basketball…)
   | 'time' // no winner per match — ranked by fastest time (swimming, running)
-  | 'points'; // winnerId + judge point totals (boxing, MMA by decision)
+  | 'points' // winnerId + judge point totals (boxing, MMA by decision)
+  | 'armfight_bo5'; // best-of-5 fight card bout — legs[], hand, scoreA/B, status
 
 /** A label localised to all supported UI locales. */
 export interface LocalizedTerm {
