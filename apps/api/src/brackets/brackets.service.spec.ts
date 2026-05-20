@@ -643,7 +643,6 @@ describe('BracketsService', () => {
       const { generateArmfight, generateDoubleElimination } = await import(
         '@gsm/bracket-engine'
       );
-      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'armwrestling', config: {} },
@@ -718,7 +717,7 @@ describe('BracketsService', () => {
           } as any,
           'org-1',
         ),
-      ).rejects.toThrow(/not in tournament entries|references player/i);
+      ).rejects.toThrow(/not a confirmed entry|references player|playerBId/i);
     });
 
     it('honors an explicit bracketFormat=armfight from the DTO (armwrestling allows it)', async () => {
@@ -727,7 +726,6 @@ describe('BracketsService', () => {
       // sport's allow-list permits it. Supply pairs[] so the new
       // pairs-required check passes and the engine actually runs.
       const { generateArmfight } = await import('@gsm/bracket-engine');
-      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
       tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
@@ -755,7 +753,6 @@ describe('BracketsService', () => {
       // before pairs[] validation — so the surface error is still
       // "not allowed for this sport" even when pairs are absent.
       const { generateArmfight } = await import('@gsm/bracket-engine');
-      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'boxing', config: {} },

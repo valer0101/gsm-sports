@@ -649,8 +649,10 @@ export class BracketsService {
         const a = players.find((pl) => pl.id === p.playerAId);
         const b = players.find((pl) => pl.id === p.playerBId);
         if (!a || !b) {
+          const side = !a ? 'playerAId' : 'playerBId';
+          const missing = !a ? p.playerAId : p.playerBId;
           throw new BadRequestException(
-            `pairs[${idx}] references player ids not in tournament entries`,
+            `pairs[${idx}].${side}='${missing}' is not a confirmed entry in this tournament`,
           );
         }
         return { playerA: a, playerB: b, hand: p.hand, order: p.order };
