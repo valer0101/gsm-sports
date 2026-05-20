@@ -610,14 +610,15 @@ const WIN_TYPES = new Set<string>(['pin', 'foul', 'dq']);
  * `data` in place. Decides the bout when a side reaches 3 leg wins —
  * sets match.winner/loser and result.status accordingly.
  *
- * Throws on:
- *   - bout not found
+ * Throws on (in implementation order):
  *   - data.format !== 'armfight'
+ *   - bout not found by id
+ *   - bout has no armfight result payload (corrupt persisted state)
  *   - bout already completed or walkover
  *   - winnerId not in {player1.id, player2.id}
- *   - legIndex !== legs.length + 1
  *   - winType not in {'pin','foul','dq'}
- *   - legIndex > 5
+ *   - legIndex outside 1..5
+ *   - legIndex !== legs.length + 1 (must be the next leg in sequence)
  */
 export function recordLeg(
   data: BracketData,
@@ -646,11 +647,14 @@ export function recordLeg(
   if (!WIN_TYPES.has(winType)) {
     throw new Error(`recordLeg: invalid winType '${String(winType)}'`);
   }
+  // Bare-bounds check first so a caller passing legIndex=6 with an
+  // empty legs[] gets a clear "out of range" error, not the misleading
+  // "out of order (expected 1)" the next check would produce.
+  if (legIndex < 1 || legIndex > 5) {
+    throw new Error(`recordLeg: legIndex ${legIndex} outside bo5 range 1..5`);
+  }
   if (legIndex !== r.legs.length + 1) {
     throw new Error(`recordLeg: legIndex ${legIndex} is out of order (expected ${r.legs.length + 1})`);
-  }
-  if (legIndex > 5) {
-    throw new Error('recordLeg: bo5 has at most 5 legs');
   }
 
   r.legs.push({

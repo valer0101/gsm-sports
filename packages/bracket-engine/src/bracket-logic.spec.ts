@@ -3006,14 +3006,25 @@ describe('recordLeg — behaviour', () => {
     expect(data.winnersBracket[0][0].winner).toBe('p1');
   });
 
-  it('player B wins 2-3', () => {
+  it('player B wins 2-3 — symmetric assertions to 3-0', () => {
     const data = generateArmfight([makePair('p1', 'p2')]);
     recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
     recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
     recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
     recordLeg(data, 'wb_1_0', 4, 'p2', 'pin');
     recordLeg(data, 'wb_1_0', 5, 'p2', 'pin');
-    expect(data.winnersBracket[0][0].winner).toBe('p2');
+    const m = data.winnersBracket[0][0];
+    expect(m.winner).toBe('p2');
+    expect(m.loser).toBe('p1');
+    expect((m.result as ArmfightBoutResult).status).toBe('completed');
+    expect((m.result as ArmfightBoutResult).scoreA).toBe(2);
+    expect((m.result as ArmfightBoutResult).scoreB).toBe(3);
+  });
+
+  it('throws when bout has no armfight result payload (corrupt persisted state)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    data.winnersBracket[0][0].result = null;
+    expect(() => recordLeg(data, 'wb_1_0', 1, 'p1', 'pin')).toThrow(/no armfight result payload/i);
   });
 
   it('all three winType values are accepted', () => {
