@@ -2104,9 +2104,21 @@ export function propagateResults(data: BracketData): void {
           m.winner = m.player2.id;
           m.loser = m.player1.id;
         }
-        // Tied score + status === 'walkover' would need an explicit
-        // winnerId persisted somewhere; not produced by recordLeg/
-        // forfeitBout so we leave it untouched.
+        // Tied score on a closed bout (e.g. a `forfeitBout` called on a
+        // pristine bout leaves scoreA=0, scoreB=0 alongside status=
+        // 'walkover') cannot be reconciled from `result` alone — the
+        // forfeit-winner identity isn't in the score. In the live flow
+        // this is fine: `forfeitBout` sets `match.winner` synchronously
+        // on the same call, so by the time `propagateResults` runs it's
+        // already populated and the outer `m.winner == null` guard
+        // skips this branch. The reconciliation path here therefore
+        // relies on the persistence layer storing `match.winner`
+        // alongside `result`. If a future caller persists only
+        // `result`, a tied-walkover bout would land with `winner=null`
+        // and `finalizeArmfight` would still close the bracket (it
+        // only inspects `result.status`). That gap is accepted by the
+        // current spec — add `walkoverWinnerId` to ArmfightBoutResult
+        // if it ever becomes a real problem.
       }
     }
     finalizeArmfight(data);
