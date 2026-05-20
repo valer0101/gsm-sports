@@ -10,6 +10,7 @@ import {
   GroupStage,
   ArmfightPairSpec,
   ArmfightBoutResult,
+  ArmfightBoutStatus,
   ArmfightHand,
   LegWinType,
   RecordLegOptions,
@@ -713,6 +714,36 @@ export function forfeitBout(
     match.enteredBy = options.enteredBy;
     match.enteredAt = new Date().toISOString();
   }
+}
+
+/**
+ * Pure helper: read derived state of an armfight bout. Does not mutate.
+ * `leadingId` is the winning side (the player with the higher score) for
+ * pending/in_progress, the bout winner for completed/walkover, and null
+ * when the scores are tied and the bout is not yet closed.
+ */
+export function getBoutScore(
+  data: BracketData,
+  boutId: string,
+): { a: number; b: number; status: ArmfightBoutStatus; leadingId: string | null } {
+  if (data.format !== 'armfight') {
+    throw new Error('getBoutScore: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`getBoutScore: bout '${boutId}' not found`);
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`getBoutScore: bout '${boutId}' has no armfight result payload`);
+  }
+  let leadingId: string | null = null;
+  if (r.status === 'completed' || r.status === 'walkover') {
+    leadingId = match.winner;
+  } else if (r.scoreA > r.scoreB) {
+    leadingId = match.player1.id;
+  } else if (r.scoreB > r.scoreA) {
+    leadingId = match.player2.id;
+  }
+  return { a: r.scoreA, b: r.scoreB, status: r.status, leadingId };
 }
 
 /** Shared single-elim "is the WB final done?" check used by the

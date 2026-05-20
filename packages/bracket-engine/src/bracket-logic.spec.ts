@@ -23,6 +23,7 @@ import {
   isArmfightBoutResult,
   recordLeg,
   forfeitBout,
+  getBoutScore,
 } from './bracket-logic';
 import type { Player, BracketData, ArmfightPairSpec, ArmfightBoutResult } from './types';
 
@@ -3117,5 +3118,55 @@ describe('forfeitBout', () => {
     expect(m.enteredBy).toBe('ref-7');
     expect(typeof m.enteredAt).toBe('string');
     expect(m.enteredAt).not.toBe('');
+  });
+});
+
+describe('getBoutScore', () => {
+  it('pending bout → 0-0, no leader', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(getBoutScore(data, 'wb_1_0')).toEqual({ a: 0, b: 0, status: 'pending', leadingId: null });
+  });
+
+  it('in_progress 2-1 → leadingId=p1', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    expect(getBoutScore(data, 'wb_1_0')).toEqual({ a: 2, b: 1, status: 'in_progress', leadingId: 'p1' });
+  });
+
+  it('tied 2-2 → leadingId=null', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 4, 'p2', 'pin');
+    expect(getBoutScore(data, 'wb_1_0')).toEqual({ a: 2, b: 2, status: 'in_progress', leadingId: null });
+  });
+
+  it('completed 3-0 → leadingId=winner', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    expect(getBoutScore(data, 'wb_1_0')).toEqual({ a: 3, b: 0, status: 'completed', leadingId: 'p1' });
+  });
+
+  it('walkover mid-bout → leadingId=walkover winner regardless of leg score', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    forfeitBout(data, 'wb_1_0', 'p2');
+    expect(getBoutScore(data, 'wb_1_0')).toEqual({ a: 1, b: 1, status: 'walkover', leadingId: 'p2' });
+  });
+
+  it('throws on non-armfight bracket', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    expect(() => getBoutScore(data, 'wb_1_0')).toThrow(/armfight/i);
+  });
+
+  it('throws when bout not found', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => getBoutScore(data, 'wb_1_99')).toThrow(/not found/i);
   });
 });
