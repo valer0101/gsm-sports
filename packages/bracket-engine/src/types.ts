@@ -30,7 +30,7 @@ export interface Match {
    * `SportConfig.matchResultSchema`. The engine just carries it alongside
    * `winner` / `loser`. `null` or missing = no detail recorded yet.
    */
-  result?: Record<string, unknown> | null;
+  result?: Record<string, unknown> | ArmfightBoutResult | null;
 }
 
 export interface GrandFinalMatch {
@@ -171,3 +171,45 @@ export const BYE_PLAYER: Player = Object.freeze({
   lastName: '',
   number: '-',
 });
+
+// ─── Armfight fight-card (sub-project B) ────────────────────
+
+export type ArmfightHand = 'left' | 'right';
+export type LegWinType = 'pin' | 'foul' | 'dq';
+export type ArmfightBoutStatus = 'pending' | 'in_progress' | 'completed' | 'walkover';
+
+export interface ArmfightLeg {
+  /** 1..5, strictly monotonic. */
+  index: number;
+  /** Must equal Match.player1.id or Match.player2.id. Never 'bye'/'tbd'. */
+  winnerId: string;
+  winType: LegWinType;
+  enteredBy?: string | null;
+  enteredAt?: string | null;
+}
+
+export interface ArmfightBoutResult {
+  hand: ArmfightHand;
+  /** 0..5, append-only until the bout closes. */
+  legs: ArmfightLeg[];
+  /** Cached count of legs won by Match.player1. Always === legs.filter(l => l.winnerId === player1.id).length. */
+  scoreA: number;
+  /** Cached count of legs won by Match.player2. */
+  scoreB: number;
+  status: ArmfightBoutStatus;
+  /** Only set when status === 'walkover'. */
+  walkoverReason?: string | null;
+}
+
+export interface ArmfightPairSpec {
+  playerA: Player;
+  playerB: Player;
+  hand: ArmfightHand;
+  /** Optional display order; defaults to array index + 1 during generation. */
+  order?: number;
+}
+
+export interface RecordLegOptions {
+  enteredBy?: string | null;
+  enteredAt?: string | null;
+}
