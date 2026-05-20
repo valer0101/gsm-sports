@@ -20,6 +20,7 @@ import {
   canRecordResult,
   replacePlayerInSlot,
   withdrawPlayerFromSlot,
+  isArmfightBoutResult,
 } from './bracket-logic';
 import type { Player, BracketData, ArmfightPairSpec } from './types';
 
@@ -2878,5 +2879,39 @@ describe('getFinalPlacements — single_elim runner-up TBD/null guard', () => {
     const ids = placements.map((p) => p.playerId).sort();
     expect(ids).toEqual(['p2', 'p4', 'p6', 'p8']);
     expect(placements.every((p) => p.position === 1)).toBe(true);
+  });
+});
+
+describe('isArmfightBoutResult', () => {
+  it('true for a freshly-initialised bout result', () => {
+    expect(
+      isArmfightBoutResult({ hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'pending' }),
+    ).toBe(true);
+  });
+
+  it('true for a bout with legs', () => {
+    expect(
+      isArmfightBoutResult({
+        hand: 'left',
+        legs: [{ index: 1, winnerId: 'p1', winType: 'pin' }],
+        scoreA: 1,
+        scoreB: 0,
+        status: 'in_progress',
+      }),
+    ).toBe(true);
+  });
+
+  it('false for null / undefined / primitives', () => {
+    expect(isArmfightBoutResult(null)).toBe(false);
+    expect(isArmfightBoutResult(undefined)).toBe(false);
+    expect(isArmfightBoutResult(42)).toBe(false);
+    expect(isArmfightBoutResult('armfight')).toBe(false);
+  });
+
+  it('false for an unrelated sport-result blob (no hand / wrong shape)', () => {
+    expect(isArmfightBoutResult({ schema: 'armwrestling', victoryType: 'pin' })).toBe(false);
+    expect(isArmfightBoutResult({ hand: 'right' })).toBe(false); // missing legs/score/status
+    expect(isArmfightBoutResult({ hand: 'middle', legs: [], scoreA: 0, scoreB: 0, status: 'pending' })).toBe(false);
+    expect(isArmfightBoutResult({ hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'wat' })).toBe(false);
   });
 });

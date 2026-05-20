@@ -587,6 +587,20 @@ function finalizeArmfight(data: BracketData): void {
   // champion intentionally not set — fight card has no event-level champion.
 }
 
+const HANDS = new Set<string>(['left', 'right']);
+const STATUSES = new Set<string>(['pending', 'in_progress', 'completed', 'walkover']);
+
+/** Narrows an unknown blob to an `ArmfightBoutResult`. Pure / no mutation. */
+export function isArmfightBoutResult(x: unknown): x is ArmfightBoutResult {
+  if (!x || typeof x !== 'object') return false;
+  const r = x as Record<string, unknown>;
+  if (typeof r.hand !== 'string' || !HANDS.has(r.hand)) return false;
+  if (!Array.isArray(r.legs)) return false;
+  if (typeof r.scoreA !== 'number' || typeof r.scoreB !== 'number') return false;
+  if (typeof r.status !== 'string' || !STATUSES.has(r.status)) return false;
+  return true;
+}
+
 /** Shared single-elim "is the WB final done?" check used by the
  *  generator (bye walkover) and by `propagateResults` after each
  *  recordResult. */
