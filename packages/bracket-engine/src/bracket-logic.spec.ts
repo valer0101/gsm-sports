@@ -3313,3 +3313,51 @@ describe('selectWinner — armfight guard', () => {
     expect(() => selectWinner(data, 'wb_1_0', 'p1')).toThrow(/recordLeg|forfeitBout/i);
   });
 });
+
+describe('validateResult — armfight', () => {
+  it('valid for an in_progress bout with consistent score', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    expect(validateResult(data, 'wb_1_0', 'p1').valid).toBe(true);
+  });
+
+  it('rejects score/leg inconsistency', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    // Hand-corrupt result.
+    const m = data.winnersBracket[0][0];
+    (m.result as ArmfightBoutResult).scoreA = 5;
+    const result = validateResult(data, 'wb_1_0', 'p1');
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/score/i);
+  });
+
+  it('rejects status mismatch (status completed but no side at 3)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    const m = data.winnersBracket[0][0];
+    (m.result as ArmfightBoutResult).status = 'completed';
+    const result = validateResult(data, 'wb_1_0', 'p1');
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/status|completed/i);
+  });
+
+  it('rejects when result is not an ArmfightBoutResult', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    const m = data.winnersBracket[0][0];
+    m.result = null;
+    const result = validateResult(data, 'wb_1_0', 'p1');
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects when 3 legs reached but status is still in_progress', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    // Hand-corrupt: bout reached 3 but status was not advanced.
+    const m = data.winnersBracket[0][0];
+    (m.result as ArmfightBoutResult).status = 'in_progress';
+    const result = validateResult(data, 'wb_1_0', 'p1');
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/status|completed/i);
+  });
+});

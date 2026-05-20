@@ -2281,6 +2281,26 @@ export function validateResult(
     return { valid: false, errors: ['Match not found'] };
   }
 
+  // Armfight: tighter shape rules — payload must be an ArmfightBoutResult
+  // and its derived counts must agree with `legs`.
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (!isArmfightBoutResult(r)) {
+      return { valid: false, errors: ['Armfight result payload missing or malformed'] };
+    }
+    if (r.scoreA + r.scoreB !== r.legs.length) {
+      errors.push('Armfight score does not match legs.length');
+    }
+    const decided = r.scoreA === 3 || r.scoreB === 3;
+    if (decided && r.status !== 'completed' && r.status !== 'walkover') {
+      errors.push('Armfight bout reached 3 legs but status is not completed');
+    }
+    if (!decided && r.status === 'completed') {
+      errors.push('Armfight status is completed but neither side has 3 legs');
+    }
+    return { valid: errors.length === 0, errors };
+  }
+
   if (isTbd(match.player1.id) || isTbd(match.player2.id)) {
     errors.push('Cannot record result: match is not ready yet (TBD players)');
   }
