@@ -7,9 +7,12 @@ import {
   ValidateNested,
   IsInt,
   IsIn,
+  ArrayMinSize,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { BracketFormat } from '@gsm/shared-types';
+import { ArmfightPairDto } from './armfight-pair.dto';
 
 class PlayerSeedDto {
   @ApiProperty()
@@ -61,4 +64,17 @@ export class GenerateBracketDto {
   @IsOptional()
   @IsIn(['single_elim', 'double_elim', 'round_robin', 'swiss', 'groups_playoff', 'armfight'])
   bracketFormat?: BracketFormat;
+
+  @ApiProperty({
+    required: false,
+    type: [ArmfightPairDto],
+    description: 'Required when bracketFormat === "armfight". Admin-curated bout list.',
+  })
+  @IsOptional()
+  @ValidateIf((o: GenerateBracketDto) => o.bracketFormat === 'armfight')
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ArmfightPairDto)
+  pairs?: ArmfightPairDto[];
 }
