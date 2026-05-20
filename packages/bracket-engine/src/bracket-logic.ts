@@ -2640,6 +2640,12 @@ export function selectWinner(
   const match = findMatch(data, matchId);
   if (!match) return data;
 
+  if (data.format === 'armfight') {
+    throw new Error(
+      'selectWinner: armfight bouts must be decided via recordLeg / forfeitBout',
+    );
+  }
+
   // Defensive guard: refuse to overwrite an auto-resolved bye match.
   // `canRecordResult` already rejects these at the API boundary, but
   // a misbehaving caller (or a UI that surfaces every match without

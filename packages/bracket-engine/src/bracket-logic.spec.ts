@@ -3306,3 +3306,10 @@ describe('canRecordResult — armfight', () => {
     expect(canRecordResult(data, 'wb_1_0').valid).toBe(false);
   });
 });
+
+describe('selectWinner — armfight guard', () => {
+  it('throws: armfight bouts must be decided via recordLeg/forfeitBout', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => selectWinner(data, 'wb_1_0', 'p1')).toThrow(/recordLeg|forfeitBout/i);
+  });
+});
