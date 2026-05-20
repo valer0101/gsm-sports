@@ -1,25 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { TournamentCard } from '@/components/tournaments/TournamentCard';
-import { isArmfightTournament } from '@/lib/armfight';
-import type { Tournament, PaginatedResponse } from '@/types/api';
-
-const API_URL =
-  process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
-
-async function fetchUpcomingArmfights(): Promise<Tournament[]> {
-  try {
-    const res = await fetch(`${API_URL}/tournaments?format=armfight&limit=50`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    const json: PaginatedResponse<Tournament> = await res.json();
-    return (json.data ?? [])
-      .filter(isArmfightTournament)
-      .filter((x) => x.status !== 'completed' && x.status !== 'cancelled');
-  } catch {
-    return [];
-  }
-}
+import { fetchUpcomingArmfights } from '@/lib/api-server';
 
 export async function UpcomingArmfights() {
   const items = await fetchUpcomingArmfights();
