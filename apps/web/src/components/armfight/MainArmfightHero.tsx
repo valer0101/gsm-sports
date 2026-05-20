@@ -40,7 +40,7 @@ export function MainArmfightHero({ tournament }: { tournament: Tournament | null
           <span
             data-testid="af-badge"
             className="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full mb-4"
-            style={{ background: 'var(--color-accent)', color: '#0F0F1A' }}
+            style={{ background: 'var(--color-accent)', color: 'var(--color-background)' }}
           >
             {badge}
           </span>
