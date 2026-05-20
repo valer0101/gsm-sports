@@ -98,9 +98,11 @@ export class TournamentsService {
 
   /**
    * The single "main event" armfight for promo surfaces. Reuses the generic
-   * `isFeatured` flag (admin-set). Excludes terminal events so a finished/
-   * cancelled flagged tournament drops out automatically. Soonest by
-   * startDate when several are flagged. Null when none.
+   * `isFeatured` flag (admin-set). Restricted to PUBLISHED statuses (positive
+   * allowlist) so unfinished events — drafts most importantly — never leak
+   * through the public hero, even if an organizer flags them via the public
+   * PATCH endpoint. Soonest by startDate when several are flagged. Null when
+   * none.
    */
   async findFeaturedArmfight(): Promise<Tournament | null> {
     const qb = this.tournamentsRepository
@@ -111,8 +113,14 @@ export class TournamentsService {
         "(t.format = :fmt OR t.sportConfig ->> 'competitionType' = :fmt)",
         { fmt: 'armfight' },
       )
-      .andWhere('t.status NOT IN (:...terminal)', {
-        terminal: ['completed', 'cancelled'],
+      .andWhere('t.status IN (:...published)', {
+        published: [
+          'upcoming',
+          'registration_open',
+          'registration_closed',
+          'bracket_ready',
+          'active',
+        ],
       })
       .orderBy('t.startDate', 'ASC');
     return (await qb.getOne()) ?? null;

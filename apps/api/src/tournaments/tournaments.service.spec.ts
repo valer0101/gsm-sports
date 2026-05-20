@@ -233,15 +233,23 @@ describe('TournamentsService', () => {
   });
 
   describe('findFeaturedArmfight', () => {
-    it('returns the soonest non-terminal featured armfight', async () => {
+    it('returns the soonest published featured armfight', async () => {
       const qb = makeQb();
       qb.getOne = vi.fn().mockResolvedValue(makeTournament({ isFeatured: true }));
       tournamentsRepo.createQueryBuilder.mockReturnValue(qb);
       const result = await service.findFeaturedArmfight();
       expect(result?.isFeatured).toBe(true);
       expect(qb.andWhere).toHaveBeenCalledWith('t.isFeatured = :f', { f: true });
-      expect(qb.andWhere).toHaveBeenCalledWith('t.status NOT IN (:...terminal)', {
-        terminal: ['completed', 'cancelled'],
+      // Positive allowlist of published statuses — drafts must NOT surface
+      // publicly even if an organizer flags one via the public PATCH route.
+      expect(qb.andWhere).toHaveBeenCalledWith('t.status IN (:...published)', {
+        published: [
+          'upcoming',
+          'registration_open',
+          'registration_closed',
+          'bracket_ready',
+          'active',
+        ],
       });
       expect(qb.orderBy).toHaveBeenCalledWith('t.startDate', 'ASC');
     });
