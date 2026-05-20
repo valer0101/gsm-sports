@@ -141,6 +141,13 @@ export function walkBracketMatches(data: BracketData, visit: BracketMatchVisitor
 export function isPlayableMatch(
   match: Match | GrandFinalMatch | SuperFinalMatch,
 ): boolean {
+  // Armfight bouts: gate on result.status, not on match.winner — a bout
+  // with 1-2 legs already recorded has no winner yet but is still in
+  // progress and accepts more legs.
+  const maybeArmfight = (match as Match).result;
+  if (isArmfightBoutResult(maybeArmfight)) {
+    return maybeArmfight.status === 'pending' || maybeArmfight.status === 'in_progress';
+  }
   if (match.winner) return false;
   const p1 = match.player1?.id;
   const p2 = match.player2?.id;
@@ -2295,6 +2302,18 @@ export function canRecordResult(data: BracketData, matchId: string): ValidationR
 
   if (!match) {
     return { valid: false, errors: ['Match not found'] };
+  }
+
+  // Armfight: status-driven, not winner-driven.
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (!isArmfightBoutResult(r)) {
+      return { valid: false, errors: ['Match has no armfight result payload'] };
+    }
+    if (r.status === 'completed' || r.status === 'walkover') {
+      return { valid: false, errors: [`Bout is closed (status=${r.status})`] };
+    }
+    return { valid: true, errors: [] };
   }
 
   if (isTbd(match.player1.id) || isTbd(match.player2.id)) {

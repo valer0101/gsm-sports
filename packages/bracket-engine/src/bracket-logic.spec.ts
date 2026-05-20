@@ -3256,3 +3256,53 @@ describe('getFinalPlacements — armfight', () => {
     expect(getFinalPlacements(data)).toEqual([]);
   });
 });
+
+describe('isPlayableMatch — armfight', () => {
+  it('pending bout is playable', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(true);
+  });
+
+  it('in_progress bout is still playable (more legs to record)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(true);
+  });
+
+  it('completed bout is not playable', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(false);
+  });
+
+  it('walkover bout is not playable', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p1');
+    expect(isPlayableMatch(data.winnersBracket[0][0])).toBe(false);
+  });
+});
+
+describe('canRecordResult — armfight', () => {
+  it('valid for pending and in_progress', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(canRecordResult(data, 'wb_1_0').valid).toBe(true);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    expect(canRecordResult(data, 'wb_1_0').valid).toBe(true);
+  });
+
+  it('invalid for completed', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    expect(canRecordResult(data, 'wb_1_0').valid).toBe(false);
+  });
+
+  it('invalid for walkover', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p1');
+    expect(canRecordResult(data, 'wb_1_0').valid).toBe(false);
+  });
+});
