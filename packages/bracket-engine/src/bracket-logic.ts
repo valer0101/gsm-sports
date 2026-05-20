@@ -2363,6 +2363,24 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
   // operator no way to un-stick the bracket short of regeneration.
   if (match.player1.id === 'bye' || match.player2.id === 'bye') return data;
 
+  if (data.format === 'armfight') {
+    const m = (match as Match);
+    const r = m.result as ArmfightBoutResult | null | undefined;
+    const hand: ArmfightHand =
+      isArmfightBoutResult(r) ? r.hand : 'right';
+    m.winner = null;
+    m.loser = null;
+    m.enteredBy = null;
+    m.enteredAt = null;
+    m.correctedBy = null;
+    m.correctedAt = null;
+    m.result = { hand, legs: [], scoreA: 0, scoreB: 0, status: 'pending' };
+    // Card may have been completed; reopen.
+    data.status = 'active';
+    // champion is always null for armfight — no further work.
+    return data;
+  }
+
   const oldWinner = match.winner;
   const oldLoser = match.loser;
 

@@ -3361,3 +3361,35 @@ describe('validateResult — armfight', () => {
     expect(result.errors.join(' ')).toMatch(/status|completed/i);
   });
 });
+
+describe('resetMatch — armfight', () => {
+  it('clears legs, score, and status; preserves hand', () => {
+    const data = generateArmfight([makePair('p1', 'p2', 'left')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    propagateResults(data);
+    expect(data.status).toBe('completed');
+    const out = resetMatch(data, 'wb_1_0');
+    const m = out.winnersBracket[0][0];
+    const r = m.result as ArmfightBoutResult;
+    expect(r.hand).toBe('left');
+    expect(r.legs).toEqual([]);
+    expect(r.scoreA).toBe(0);
+    expect(r.scoreB).toBe(0);
+    expect(r.status).toBe('pending');
+    expect(m.winner).toBeNull();
+    expect(m.loser).toBeNull();
+    expect(out.status).toBe('active');
+  });
+
+  it('reset of one bout leaves other bouts on the card untouched', () => {
+    const data = generateArmfight([makePair('p1','p2'), makePair('p3','p4')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    recordLeg(data, 'wb_1_1', 1, 'p3', 'pin');
+    resetMatch(data, 'wb_1_0');
+    expect((data.winnersBracket[0][1].result as ArmfightBoutResult).legs).toHaveLength(1);
+  });
+});
