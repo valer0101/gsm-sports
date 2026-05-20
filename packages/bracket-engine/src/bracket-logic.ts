@@ -676,6 +676,45 @@ export function recordLeg(
   }
 }
 
+/**
+ * Close an armfight bout as walkover. Sets match.winner/loser and
+ * result.status='walkover'. Existing legs are preserved; no further legs
+ * can be appended. Throws on closed bouts, missing bout, non-armfight
+ * brackets, or a winnerId not in the pair.
+ */
+export function forfeitBout(
+  data: BracketData,
+  boutId: string,
+  winnerId: string,
+  options?: { walkoverReason?: string; enteredBy?: string | null },
+): void {
+  if (data.format !== 'armfight') {
+    throw new Error('forfeitBout: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`forfeitBout: bout '${boutId}' not found`);
+
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`forfeitBout: bout '${boutId}' has no armfight result payload`);
+  }
+  if (r.status === 'completed' || r.status === 'walkover') {
+    throw new Error(`forfeitBout: bout '${boutId}' is closed (status=${r.status})`);
+  }
+  if (winnerId !== match.player1.id && winnerId !== match.player2.id) {
+    throw new Error(`forfeitBout: winnerId '${winnerId}' is not a player in this bout`);
+  }
+
+  r.status = 'walkover';
+  if (options?.walkoverReason !== undefined) r.walkoverReason = options.walkoverReason;
+  match.winner = winnerId;
+  match.loser = winnerId === match.player1.id ? match.player2.id : match.player1.id;
+  if (options?.enteredBy) {
+    match.enteredBy = options.enteredBy;
+    match.enteredAt = new Date().toISOString();
+  }
+}
+
 /** Shared single-elim "is the WB final done?" check used by the
  *  generator (bye walkover) and by `propagateResults` after each
  *  recordResult. */

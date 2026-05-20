@@ -22,6 +22,7 @@ import {
   withdrawPlayerFromSlot,
   isArmfightBoutResult,
   recordLeg,
+  forfeitBout,
 } from './bracket-logic';
 import type { Player, BracketData, ArmfightPairSpec, ArmfightBoutResult } from './types';
 
@@ -3042,5 +3043,61 @@ describe('recordLeg — behaviour', () => {
     const leg = (data.winnersBracket[0][0].result as ArmfightBoutResult).legs[0];
     expect(leg.enteredBy).toBe('ref-1');
     expect(leg.enteredAt).toBe('2026-05-20T12:00:00Z');
+  });
+});
+
+describe('forfeitBout', () => {
+  it('walks over a pristine bout — winner set, status walkover', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p1', { walkoverReason: 'injury' });
+    const m = data.winnersBracket[0][0];
+    const r = m.result as ArmfightBoutResult;
+    expect(r.status).toBe('walkover');
+    expect(r.walkoverReason).toBe('injury');
+    expect(m.winner).toBe('p1');
+    expect(m.loser).toBe('p2');
+    expect(r.legs).toHaveLength(0);
+  });
+
+  it('walks over a mid-bout — existing legs preserved', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p2', 'pin');
+    forfeitBout(data, 'wb_1_0', 'p1');
+    const r = data.winnersBracket[0][0].result as ArmfightBoutResult;
+    expect(r.status).toBe('walkover');
+    expect(r.legs).toHaveLength(2);
+    expect(r.scoreA).toBe(1);
+    expect(r.scoreB).toBe(1);
+    expect(data.winnersBracket[0][0].winner).toBe('p1');
+  });
+
+  it('throws when bout is already completed', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 2, 'p1', 'pin');
+    recordLeg(data, 'wb_1_0', 3, 'p1', 'pin');
+    expect(() => forfeitBout(data, 'wb_1_0', 'p2')).toThrow(/closed|completed/i);
+  });
+
+  it('throws when bout is already walkover (double-forfeit)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p1');
+    expect(() => forfeitBout(data, 'wb_1_0', 'p2')).toThrow(/walkover|closed/i);
+  });
+
+  it('throws when winnerId is not in the pair', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => forfeitBout(data, 'wb_1_0', 'p99')).toThrow(/winner/i);
+  });
+
+  it('throws on non-armfight bracket', () => {
+    const data = generateDoubleElimination(makePlayers(4));
+    expect(() => forfeitBout(data, 'wb_1_0', 'p1')).toThrow(/armfight/i);
+  });
+
+  it('throws when bout not found', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    expect(() => forfeitBout(data, 'wb_1_99', 'p1')).toThrow(/not found/i);
   });
 });
