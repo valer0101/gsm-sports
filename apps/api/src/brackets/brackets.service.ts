@@ -387,6 +387,12 @@ export class BracketsService {
     );
     const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
 
+    if (format === 'armfight') {
+      throw new BadRequestException(
+        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+      );
+    }
+
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
       firstName: entry.user?.firstName ?? 'Player',
@@ -450,6 +456,12 @@ export class BracketsService {
       tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
     const format = this.resolveFormat(bracketFormat, cfg, tournament.sportConfig);
+
+    if (format === 'armfight') {
+      throw new BadRequestException(
+        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+      );
+    }
 
     // If the organizer pre-configured weight categories, group entries
     // against those (honoring `weightToleranceKg`). Otherwise fall back

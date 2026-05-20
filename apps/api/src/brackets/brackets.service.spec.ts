@@ -771,6 +771,29 @@ describe('BracketsService', () => {
       expect(generateArmfight).not.toHaveBeenCalled();
     });
 
+    it('generateForGroup throws for armfight (must use pairs[] path)', async () => {
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByGroup.mockResolvedValue([makeEntry('u1'), makeEntry('u2')]);
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+      await expect(
+        service.generateForGroup(
+          {
+            tournamentId: 't1',
+            ageGroup: 'open',
+            hand: 'right',
+            bracketFormat: 'armfight',
+          },
+          'org-1',
+        ),
+      ).rejects.toThrow(/pairs|armfight/i);
+    });
+
     it('rejects per-tournament defaultBracketFormat that the sport does not allow', async () => {
       // Mirror of the bug above for the `defaultBracketFormat` route:
       // a chess tournament can't override into `double_elim` if the
