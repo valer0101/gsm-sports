@@ -3100,4 +3100,22 @@ describe('forfeitBout', () => {
     const data = generateArmfight([makePair('p1', 'p2')]);
     expect(() => forfeitBout(data, 'wb_1_99', 'p1')).toThrow(/not found/i);
   });
+
+  it('player2-side forfeit — winner/loser flipped correctly', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p2');
+    const m = data.winnersBracket[0][0];
+    expect(m.winner).toBe('p2');
+    expect(m.loser).toBe('p1');
+    expect((m.result as ArmfightBoutResult).status).toBe('walkover');
+  });
+
+  it('writes match.enteredBy / enteredAt when options.enteredBy supplied', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    forfeitBout(data, 'wb_1_0', 'p1', { enteredBy: 'ref-7' });
+    const m = data.winnersBracket[0][0];
+    expect(m.enteredBy).toBe('ref-7');
+    expect(typeof m.enteredAt).toBe('string');
+    expect(m.enteredAt).not.toBe('');
+  });
 });

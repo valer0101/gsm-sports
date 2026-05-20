@@ -686,7 +686,7 @@ export function forfeitBout(
   data: BracketData,
   boutId: string,
   winnerId: string,
-  options?: { walkoverReason?: string; enteredBy?: string | null },
+  options?: { walkoverReason?: string | null; enteredBy?: string | null },
 ): void {
   if (data.format !== 'armfight') {
     throw new Error('forfeitBout: only valid on armfight brackets');
