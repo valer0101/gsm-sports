@@ -1080,5 +1080,26 @@
     "ordinal_2nd": "2nd place",
     "ordinal_3rd": "3rd place",
     "ordinal_nth": "{n}th place"
+  },
+  "armfight": {
+    "main_event": "Գլխավոր մրցում",
+    "watch_video": "Դիտել տեսանյութը",
+    "main_event_title": "Գլխավոր արմֆայթ",
+    "main_event_helper": "Միակ նշված գլխավոր մրցումը առանձնացվում է գլխավոր էջում, մարզաձևի էջում և մրցաշարերի ցանկում։",
+    "video_section": "Տեսանյութ / YouTube",
+    "video_helper": "Ձայնագրություն կամ YouTube հղում, ցուցադրվում է միջոցառման ավարտից հետո։",
+    "video_url_label": "Տեսանյութ / YouTube",
+    "video_url_placeholder": "https://youtube.com/watch?v=...",
+    "video_url_invalid": "Անվավեր URL։",
+    "starts_in": "մեկնարկը՝",
+    "cta_bracket": "Դիտել ցանցը",
+    "cta_details": "Մանրամասներ",
+    "upcoming_title": "Առաջիկա արմֆայթներ",
+    "none_soon": "Դեռ պլանավորված արմֆայթ չկա",
+    "live": "Ուղիղ եթերում",
+    "days": "օր",
+    "hours": "ժամ",
+    "minutes": "րոպե",
+    "seconds": "վրկ"
   }
 }

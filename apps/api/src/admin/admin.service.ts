@@ -118,10 +118,24 @@ export class AdminService {
     userRoles: string[],
   ): Promise<Tournament> {
     const t = await this.getTournament(id, userId, userRoles);
-    if (t.bracketGenerated) {
-      throw new BadRequestException('Cannot edit tournament after bracket has been generated');
-    }
     const { weightCategories: _wc, ...updateFields } = dto as any;
+
+    if (t.bracketGenerated) {
+      const PROMO_KEYS = ['isFeatured', 'armfightVideoUrl', 'streamUrl'] as const;
+      const promo: Record<string, unknown> = {};
+      for (const k of PROMO_KEYS) {
+        if (updateFields[k] !== undefined) promo[k] = updateFields[k];
+      }
+      // Once a bracket exists only promo-only scalars may change. Non-promo
+      // fields are silently ignored when promo keys are present; a request
+      // that carries no promo keys at all is rejected outright.
+      if (Object.keys(promo).length === 0) {
+        throw new BadRequestException('Cannot edit tournament after bracket has been generated');
+      }
+      await this.tournamentsRepository.update(id, promo);
+      return this.getTournament(id, userId, userRoles);
+    }
+
     await this.tournamentsRepository.update(id, updateFields);
     return this.getTournament(id, userId, userRoles);
   }

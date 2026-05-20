@@ -19,6 +19,7 @@ const makeQb = (result: [Tournament[], number] = [[], 0]) => {
     skip: vi.fn().mockReturnThis(),
     andWhere: vi.fn().mockReturnThis(),
     getManyAndCount: vi.fn().mockResolvedValue(result),
+    getOne: vi.fn().mockResolvedValue(null),
   };
   return qb;
 };
@@ -216,6 +217,47 @@ describe('TournamentsService', () => {
       const result = await service.findAll({ limit: 10 });
 
       expect(result.meta.totalPages).toBe(3);
+    });
+  });
+
+  describe('findAll — competitionType filter', () => {
+    it('filters armfight events by format OR sportConfig.competitionType', async () => {
+      const qb = makeQb([[], 0]);
+      tournamentsRepo.createQueryBuilder.mockReturnValue(qb);
+      await service.findAll({ format: 'armfight' });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "(t.format = :fmt OR t.sportConfig ->> 'competitionType' = :fmt)",
+        { fmt: 'armfight' },
+      );
+    });
+  });
+
+  describe('findFeaturedArmfight', () => {
+    it('returns the soonest published featured armfight', async () => {
+      const qb = makeQb();
+      qb.getOne = vi.fn().mockResolvedValue(makeTournament({ isFeatured: true }));
+      tournamentsRepo.createQueryBuilder.mockReturnValue(qb);
+      const result = await service.findFeaturedArmfight();
+      expect(result?.isFeatured).toBe(true);
+      expect(qb.andWhere).toHaveBeenCalledWith('t.isFeatured = :f', { f: true });
+      // Positive allowlist of published statuses — drafts must NOT surface
+      // publicly even if an organizer flags one via the public PATCH route.
+      expect(qb.andWhere).toHaveBeenCalledWith('t.status IN (:...published)', {
+        published: [
+          'upcoming',
+          'registration_open',
+          'registration_closed',
+          'bracket_ready',
+          'active',
+        ],
+      });
+      expect(qb.orderBy).toHaveBeenCalledWith('t.startDate', 'ASC');
+    });
+    it('returns null when none is set', async () => {
+      const qb = makeQb();
+      qb.getOne = vi.fn().mockResolvedValue(null);
+      tournamentsRepo.createQueryBuilder.mockReturnValue(qb);
+      expect(await service.findFeaturedArmfight()).toBeNull();
     });
   });
 

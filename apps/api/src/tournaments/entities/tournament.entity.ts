@@ -106,6 +106,9 @@ export class Tournament {
   @Column({ type: 'varchar', length: 500, nullable: true })
   streamUrl: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  armfightVideoUrl: string | null;
+
   @Column({ type: 'jsonb', default: {} })
   sportConfig: Record<string, unknown>;
 

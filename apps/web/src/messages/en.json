@@ -1079,5 +1079,26 @@
     "ordinal_2nd": "2nd place",
     "ordinal_3rd": "3rd place",
     "ordinal_nth": "{n}th place"
+  },
+  "armfight": {
+    "main_event": "Main event",
+    "watch_video": "Watch video",
+    "main_event_title": "Main armfight event",
+    "main_event_helper": "The single flagged main event is highlighted across the homepage, sport page and tournaments list.",
+    "video_section": "Video / YouTube",
+    "video_helper": "Recording or YouTube link shown after the event ends.",
+    "video_url_label": "Video / YouTube",
+    "video_url_placeholder": "https://youtube.com/watch?v=...",
+    "video_url_invalid": "Not a valid URL.",
+    "starts_in": "starts in",
+    "cta_bracket": "View bracket",
+    "cta_details": "Event details",
+    "upcoming_title": "Upcoming armfights",
+    "none_soon": "No armfights scheduled yet",
+    "live": "Live now",
+    "days": "days",
+    "hours": "hours",
+    "minutes": "min",
+    "seconds": "sec"
   }
 }

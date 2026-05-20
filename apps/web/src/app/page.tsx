@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { usePublicNews, type NewsItem } from '@/hooks/useNews';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { MainArmfightHeroClient } from '@/components/armfight/MainArmfightHeroClient';
 
 const SPORTS = [
   { slug: 'armwrestling', labelKey: 'armwrestling', icon: '💪' },
@@ -129,6 +130,8 @@ export default function HomePage() {
           }}
         />
       </section>
+
+      <MainArmfightHeroClient />
 
       {/* Sports */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-14">

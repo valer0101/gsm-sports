@@ -28,6 +28,7 @@ function makeTournament(overrides: Partial<Tournament>): Tournament {
     isLive: false,
     posterUrl: null,
     streamUrl: null,
+    armfightVideoUrl: null,
     sport: { id: 's1', slug: 'armwrestling' } as Tournament['sport'],
     weightCategories: [],
     sportConfig: null,
@@ -71,6 +72,7 @@ describe('tournamentToWizardData', () => {
     const data = tournamentToWizardData(
       makeTournament({
         isFeatured: true,
+        armfightVideoUrl: 'https://youtube.com/watch?v=abc',
         sportConfig: {
           entryFee: { type: 'paid', amount: 5000, description: 'cash on site' },
           prizes: [{ place: 1, type: 'money', amount: 100000 }],
@@ -83,6 +85,12 @@ describe('tournamentToWizardData', () => {
     expect(data.prizes).toHaveLength(1);
     expect(data.prizes?.[0]).toMatchObject({ place: 1, type: 'money', amount: '100000' });
     expect(data.isFeatured).toBe(true);
+    expect(data.armfightVideoUrl).toBe('https://youtube.com/watch?v=abc');
+  });
+
+  it('maps a null armfight video URL to an empty string for the controlled input', () => {
+    const data = tournamentToWizardData(makeTournament({ armfightVideoUrl: null }));
+    expect(data.armfightVideoUrl).toBe('');
   });
 
   it('treats slug as a manual override (so name edits do not auto-overwrite it)', () => {
