@@ -2861,10 +2861,12 @@ describe('generateArmfight — structure', () => {
 describe('coverage — index.ts re-exports', () => {
   it('exports the public API surface', async () => {
     const mod = await import('./index');
-    // Spot-check a representative function and constant from each export
-    // group — the file is otherwise just `export { ... }` re-exports.
     expect(typeof mod.generateDoubleElimination).toBe('function');
     expect(typeof mod.selectWinner).toBe('function');
+    expect(typeof mod.recordLeg).toBe('function');
+    expect(typeof mod.forfeitBout).toBe('function');
+    expect(typeof mod.getBoutScore).toBe('function');
+    expect(typeof mod.isArmfightBoutResult).toBe('function');
     expect(mod.TBD_PLAYER.id).toBe('tbd');
     expect(mod.BYE_PLAYER.id).toBe('bye');
   });
