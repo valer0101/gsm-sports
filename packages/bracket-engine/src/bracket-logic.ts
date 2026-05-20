@@ -471,13 +471,15 @@ export function generateSingleElimination(players: Player[]): BracketData {
 
 // ─── Armfight (fight card — sub-project B) ──────────────────
 
-const FRESH_BOUT_RESULT = (hand: ArmfightHand): ArmfightBoutResult => ({
-  hand,
-  legs: [],
-  scoreA: 0,
-  scoreB: 0,
-  status: 'pending',
-});
+function freshBoutResult(hand: ArmfightHand): ArmfightBoutResult {
+  return {
+    hand,
+    legs: [],
+    scoreA: 0,
+    scoreB: 0,
+    status: 'pending',
+  };
+}
 
 /**
  * Build an armfight fight card — 1..N independent bouts, each best-of-5 on a
@@ -526,7 +528,7 @@ export function generateArmfight(pairs: ArmfightPairSpec[]): BracketData {
     player2: { ...p.playerB, seed: i * 2 + 2 },
     winner: null,
     loser: null,
-    result: FRESH_BOUT_RESULT(p.hand),
+    result: freshBoutResult(p.hand),
   }));
 
   const grandFinal: GrandFinalMatch = {
