@@ -2580,6 +2580,13 @@ export function replacePlayerInSlot(
   if (!match) return { ok: false, error: 'Match not found' };
   if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
 
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (isArmfightBoutResult(r) && r.legs.length > 0) {
+      return { ok: false, error: 'Cannot replace player after a leg has been recorded' };
+    }
+  }
+
   const currentSlot = position === 1 ? match.player1 : match.player2;
   if (!isReal(currentSlot.id)) {
     return { ok: false, error: 'Slot does not hold a real player' };
@@ -2644,6 +2651,13 @@ export function withdrawPlayerFromSlot(
   const match = findMatch(data, matchId);
   if (!match) return { ok: false, error: 'Match not found' };
   if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
+
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (isArmfightBoutResult(r) && r.legs.length > 0) {
+      return { ok: false, error: 'Cannot withdraw player after a leg has been recorded' };
+    }
+  }
 
   const withdrawnSlot = position === 1 ? match.player1 : match.player2;
   const opponentSlot = position === 1 ? match.player2 : match.player1;

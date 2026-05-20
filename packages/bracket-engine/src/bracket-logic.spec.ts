@@ -3393,3 +3393,40 @@ describe('resetMatch — armfight', () => {
     expect((data.winnersBracket[0][1].result as ArmfightBoutResult).legs).toHaveLength(1);
   });
 });
+
+describe('replacePlayerInSlot — armfight', () => {
+  it('allowed on a pending bout (no legs yet)', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    const res = replacePlayerInSlot(data, 'wb_1_0', 2, {
+      id: 'p9', firstName: 'New', lastName: 'Comer', number: 9,
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it('rejected once a leg has been recorded', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    const res = replacePlayerInSlot(data, 'wb_1_0', 2, {
+      id: 'p9', firstName: 'New', lastName: 'Comer', number: 9,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error || '').toMatch(/leg/i);
+  });
+});
+
+describe('withdrawPlayerFromSlot — armfight', () => {
+  it('allowed on a pending bout', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    const res = withdrawPlayerFromSlot(data, 'wb_1_0', 1);
+    expect(res.ok).toBe(true);
+    expect(res.forfeitTo).toBe('p2');
+  });
+
+  it('rejected once a leg has been recorded', () => {
+    const data = generateArmfight([makePair('p1', 'p2')]);
+    recordLeg(data, 'wb_1_0', 1, 'p1', 'pin');
+    const res = withdrawPlayerFromSlot(data, 'wb_1_0', 1);
+    expect(res.ok).toBe(false);
+    expect(res.error || '').toMatch(/leg/i);
+  });
+});
