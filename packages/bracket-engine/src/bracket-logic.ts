@@ -8,6 +8,9 @@ import {
   Standing,
   FinalPlacement,
   GroupStage,
+  ArmfightPairSpec,
+  ArmfightBoutResult,
+  ArmfightHand,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -466,37 +469,65 @@ export function generateSingleElimination(players: Player[]): BracketData {
   return result;
 }
 
-// ─── Armfight (one-off title fight) ─────────────────────────
+// ─── Armfight (fight card — sub-project B) ──────────────────
+
+const FRESH_BOUT_RESULT = (hand: ArmfightHand): ArmfightBoutResult => ({
+  hand,
+  legs: [],
+  scoreA: 0,
+  scoreB: 0,
+  status: 'pending',
+});
 
 /**
- * Build an armfight bracket — a single match between two named athletes,
- * no bracket tree. Title fights, exhibition bouts, "match of the night".
+ * Build an armfight fight card — 1..N independent bouts, each best-of-5 on a
+ * single hand. Admin curates the pair list (no auto-pairing). Each bout is a
+ * regular `Match` in `winnersBracket[0]`; bo5 score lives in `Match.result`
+ * as an `ArmfightBoutResult`. `champion` is always null — a fight card has
+ * no event-level winner (decisions §2.1 of the spec).
  *
- * Reuses the standard `BracketData` shape so consumers (operator UI,
- * audit log, websocket broadcast, …) work without branching:
- *   - `format: 'armfight'`
- *   - `winnersBracket: [[ one match ]]`
- *   - `losersBracket: []`, `grandFinal` / `superFinal` TBD never reached
- *   - Champion = winner of the single match; runner-up = its loser.
- *
- * Caller must pass exactly 2 real players. BYE / TBD seats are not
- * meaningful here and rejected at the API boundary.
+ * Throws on: empty pairs; self-pair; BYE/TBD in a pair; a player appearing
+ * in two pairs; invalid hand.
  */
-export function generateArmfight(players: Player[]): BracketData {
-  if (players.length !== 2) {
-    throw new Error('Armfight requires exactly 2 players');
+export function generateArmfight(pairs: ArmfightPairSpec[]): BracketData {
+  if (!pairs || pairs.length === 0) {
+    throw new Error('generateArmfight: at least one pair is required');
   }
 
-  const [a, b] = players;
-  const match: Match = {
-    id: 'wb_1_0',
+  const seenPlayerIds = new Set<string>();
+  pairs.forEach((p, idx) => {
+    if (!p.playerA?.id || !p.playerB?.id) {
+      throw new Error(`generateArmfight: pair[${idx}] is missing a player`);
+    }
+    if (p.playerA.id === p.playerB.id) {
+      throw new Error(`generateArmfight: pair[${idx}] has the same player on both sides`);
+    }
+    if (isBye(p.playerA.id) || isTbd(p.playerA.id) || isBye(p.playerB.id) || isTbd(p.playerB.id)) {
+      throw new Error(`generateArmfight: pair[${idx}] contains a BYE/TBD slot`);
+    }
+    if (p.hand !== 'left' && p.hand !== 'right') {
+      throw new Error(`generateArmfight: pair[${idx}] has invalid hand '${String(p.hand)}'`);
+    }
+    if (seenPlayerIds.has(p.playerA.id)) {
+      throw new Error(`generateArmfight: player '${p.playerA.id}' appears in two pairs (duplicate)`);
+    }
+    if (seenPlayerIds.has(p.playerB.id)) {
+      throw new Error(`generateArmfight: player '${p.playerB.id}' appears in two pairs (duplicate)`);
+    }
+    seenPlayerIds.add(p.playerA.id);
+    seenPlayerIds.add(p.playerB.id);
+  });
+
+  const matches: Match[] = pairs.map((p, i) => ({
+    id: `wb_1_${i}`,
     round: 1,
-    matchIndex: 0,
-    player1: { ...a, seed: 1 },
-    player2: { ...b, seed: 2 },
+    matchIndex: i,
+    player1: { ...p.playerA, seed: i * 2 + 1 },
+    player2: { ...p.playerB, seed: i * 2 + 2 },
     winner: null,
     loser: null,
-  };
+    result: FRESH_BOUT_RESULT(p.hand),
+  }));
 
   const grandFinal: GrandFinalMatch = {
     id: 'grand_final',
@@ -514,17 +545,23 @@ export function generateArmfight(players: Player[]): BracketData {
     needed: false,
   };
 
+  const players: Player[] = [];
+  const seenInOutput = new Set<string>();
+  for (const p of pairs) {
+    for (const pl of [p.playerA, p.playerB]) {
+      if (!seenInOutput.has(pl.id)) {
+        seenInOutput.add(pl.id);
+        players.push({ id: pl.id, firstName: pl.firstName, lastName: pl.lastName, number: pl.number });
+      }
+    }
+  }
+
   return {
     format: 'armfight',
-    players: players.map((p) => ({
-      id: p.id,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      number: p.number,
-    })),
-    bracketSize: 2,
+    players,
+    bracketSize: pairs.length * 2,
     wbRounds: 1,
-    winnersBracket: [[match]],
+    winnersBracket: [matches],
     losersBracket: [],
     grandFinal,
     superFinal,
@@ -533,14 +570,19 @@ export function generateArmfight(players: Player[]): BracketData {
   };
 }
 
-/** Finalize an armfight after a result is recorded — single match wins it all. */
+/**
+ * Finalize an armfight card — bracket completes when every bout is
+ * `completed` or `walkover`. `champion` always stays null.
+ */
 function finalizeArmfight(data: BracketData): void {
   if (data.format !== 'armfight') return;
-  const match = data.winnersBracket[0]?.[0];
-  if (!match?.winner) return;
-  if (isBye(match.winner)) return;
-  data.champion = match.winner;
-  data.status = 'completed';
+  const round = data.winnersBracket[0] ?? [];
+  const allDone = round.every((m) => {
+    const r = m.result as ArmfightBoutResult | null | undefined;
+    return r?.status === 'completed' || r?.status === 'walkover';
+  });
+  if (allDone && round.length > 0) data.status = 'completed';
+  // champion intentionally not set — fight card has no event-level champion.
 }
 
 /** Shared single-elim "is the WB final done?" check used by the

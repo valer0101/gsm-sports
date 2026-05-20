@@ -335,14 +335,11 @@ export class BracketsService {
     if (format === 'swiss') return generateSwiss(players);
     if (format === 'groups_playoff') return generateGroupsPlayoff(players);
     if (format === 'armfight') {
-      // Armfight = single 1v1 title fight. Engine enforces exactly 2 players;
-      // we mirror that here as a friendlier API-level error before hitting it.
-      if (players.length !== 2) {
-        throw new BadRequestException(
-          'Armfight requires exactly 2 confirmed entries (no more, no less).',
-        );
-      }
-      return generateArmfight(players);
+      // The 2-player path is removed in sub-project B. Wizard must POST
+      // pairs explicitly via the dedicated path (Task 19 wires this).
+      throw new BadRequestException(
+        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+      );
     }
     return generateDoubleElimination(players);
   }
