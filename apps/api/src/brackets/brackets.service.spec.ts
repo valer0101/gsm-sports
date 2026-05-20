@@ -634,13 +634,52 @@ describe('BracketsService', () => {
       expect(generateSingleElimination).toHaveBeenCalled();
     });
 
-    it('uses armfight when tournament.sportConfig.competitionType is armfight', async () => {
-      // The wizard stores `competitionType: 'armfight'` in `sportConfig` for
-      // 1v1 title fights. The service must auto-resolve to the armfight
-      // generator regardless of the sport-wide default.
+    it('happy path: pairs[] resolved to Player objects and forwarded to generateArmfight', async () => {
+      // sub-project B: armfight is now an admin-curated fight card. The
+      // wizard posts pairs[] (entry-id A vs entry-id B, with hand). The
+      // service resolves each id to a Player and passes the list to
+      // `generateArmfight`. No N=2-only restriction — the engine accepts
+      // any number of pairs >= 1.
       const { generateArmfight, generateDoubleElimination } = await import(
         '@gsm/bracket-engine'
       );
+      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3'), makeEntry('u4')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+
+      await service.generate(
+        {
+          tournamentId: 't1',
+          pairs: [
+            { playerAId: 'entry-u1', playerBId: 'entry-u2', hand: 'right' },
+            { playerAId: 'entry-u3', playerBId: 'entry-u4', hand: 'left' },
+          ],
+        } as any,
+        'org-1',
+      );
+
+      expect(generateArmfight).toHaveBeenCalledTimes(1);
+      const callArg = (generateArmfight as any).mock.calls[0][0];
+      expect(callArg).toHaveLength(2);
+      expect(callArg[0].hand).toBe('right');
+      expect(callArg[0].playerA.id).toBe('entry-u1');
+      expect(callArg[0].playerB.id).toBe('entry-u2');
+      expect(callArg[1].hand).toBe('left');
+      expect(callArg[1].playerA.id).toBe('entry-u3');
+      expect(callArg[1].playerB.id).toBe('entry-u4');
+      expect(generateDoubleElimination).not.toHaveBeenCalled();
+    });
+
+    it('rejects when pairs[] is missing for armfight', async () => {
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'armwrestling', config: {} },
@@ -653,13 +692,12 @@ describe('BracketsService', () => {
       repo.create.mockReturnValue(makeBracket());
       repo.save.mockResolvedValue(makeBracket());
 
-      await service.generate({ tournamentId: 't1' }, 'org-1');
-
-      expect(generateArmfight).toHaveBeenCalled();
-      expect(generateDoubleElimination).not.toHaveBeenCalled();
+      await expect(
+        service.generate({ tournamentId: 't1' }, 'org-1'),
+      ).rejects.toThrow(/pairs/i);
     });
 
-    it('rejects armfight tournament with !=2 confirmed entries', async () => {
+    it('rejects when a pair references a player not in entries', async () => {
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'armwrestling', config: {} },
@@ -667,18 +705,29 @@ describe('BracketsService', () => {
         }),
       );
       entriesService.findByTournament.mockResolvedValue({
-        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3')],
+        data: [makeEntry('u1'), makeEntry('u2')],
       });
       repo.create.mockReturnValue(makeBracket());
       repo.save.mockResolvedValue(makeBracket());
 
-      await expect(service.generate({ tournamentId: 't1' }, 'org-1')).rejects.toThrow(
-        /exactly 2/i,
-      );
+      await expect(
+        service.generate(
+          {
+            tournamentId: 't1',
+            pairs: [{ playerAId: 'entry-u1', playerBId: 'GHOST', hand: 'right' }],
+          } as any,
+          'org-1',
+        ),
+      ).rejects.toThrow(/not in tournament entries|references player/i);
     });
 
     it('honors an explicit bracketFormat=armfight from the DTO (armwrestling allows it)', async () => {
+      // The DTO can request `armfight` explicitly even without
+      // `competitionType: 'armfight'` on the tournament — as long as the
+      // sport's allow-list permits it. Supply pairs[] so the new
+      // pairs-required check passes and the engine actually runs.
       const { generateArmfight } = await import('@gsm/bracket-engine');
+      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
       tournamentsService.findById.mockResolvedValue(armwrestlingTournament());
       entriesService.findByTournament.mockResolvedValue({
         data: [makeEntry('u1'), makeEntry('u2')],
@@ -687,7 +736,11 @@ describe('BracketsService', () => {
       repo.save.mockResolvedValue(makeBracket());
 
       await service.generate(
-        { tournamentId: 't1', bracketFormat: 'armfight' },
+        {
+          tournamentId: 't1',
+          bracketFormat: 'armfight',
+          pairs: [{ playerAId: 'entry-u1', playerBId: 'entry-u2', hand: 'right' }],
+        } as any,
         'org-1',
       );
 
@@ -698,8 +751,11 @@ describe('BracketsService', () => {
       // Boxing's SportPreset doesn't list `armfight` — flipping
       // `competitionType: 'armfight'` on a boxing tournament must NOT
       // silently dispatch to `generateArmfight`. The allow-list check
-      // applies to the auto-resolved format, not just the DTO request.
+      // applies to the auto-resolved format and runs in `resolveFormat`,
+      // before pairs[] validation — so the surface error is still
+      // "not allowed for this sport" even when pairs are absent.
       const { generateArmfight } = await import('@gsm/bracket-engine');
+      (generateArmfight as unknown as ReturnType<typeof vi.fn>).mockClear?.();
       tournamentsService.findById.mockResolvedValue(
         makeTournament({
           sport: { slug: 'boxing', config: {} },

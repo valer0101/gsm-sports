@@ -24,7 +24,7 @@ import {
   replacePlayerInSlot as engineReplacePlayer,
   withdrawPlayerFromSlot as engineWithdrawPlayer,
 } from '@gsm/bracket-engine';
-import type { Player, BracketData } from '@gsm/bracket-engine';
+import type { Player, BracketData, ArmfightPairSpec } from '@gsm/bracket-engine';
 import type { BracketFormat } from '@gsm/shared-types';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
 import { BracketAuditLog } from './entities/bracket-audit-log.entity';
@@ -328,18 +328,28 @@ export class BracketsService {
    * Build the actual `BracketData` for a list of players using the
    * already-resolved format. Centralised so the three `generate*`
    * methods don't duplicate the dispatch.
+   *
+   * Armfight is special-cased: it doesn't accept a flat `players[]`
+   * list — the engine wants explicit `ArmfightPairSpec[]` (a fight
+   * card). Callers must resolve their DTO's pair ids to `Player`
+   * objects and pass them in `armfightPairs`.
    */
-  private buildBracket(format: BracketFormat, players: Player[]): BracketData {
+  private buildBracket(
+    format: BracketFormat,
+    players: Player[],
+    armfightPairs?: ArmfightPairSpec[],
+  ): BracketData {
     if (format === 'single_elim') return generateSingleElimination(players);
     if (format === 'round_robin') return generateRoundRobin(players);
     if (format === 'swiss') return generateSwiss(players);
     if (format === 'groups_playoff') return generateGroupsPlayoff(players);
     if (format === 'armfight') {
-      // The 2-player path is removed in sub-project B. Wizard must POST
-      // pairs explicitly via the dedicated path (Task 19 wires this).
-      throw new BadRequestException(
-        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
-      );
+      if (!armfightPairs || armfightPairs.length === 0) {
+        throw new BadRequestException(
+          'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+        );
+      }
+      return generateArmfight(armfightPairs);
     }
     return generateDoubleElimination(players);
   }
@@ -386,7 +396,11 @@ export class BracketsService {
       photoUrl: entry.user?.avatarUrl ?? null,
     }));
 
-    const bracketData = this.buildBracket(format, players);
+    // `generateForGroup` is the legacy ageGroup/hand entry-point — it
+    // doesn't accept admin-curated pairs. Task 20 rejects armfight from
+    // this path so the third arg never matters here; pass `undefined`
+    // explicitly so tsc is happy.
+    const bracketData = this.buildBracket(format, players, undefined);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,
@@ -560,7 +574,10 @@ export class BracketsService {
             weightCategoryId: category.id,
             name: catName,
             status: 'active',
-            bracketData: this.buildBracket(format, players) as unknown as Record<string, unknown>,
+            bracketData: this.buildBracket(format, players, undefined) as unknown as Record<
+              string,
+              unknown
+            >,
           }),
         );
         count++;
@@ -622,7 +639,25 @@ export class BracketsService {
       }))
       .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
 
-    const bracketData = this.buildBracket(format, players);
+    // Armfight is an admin-curated fight card, not an auto-bracket from
+    // `players[]`. Resolve each pair's DTO ids against the tournament's
+    // confirmed entries up front so unknown ids fail with a clear 400
+    // before we hit the engine (which would throw a generic Error).
+    let armfightPairs: ArmfightPairSpec[] | undefined;
+    if (format === 'armfight' && dto.pairs && dto.pairs.length > 0) {
+      armfightPairs = dto.pairs.map((p, idx) => {
+        const a = players.find((pl) => pl.id === p.playerAId);
+        const b = players.find((pl) => pl.id === p.playerBId);
+        if (!a || !b) {
+          throw new BadRequestException(
+            `pairs[${idx}] references player ids not in tournament entries`,
+          );
+        }
+        return { playerA: a, playerB: b, hand: p.hand, order: p.order };
+      });
+    }
+
+    const bracketData = this.buildBracket(format, players, armfightPairs);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,
