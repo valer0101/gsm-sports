@@ -1982,5 +1982,123 @@ describe('BracketsService', () => {
       repo.findOne.mockResolvedValue(bracket);
       await expect(service.listBouts(bracket.id)).rejects.toThrow(/armfight/i);
     });
+
+    it('recordLegResult: rejects on non-armfight bracket', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: { format: 'double_elim', winnersBracket: [[]] } as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordLegResult(
+          bracket.id,
+          { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/armfight/i);
+    });
+
+    it('forfeitBoutById: rejects on non-armfight bracket', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: { format: 'double_elim', winnersBracket: [[]] } as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.forfeitBoutById(
+          bracket.id,
+          { boutId: 'wb_1_0', winnerId: 'p1' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/armfight/i);
+    });
+
+    it('recordLegResult: refuses when bracket is locked (non-admin)', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+        isLocked: true,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordLegResult(
+          bracket.id,
+          { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/locked/i);
+    });
+
+    it('recordLegResult: maps engine validation errors to BadRequest', async () => {
+      const { recordLeg } = await import('@gsm/bracket-engine');
+      (recordLeg as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+        throw new Error('recordLeg: legIndex 5 is out of order (expected 1)');
+      });
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordLegResult(
+          bracket.id,
+          { boutId: 'wb_1_0', legIndex: 5, winnerId: 'p1', winType: 'pin' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/out of order/i);
+    });
+
+    it('recordLegResult: rethrows non-engine errors (does not mask bugs)', async () => {
+      const { recordLeg } = await import('@gsm/bracket-engine');
+      (recordLeg as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+        throw new TypeError('Cannot read property of undefined');
+      });
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordLegResult(
+          bracket.id,
+          { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(TypeError);
+    });
+
+    it('recordLegResult: bumps lastModifiedBy / At / modificationCount on success', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+        modificationCount: 7,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      let savedBracket: any = null;
+      repo.save.mockImplementation((b: any) => {
+        savedBracket = b;
+        return Promise.resolve(b);
+      });
+      await service.recordLegResult(
+        bracket.id,
+        { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+        tournament.organizerId,
+        ['organizer'],
+      );
+      expect(savedBracket.lastModifiedBy).toBe(tournament.organizerId);
+      expect(savedBracket.lastModifiedAt).toBeInstanceOf(Date);
+      expect(savedBracket.modificationCount).toBe(8);
+    });
   });
 });

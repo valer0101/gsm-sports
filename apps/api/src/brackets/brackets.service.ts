@@ -27,6 +27,7 @@ import {
   forfeitBout,
   getBoutScore,
   propagateResults,
+  isArmfightBoutResult,
 } from '@gsm/bracket-engine';
 import type { Player, BracketData, ArmfightPairSpec } from '@gsm/bracket-engine';
 import type { BracketFormat } from '@gsm/shared-types';
@@ -958,18 +959,30 @@ export class BracketsService {
     if (data.format !== 'armfight') {
       throw new BadRequestException('recordLeg is only valid on armfight brackets');
     }
+    // TODO(armfight-concurrency): non-transactional save lets two concurrent
+    // recordLeg calls overwrite each other (both read legs=[], both push,
+    // second save wins → first leg lost). Lift to dataSource.transaction +
+    // modificationCount optimistic-lock pattern used by recordResult before
+    // a real event runs through this path.
     try {
       recordLeg(data, dto.boutId, dto.legIndex, dto.winnerId, dto.winType, {
         enteredBy: userId,
         enteredAt: dto.enteredAt,
       });
     } catch (e) {
-      // Engine throws plain Error on validation failures; surface as 400.
-      throw new BadRequestException(e instanceof Error ? e.message : String(e));
+      // Only convert engine validation errors (prefixed `recordLeg:`) into
+      // 400. Anything else is a real bug and should bubble as 500.
+      if (e instanceof Error && e.message.startsWith('recordLeg:')) {
+        throw new BadRequestException(e.message);
+      }
+      throw e;
     }
     propagateResults(data);
     bracket.bracketData = data as unknown as Bracket['bracketData'];
     bracket.status = (data.status === 'completed' ? 'completed' : 'active') as BracketStatus;
+    bracket.lastModifiedBy = userId;
+    bracket.lastModifiedAt = new Date();
+    bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
     const saved = await this.bracketsRepository.save(bracket);
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, data);
     return saved;
@@ -998,17 +1011,25 @@ export class BracketsService {
     if (data.format !== 'armfight') {
       throw new BadRequestException('forfeitBout is only valid on armfight brackets');
     }
+    // TODO(armfight-concurrency): see recordLegResult above — same race.
     try {
       forfeitBout(data, dto.boutId, dto.winnerId, {
         walkoverReason: dto.walkoverReason,
         enteredBy: userId,
       });
     } catch (e) {
-      throw new BadRequestException(e instanceof Error ? e.message : String(e));
+      // Only engine validation errors → 400. Other errors bubble.
+      if (e instanceof Error && e.message.startsWith('forfeitBout:')) {
+        throw new BadRequestException(e.message);
+      }
+      throw e;
     }
     propagateResults(data);
     bracket.bracketData = data as unknown as Bracket['bracketData'];
     bracket.status = (data.status === 'completed' ? 'completed' : 'active') as BracketStatus;
+    bracket.lastModifiedBy = userId;
+    bracket.lastModifiedAt = new Date();
+    bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
     const saved = await this.bracketsRepository.save(bracket);
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, data);
     return saved;
@@ -1043,11 +1064,12 @@ export class BracketsService {
     const round = data.winnersBracket[0] ?? [];
     return round.map((m, idx) => {
       const score = getBoutScore(data, m.id);
-      const r = m.result as unknown as {
-        hand: 'left' | 'right';
-        legs: Array<{ index: number; winnerId: string; winType: 'pin' | 'foul' | 'dq' }>;
-        walkoverReason?: string | null;
-      };
+      const r = m.result;
+      if (!isArmfightBoutResult(r)) {
+        throw new BadRequestException(
+          `Bout ${m.id} is missing or has malformed armfight result payload`,
+        );
+      }
       return {
         boutId: m.id,
         order: idx + 1,
