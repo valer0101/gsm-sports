@@ -181,9 +181,17 @@ export function validateMatchResult(
         errors.push('armfight_bo5: payload is not a valid ArmfightBoutResult');
         break;
       }
-      const legs = (r as unknown as { legs: Array<{ winnerId: string }> }).legs;
+      // `isArmfightBoutResult` only checks `Array.isArray(r.legs)` — not
+      // element shape. Per-element guard before dereferencing winnerId so
+      // a malicious `legs: [null]` payload doesn't TypeError into a 500.
+      const legs = (r as unknown as { legs: unknown[] }).legs;
       legs.forEach((leg, i) => {
-        if (!playerIds.has(leg.winnerId)) {
+        if (!leg || typeof leg !== 'object') {
+          errors.push(`armfight_bo5: legs[${i}] must be an object`);
+          return;
+        }
+        const winnerId = (leg as Record<string, unknown>).winnerId;
+        if (typeof winnerId !== 'string' || !playerIds.has(winnerId)) {
           errors.push(`armfight_bo5: legs[${i}].winnerId must be one of the match players`);
         }
       });

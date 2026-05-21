@@ -664,6 +664,23 @@ export class BracketsService {
     // before we hit the engine (which would throw a generic Error).
     let armfightPairs: ArmfightPairSpec[] | undefined;
     if (format === 'armfight' && dto.pairs && dto.pairs.length > 0) {
+      // First, cross-pair uniqueness — the engine catches this too, but
+      // only throws a generic Error which would bubble as 500. Surface
+      // a clear 400 telling the operator exactly which pair/id is the
+      // duplicate before we hit the engine.
+      const seenIds = new Map<string, number>(); // playerId -> first pair index
+      dto.pairs.forEach((p, idx) => {
+        for (const id of [p.playerAId, p.playerBId]) {
+          const prev = seenIds.get(id);
+          if (prev !== undefined) {
+            throw new BadRequestException(
+              `pairs[${idx}] references player '${id}' which already appears in pairs[${prev}] — a player can fight at most once on a card`,
+            );
+          }
+          seenIds.set(id, idx);
+        }
+      });
+
       armfightPairs = dto.pairs.map((p, idx) => {
         const a = players.find((pl) => pl.id === p.playerAId);
         const b = players.find((pl) => pl.id === p.playerBId);
@@ -794,6 +811,16 @@ export class BracketsService {
 
     const data = bracket.bracketData as unknown as BracketData;
 
+    // Armfight bouts are scored leg-by-leg through dedicated endpoints —
+    // selectWinner throws for armfight, so refuse here with a clear 400
+    // directing the caller to the right surface instead of leaking the
+    // engine error as a 500.
+    if (data.format === 'armfight') {
+      throw new BadRequestException(
+        'Armfight bouts must be scored via POST /v1/brackets/:id/legs or /forfeit, not /result.',
+      );
+    }
+
     // Check if match can be played
     const readyCheck = canRecordResult(data, dto.matchId);
     if (!readyCheck.valid) {
@@ -827,13 +854,12 @@ export class BracketsService {
       // can flip the schema for a special-format event without touching
       // the global sport config.
       const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
-      // Bracket format overrides the per-tournament / per-sport schema:
-      // an armfight bracket always uses 'armfight_bo5' regardless of what
-      // the surrounding tournament's sport says.
-      const isArmfight = data.format === 'armfight';
-      const matchResultSchema = isArmfight
-        ? ('armfight_bo5' as const)
-        : (tOverride.matchResultSchema ?? sportCfg.matchResultSchema);
+      // Armfight is already refused at the top of recordResult, so the
+      // schema here is always per-sport (or per-tournament override). The
+      // 'armfight_bo5' validator branch is reachable through other entry
+      // points (e.g., direct validator unit tests).
+      const matchResultSchema =
+        tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
       const resultErrors = validateMatchResult(dto.result, matchResultSchema, existingMatch);
       if (resultErrors.length > 0) {
         throw new BadRequestException({
@@ -1069,13 +1095,16 @@ export class BracketsService {
     }
     const round = data.winnersBracket[0] ?? [];
     return round.map((m, idx) => {
-      const score = getBoutScore(data, m.id);
+      // Guard the payload BEFORE calling getBoutScore — the engine helper
+      // throws a generic Error on a malformed result, which would surface
+      // as 500. Failing here gives the operator a clean 400 instead.
       const r = m.result;
       if (!isArmfightBoutResult(r)) {
         throw new BadRequestException(
           `Bout ${m.id} is missing or has malformed armfight result payload`,
         );
       }
+      const score = getBoutScore(data, m.id);
       return {
         boutId: m.id,
         order: idx + 1,
@@ -1252,6 +1281,17 @@ export class BracketsService {
     }
 
     const data = bracket.bracketData as unknown as BracketData;
+
+    // Armfight: engine `withdrawPlayerFromSlot` only refuses post-leg.
+    // For a pristine bout it would succeed, after which the service's
+    // selectWinner call throws (selectWinner is forbidden for armfight).
+    // Refuse early with a clear 400 directing to /forfeit.
+    if (data.format === 'armfight') {
+      throw new BadRequestException(
+        'Withdraw is not supported on armfight bouts — use POST /v1/brackets/:id/forfeit instead.',
+      );
+    }
+
     const match = findMatch(data, matchId);
     if (!match) throw new NotFoundException(`Match ${matchId} not found in bracket`);
 
