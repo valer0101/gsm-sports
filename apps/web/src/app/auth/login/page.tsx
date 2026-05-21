@@ -105,6 +105,16 @@ function LoginForm() {
             )}
           </div>
 
+          <div className="text-right">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs underline"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {t('forgot_link')}
+            </Link>
+          </div>
+
           {mutation.isError && (
             <p className="text-sm text-red-400 bg-red-500/10 px-4 py-2.5 rounded-xl">
               {(mutation.error as any)?.response?.data?.message ?? t('error_invalid')}
