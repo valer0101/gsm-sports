@@ -1,3 +1,5 @@
+import { escapeHtml } from './escape';
+
 export type SupportedLocale = 'ru' | 'en' | 'hy';
 
 export interface PasswordResetParams {
@@ -35,8 +37,9 @@ const bodies: Record<SupportedLocale, (url: string) => string> = {
 
 export function renderPasswordReset(p: PasswordResetParams): { subject: string; html: string } {
   const locale: SupportedLocale = (['ru', 'en', 'hy'] as const).includes(p.locale) ? p.locale : 'hy';
+  const safeName = escapeHtml(p.firstName);
   return {
     subject: subjects[locale],
-    html: `${greetings[locale](p.firstName)}\n${bodies[locale](p.resetUrl)}`,
+    html: `${greetings[locale](safeName)}\n${bodies[locale](p.resetUrl)}`,
   };
 }

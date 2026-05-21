@@ -49,4 +49,23 @@ describe('email templates', () => {
     });
     expect(out.html).toContain('https://gsm.example/auth/verify-email?token=xyz');
   });
+
+  it('escapes HTML in firstName to prevent injection in outgoing email', () => {
+    const out = renderPasswordResetEmail({
+      locale: 'en',
+      resetUrl: 'https://gsm.example/auth/reset-password?token=abc',
+      firstName: '<script>alert(1)</script>',
+    });
+    expect(out.html).not.toContain('<script>');
+    expect(out.html).toContain('&lt;script&gt;');
+  });
+
+  it('escapes HTML in firstName in verification emails too', () => {
+    const out = renderVerificationEmail({
+      locale: 'en',
+      verifyUrl: 'https://gsm.example/auth/verify-email?token=abc',
+      firstName: 'Aram & "the Hammer"',
+    });
+    expect(out.html).toContain('Aram &amp; &quot;the Hammer&quot;');
+  });
 });
