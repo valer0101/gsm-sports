@@ -2077,6 +2077,40 @@ describe('BracketsService', () => {
       ).rejects.toThrow(TypeError);
     });
 
+    it('recordLegResult: sets bracket.completedAt when the card finishes', async () => {
+      const { recordLeg, propagateResults } = await import('@gsm/bracket-engine');
+      (recordLeg as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce((d: any) => {
+        // Engine close: 3rd leg flips status.
+        const m = d.winnersBracket[0][0];
+        m.winner = 'p1';
+        m.loser = 'p2';
+        m.result.status = 'completed';
+      });
+      (propagateResults as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce((d: any) => {
+        d.status = 'completed';
+      });
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+        completedAt: null,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      let savedBracket: any = null;
+      repo.save.mockImplementation((b: any) => {
+        savedBracket = b;
+        return Promise.resolve(b);
+      });
+      await service.recordLegResult(
+        bracket.id,
+        { boutId: 'wb_1_0', legIndex: 3, winnerId: 'p1', winType: 'pin' } as any,
+        tournament.organizerId,
+        ['organizer'],
+      );
+      expect(savedBracket.status).toBe('completed');
+      expect(savedBracket.completedAt).toBeInstanceOf(Date);
+    });
+
     it('recordLegResult: bumps lastModifiedBy / At / modificationCount on success', async () => {
       const tournament = makeTournament({});
       const bracket = makeBracket({

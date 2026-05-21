@@ -42,6 +42,15 @@ export function MatchResultForm({
       return <ScoreFields match={match} onChange={onChange} />;
     case 'time':
       return <TimeFields match={match} onChange={onChange} />;
+    case 'armfight_bo5':
+      // Armfight bouts are scored leg-by-leg via the dedicated
+      // POST /v1/brackets/:id/legs endpoint, not through the generic
+      // /result form. The selectWinner path on the engine throws for
+      // armfight brackets, so this form should never be reached for an
+      // armfight match — but if it is (e.g. an admin opens an armfight
+      // match in the legacy result modal), render nothing instead of a
+      // mis-applied schema input.
+      return null;
     default: {
       const _exhaustive: never = schema;
       // Defensive UI for the case where a new `MatchResultSchema` is

@@ -979,7 +979,10 @@ export class BracketsService {
     }
     propagateResults(data);
     bracket.bracketData = data as unknown as Bracket['bracketData'];
-    bracket.status = (data.status === 'completed' ? 'completed' : 'active') as BracketStatus;
+    const newStatus: BracketStatus = data.status === 'completed' ? 'completed' : 'active';
+    bracket.status = newStatus;
+    bracket.completedAt =
+      newStatus === 'completed' ? (bracket.completedAt ?? new Date()) : null;
     bracket.lastModifiedBy = userId;
     bracket.lastModifiedAt = new Date();
     bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
@@ -1026,7 +1029,10 @@ export class BracketsService {
     }
     propagateResults(data);
     bracket.bracketData = data as unknown as Bracket['bracketData'];
-    bracket.status = (data.status === 'completed' ? 'completed' : 'active') as BracketStatus;
+    const newStatus: BracketStatus = data.status === 'completed' ? 'completed' : 'active';
+    bracket.status = newStatus;
+    bracket.completedAt =
+      newStatus === 'completed' ? (bracket.completedAt ?? new Date()) : null;
     bracket.lastModifiedBy = userId;
     bracket.lastModifiedAt = new Date();
     bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
