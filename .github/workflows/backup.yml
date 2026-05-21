@@ -1,0 +1,33 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Daily at 03:00 UTC. Cron uses the default branch only — make sure
+    # `main` has this file before relying on the schedule.
+    - cron: '0 3 * * *'
+  workflow_dispatch: # allow manual trigger from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: pg_dump → R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgres client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Run backup script
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: ./scripts/backup-db.sh
