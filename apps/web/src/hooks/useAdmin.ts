@@ -9,6 +9,7 @@ import type {
   TournamentEntry,
   SportBracketFormat,
 } from '@/types/api';
+import type { PairPayload } from '@/components/admin/armfight-pairs/types';
 
 /* ─── Tournaments ─── */
 
@@ -184,6 +185,30 @@ export function useArmfightBracket(tournamentId: string) {
     (b) => (b.bracketData as any)?.format === 'armfight',
   ) ?? null;
   return { ...rest, data: bracket };
+}
+
+/**
+ * Submit a curated `pairs[]` to create an armfight bracket. Routes
+ * through the sub-project B path (POST /v1/brackets) rather than the
+ * generic admin generate-brackets endpoint, which refuses armfight
+ * (Task 20 of sub-project B).
+ */
+export function useGenerateArmfightBracket(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { pairs: PairPayload[] }) =>
+      api
+        .post('/v1/brackets', {
+          tournamentId,
+          bracketFormat: 'armfight',
+          pairs: body.pairs,
+        })
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+    },
+  });
 }
 
 export function useAdminCorrectResult(bracketId: string, tournamentId: string) {
