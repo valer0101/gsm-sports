@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Repository } from 'typeorm';
+import * as crypto from 'node:crypto';
 import { PasswordResetService } from './password-reset.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { UsersService } from '../users/users.service';
@@ -93,5 +95,63 @@ describe('PasswordResetService.requestReset', () => {
     // The raw token in the URL must NOT equal the stored hash.
     const urlToken = sent.html.match(/token=([a-f0-9]{64})/)![1];
     expect(urlToken).not.toBe(savedRow.tokenHash);
+  });
+});
+
+describe('PasswordResetService.consumeToken', () => {
+  let service: PasswordResetService;
+  let mocks: Mocks;
+
+  beforeEach(async () => {
+    ({ service, mocks } = await buildService());
+  });
+
+  function hash(t: string) {
+    return crypto.createHash('sha256').update(t).digest('hex');
+  }
+
+  it('throws on unknown / expired / used token', async () => {
+    mocks.repo.findOne.mockResolvedValue(null);
+    await expect(service.consumeToken('badtoken', 'newpassword12')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('updates password and marks token used on success', async () => {
+    const raw = 'a'.repeat(64);
+    const row = {
+      id: 'tok-1',
+      userId: 'user-1',
+      tokenHash: hash(raw),
+      expiresAt: new Date(Date.now() + 10_000),
+      usedAt: null,
+    };
+    mocks.repo.findOne.mockResolvedValue(row);
+
+    await service.consumeToken(raw, 'newPassword12');
+
+    expect(mocks.users.update).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ passwordHash: expect.any(String) }),
+    );
+    // bcrypt hash starts with $2
+    expect((mocks.users.update.mock.calls[0][1] as any).passwordHash).toMatch(/^\$2[aby]\$/);
+    expect(mocks.repo.update).toHaveBeenCalledWith(
+      { id: 'tok-1' },
+      expect.objectContaining({ usedAt: expect.any(Date) }),
+    );
+  });
+
+  it('refuses passwords shorter than 8 chars (defense in depth — DTO also enforces)', async () => {
+    const raw = 'b'.repeat(64);
+    mocks.repo.findOne.mockResolvedValue({
+      id: 'tok-2',
+      userId: 'user-1',
+      tokenHash: hash(raw),
+      expiresAt: new Date(Date.now() + 10_000),
+      usedAt: null,
+    });
+    await expect(service.consumeToken(raw, 'short')).rejects.toBeInstanceOf(BadRequestException);
+    expect(mocks.users.update).not.toHaveBeenCalled();
   });
 });
