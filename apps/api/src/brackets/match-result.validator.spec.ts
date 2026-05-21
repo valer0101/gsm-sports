@@ -278,6 +278,44 @@ describe('validateMatchResult', () => {
       );
       expect(errs.join(' ')).toMatch(/winnerId/);
     });
+
+    it('does not crash on a null leg element (returns clean error instead of TypeError)', () => {
+      // Regression: pre-fix the validator dereferenced leg.winnerId directly,
+      // so `legs: [null]` triggered TypeError → 500. Now we expect a clean
+      // error message and no throw.
+      let errs: string[] = [];
+      expect(() => {
+        errs = validateMatchResult(
+          {
+            schema: 'armfight_bo5',
+            hand: 'right',
+            legs: [null],
+            scoreA: 1,
+            scoreB: 0,
+            status: 'in_progress',
+          },
+          'armfight_bo5',
+          match,
+        );
+      }).not.toThrow();
+      expect(errs.join(' ')).toMatch(/legs\[0\]|must be an object/i);
+    });
+
+    it('rejects a primitive leg element with a clean error', () => {
+      const errs = validateMatchResult(
+        {
+          schema: 'armfight_bo5',
+          hand: 'right',
+          legs: ['oops'],
+          scoreA: 1,
+          scoreB: 0,
+          status: 'in_progress',
+        },
+        'armfight_bo5',
+        match,
+      );
+      expect(errs.join(' ')).toMatch(/must be an object/i);
+    });
   });
 
   describe('simple_winner', () => {

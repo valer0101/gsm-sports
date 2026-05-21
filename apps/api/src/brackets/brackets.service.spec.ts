@@ -1118,14 +1118,13 @@ describe('BracketsService', () => {
         );
       });
 
-      it('resolves matchResultSchema to "armfight_bo5" when bracketData.format === "armfight"', async () => {
-        const { findMatch } = await import('@gsm/bracket-engine');
-        vi.mocked(findMatch).mockReturnValueOnce({
-          id: 'wb_1_0',
-          winner: null,
-          player1: { id: 'p1' },
-          player2: { id: 'p2' },
-        } as any);
+      it('recordResult on armfight is rejected up-front (validator armfight_bo5 path unreachable here)', async () => {
+        // The earlier behaviour resolved matchResultSchema='armfight_bo5'
+        // inside recordResult and exercised the validator. That path is
+        // now unreachable: recordResult refuses armfight brackets with a
+        // 400 directing the caller to /legs or /forfeit, BEFORE schema
+        // resolution. The armfight_bo5 validator branch itself is
+        // covered directly in match-result.validator.spec.ts.
         const tournament = makeTournament({
           sport: { slug: 'armwrestling', config: {} },
           sportConfig: { competitionType: 'armfight' },
@@ -1142,7 +1141,7 @@ describe('BracketsService', () => {
             tournament.organizerId,
             ['organizer'],
           ),
-        ).rejects.toThrow(/armfight_bo5/);
+        ).rejects.toThrow(/legs|forfeit/i);
       });
 
       it('explicit null is forwarded so the engine clears the prior payload', async () => {
@@ -2133,6 +2132,82 @@ describe('BracketsService', () => {
       expect(savedBracket.lastModifiedBy).toBe(tournament.organizerId);
       expect(savedBracket.lastModifiedAt).toBeInstanceOf(Date);
       expect(savedBracket.modificationCount).toBe(8);
+    });
+
+    // ─── Clean 400s on armfight error paths (PR #105 follow-up) ─────
+
+    it('recordResult: rejects armfight bracket with 400 pointing to /legs', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordResult(
+          bracket.id,
+          { matchId: 'wb_1_0', winnerId: 'p1' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/legs|forfeit/i);
+    });
+
+    it('withdrawPlayer: rejects armfight bracket with 400 pointing to /forfeit', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.withdrawPlayer(
+          bracket.id,
+          'wb_1_0',
+          { position: 1, reason: 'test' } as any,
+          tournament.organizerId,
+          ['organizer'],
+        ),
+      ).rejects.toThrow(/forfeit/i);
+    });
+
+    it('listBouts: returns 400 (not 500) on malformed result payload', async () => {
+      const tournament = makeTournament({});
+      const corrupted = makeArmfightBracketData() as any;
+      corrupted.winnersBracket[0][0].result = null; // simulate corrupt rehydrate
+      const bracket = makeBracket({ tournament, bracketData: corrupted });
+      repo.findOne.mockResolvedValue(bracket);
+      // BadRequestException, NOT a generic Error from getBoutScore
+      await expect(service.listBouts(bracket.id)).rejects.toThrow(
+        /missing or has malformed armfight result/i,
+      );
+    });
+
+    it('generate: rejects duplicate player across armfight pairs with clear 400', async () => {
+      tournamentsService.findById.mockResolvedValue(
+        makeTournament({
+          sport: { slug: 'armwrestling', config: {} },
+          sportConfig: { competitionType: 'armfight' },
+        }),
+      );
+      entriesService.findByTournament.mockResolvedValue({
+        data: [makeEntry('u1'), makeEntry('u2'), makeEntry('u3')],
+      });
+      repo.create.mockReturnValue(makeBracket());
+      repo.save.mockResolvedValue(makeBracket());
+      await expect(
+        service.generate(
+          {
+            tournamentId: 't1',
+            bracketFormat: 'armfight',
+            pairs: [
+              { playerAId: 'entry-u1', playerBId: 'entry-u2', hand: 'right' },
+              { playerAId: 'entry-u1', playerBId: 'entry-u3', hand: 'left' },
+            ],
+          } as any,
+          'org-1',
+        ),
+      ).rejects.toThrow(/already appears in pairs|already.*appears.*pairs|at most once/i);
     });
   });
 });
