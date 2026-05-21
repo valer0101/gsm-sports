@@ -5,22 +5,26 @@ export class PasswordResetToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Migration creates this table in snake_case (see
+  // 1779580000000-password-reset-tokens.ts). TypeORM property names default
+  // to the column name, so each column needs an explicit `name:` alias to
+  // match the table. Same pattern as `telegram_links` entity.
   @Index()
-  @Column({ type: 'uuid' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   // SHA-256 hex of the random token. Hex of a 32-byte digest is 64 chars.
   // The plaintext token lives only in the email link, never in the DB.
   @Index()
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ name: 'token_hash', type: 'varchar', length: 64 })
   tokenHash: string;
 
-  @Column({ type: 'timestamptz' })
+  @Column({ name: 'expires_at', type: 'timestamptz' })
   expiresAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ name: 'used_at', type: 'timestamptz', nullable: true })
   usedAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

@@ -5,20 +5,24 @@ export class EmailVerificationToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Migration creates this table in snake_case (see
+  // 1779680000000-email-verification-tokens.ts). Explicit `name:` aliases
+  // keep TypeORM's column lookups matching the DB, same pattern as the
+  // `password_reset_tokens` entity and `telegram_links`.
   @Index()
-  @Column({ type: 'uuid' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @Index()
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ name: 'token_hash', type: 'varchar', length: 64 })
   tokenHash: string;
 
-  @Column({ type: 'timestamptz' })
+  @Column({ name: 'expires_at', type: 'timestamptz' })
   expiresAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ name: 'used_at', type: 'timestamptz', nullable: true })
   usedAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
