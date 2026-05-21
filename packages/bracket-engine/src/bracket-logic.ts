@@ -8,6 +8,12 @@ import {
   Standing,
   FinalPlacement,
   GroupStage,
+  ArmfightPairSpec,
+  ArmfightBoutResult,
+  ArmfightBoutStatus,
+  ArmfightHand,
+  LegWinType,
+  RecordLegOptions,
   TBD_PLAYER,
   BYE_PLAYER,
 } from './types';
@@ -135,6 +141,13 @@ export function walkBracketMatches(data: BracketData, visit: BracketMatchVisitor
 export function isPlayableMatch(
   match: Match | GrandFinalMatch | SuperFinalMatch,
 ): boolean {
+  // Armfight bouts: gate on result.status, not on match.winner — a bout
+  // with 1-2 legs already recorded has no winner yet but is still in
+  // progress and accepts more legs.
+  const maybeArmfight = (match as Match).result;
+  if (isArmfightBoutResult(maybeArmfight)) {
+    return maybeArmfight.status === 'pending' || maybeArmfight.status === 'in_progress';
+  }
   if (match.winner) return false;
   const p1 = match.player1?.id;
   const p2 = match.player2?.id;
@@ -466,37 +479,67 @@ export function generateSingleElimination(players: Player[]): BracketData {
   return result;
 }
 
-// ─── Armfight (one-off title fight) ─────────────────────────
+// ─── Armfight (fight card — sub-project B) ──────────────────
+
+function freshBoutResult(hand: ArmfightHand): ArmfightBoutResult {
+  return {
+    hand,
+    legs: [],
+    scoreA: 0,
+    scoreB: 0,
+    status: 'pending',
+  };
+}
 
 /**
- * Build an armfight bracket — a single match between two named athletes,
- * no bracket tree. Title fights, exhibition bouts, "match of the night".
+ * Build an armfight fight card — 1..N independent bouts, each best-of-5 on a
+ * single hand. Admin curates the pair list (no auto-pairing). Each bout is a
+ * regular `Match` in `winnersBracket[0]`; bo5 score lives in `Match.result`
+ * as an `ArmfightBoutResult`. `champion` is always null — a fight card has
+ * no event-level winner (decisions §2.1 of the spec).
  *
- * Reuses the standard `BracketData` shape so consumers (operator UI,
- * audit log, websocket broadcast, …) work without branching:
- *   - `format: 'armfight'`
- *   - `winnersBracket: [[ one match ]]`
- *   - `losersBracket: []`, `grandFinal` / `superFinal` TBD never reached
- *   - Champion = winner of the single match; runner-up = its loser.
- *
- * Caller must pass exactly 2 real players. BYE / TBD seats are not
- * meaningful here and rejected at the API boundary.
+ * Throws on: empty pairs; self-pair; BYE/TBD in a pair; a player appearing
+ * in two pairs; invalid hand.
  */
-export function generateArmfight(players: Player[]): BracketData {
-  if (players.length !== 2) {
-    throw new Error('Armfight requires exactly 2 players');
+export function generateArmfight(pairs: ArmfightPairSpec[]): BracketData {
+  if (!pairs || pairs.length === 0) {
+    throw new Error('generateArmfight: at least one pair is required');
   }
 
-  const [a, b] = players;
-  const match: Match = {
-    id: 'wb_1_0',
+  const seenPlayerIds = new Set<string>();
+  pairs.forEach((p, idx) => {
+    if (!p.playerA?.id || !p.playerB?.id) {
+      throw new Error(`generateArmfight: pair[${idx}] is missing a player`);
+    }
+    if (p.playerA.id === p.playerB.id) {
+      throw new Error(`generateArmfight: pair[${idx}] has the same player on both sides`);
+    }
+    if (isBye(p.playerA.id) || isTbd(p.playerA.id) || isBye(p.playerB.id) || isTbd(p.playerB.id)) {
+      throw new Error(`generateArmfight: pair[${idx}] contains a BYE/TBD slot`);
+    }
+    if (p.hand !== 'left' && p.hand !== 'right') {
+      throw new Error(`generateArmfight: pair[${idx}] has invalid hand '${String(p.hand)}'`);
+    }
+    if (seenPlayerIds.has(p.playerA.id)) {
+      throw new Error(`generateArmfight: player '${p.playerA.id}' appears in two pairs (duplicate)`);
+    }
+    if (seenPlayerIds.has(p.playerB.id)) {
+      throw new Error(`generateArmfight: player '${p.playerB.id}' appears in two pairs (duplicate)`);
+    }
+    seenPlayerIds.add(p.playerA.id);
+    seenPlayerIds.add(p.playerB.id);
+  });
+
+  const matches: Match[] = pairs.map((p, i) => ({
+    id: `wb_1_${i}`,
     round: 1,
-    matchIndex: 0,
-    player1: { ...a, seed: 1 },
-    player2: { ...b, seed: 2 },
+    matchIndex: i,
+    player1: { ...p.playerA, seed: i * 2 + 1 },
+    player2: { ...p.playerB, seed: i * 2 + 2 },
     winner: null,
     loser: null,
-  };
+    result: freshBoutResult(p.hand),
+  }));
 
   const grandFinal: GrandFinalMatch = {
     id: 'grand_final',
@@ -514,17 +557,23 @@ export function generateArmfight(players: Player[]): BracketData {
     needed: false,
   };
 
+  const players: Player[] = [];
+  const seenInOutput = new Set<string>();
+  for (const p of pairs) {
+    for (const pl of [p.playerA, p.playerB]) {
+      if (!seenInOutput.has(pl.id)) {
+        seenInOutput.add(pl.id);
+        players.push({ id: pl.id, firstName: pl.firstName, lastName: pl.lastName, number: pl.number });
+      }
+    }
+  }
+
   return {
     format: 'armfight',
-    players: players.map((p) => ({
-      id: p.id,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      number: p.number,
-    })),
-    bracketSize: 2,
+    players,
+    bracketSize: pairs.length * 2,
     wbRounds: 1,
-    winnersBracket: [[match]],
+    winnersBracket: [matches],
     losersBracket: [],
     grandFinal,
     superFinal,
@@ -533,14 +582,175 @@ export function generateArmfight(players: Player[]): BracketData {
   };
 }
 
-/** Finalize an armfight after a result is recorded — single match wins it all. */
+/**
+ * Finalize an armfight card — bracket completes when every bout is
+ * `completed` or `walkover`. `champion` always stays null.
+ */
 function finalizeArmfight(data: BracketData): void {
   if (data.format !== 'armfight') return;
-  const match = data.winnersBracket[0]?.[0];
-  if (!match?.winner) return;
-  if (isBye(match.winner)) return;
-  data.champion = match.winner;
-  data.status = 'completed';
+  const round = data.winnersBracket[0] ?? [];
+  const allDone = round.every((m) => {
+    const r = m.result as ArmfightBoutResult | null | undefined;
+    return r?.status === 'completed' || r?.status === 'walkover';
+  });
+  if (allDone && round.length > 0) data.status = 'completed';
+  // champion intentionally not set — fight card has no event-level champion.
+}
+
+const HANDS = new Set<string>(['left', 'right']);
+const STATUSES = new Set<string>(['pending', 'in_progress', 'completed', 'walkover']);
+
+/** Narrows an unknown blob to an `ArmfightBoutResult`. Pure / no mutation. */
+export function isArmfightBoutResult(x: unknown): x is ArmfightBoutResult {
+  if (!x || typeof x !== 'object') return false;
+  const r = x as Record<string, unknown>;
+  if (typeof r.hand !== 'string' || !HANDS.has(r.hand)) return false;
+  if (!Array.isArray(r.legs)) return false;
+  if (typeof r.scoreA !== 'number' || typeof r.scoreB !== 'number') return false;
+  if (typeof r.status !== 'string' || !STATUSES.has(r.status)) return false;
+  return true;
+}
+
+const WIN_TYPES = new Set<string>(['pin', 'foul', 'dq']);
+
+/**
+ * Append a leg result to a pending / in_progress armfight bout. Mutates
+ * `data` in place. Decides the bout when a side reaches 3 leg wins —
+ * sets match.winner/loser and result.status accordingly.
+ *
+ * Throws on (in implementation order):
+ *   - data.format !== 'armfight'
+ *   - bout not found by id
+ *   - bout has no armfight result payload (corrupt persisted state)
+ *   - bout already completed or walkover
+ *   - winnerId not in {player1.id, player2.id}
+ *   - winType not in {'pin','foul','dq'}
+ *   - legIndex outside 1..5
+ *   - legIndex !== legs.length + 1 (must be the next leg in sequence)
+ */
+export function recordLeg(
+  data: BracketData,
+  boutId: string,
+  legIndex: number,
+  winnerId: string,
+  winType: LegWinType,
+  options?: RecordLegOptions,
+): void {
+  if (data.format !== 'armfight') {
+    throw new Error('recordLeg: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`recordLeg: bout '${boutId}' not found`);
+
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`recordLeg: bout '${boutId}' has no armfight result payload`);
+  }
+  if (r.status === 'completed' || r.status === 'walkover') {
+    throw new Error(`recordLeg: bout '${boutId}' is closed (status=${r.status})`);
+  }
+  if (winnerId !== match.player1.id && winnerId !== match.player2.id) {
+    throw new Error(`recordLeg: winnerId '${winnerId}' is not a player in this bout`);
+  }
+  if (!WIN_TYPES.has(winType)) {
+    throw new Error(`recordLeg: invalid winType '${String(winType)}'`);
+  }
+  // Bare-bounds check first so a caller passing legIndex=6 with an
+  // empty legs[] gets a clear "out of range" error, not the misleading
+  // "out of order (expected 1)" the next check would produce.
+  if (legIndex < 1 || legIndex > 5) {
+    throw new Error(`recordLeg: legIndex ${legIndex} outside bo5 range 1..5`);
+  }
+  if (legIndex !== r.legs.length + 1) {
+    throw new Error(`recordLeg: legIndex ${legIndex} is out of order (expected ${r.legs.length + 1})`);
+  }
+
+  r.legs.push({
+    index: legIndex,
+    winnerId,
+    winType,
+    enteredBy: options?.enteredBy ?? null,
+    enteredAt: options?.enteredAt ?? new Date().toISOString(),
+  });
+  if (winnerId === match.player1.id) r.scoreA += 1;
+  else r.scoreB += 1;
+
+  if (r.scoreA === 3 || r.scoreB === 3) {
+    r.status = 'completed';
+    match.winner = r.scoreA === 3 ? match.player1.id : match.player2.id;
+    match.loser = r.scoreA === 3 ? match.player2.id : match.player1.id;
+  } else {
+    r.status = 'in_progress';
+  }
+}
+
+/**
+ * Close an armfight bout as walkover. Sets match.winner/loser and
+ * result.status='walkover'. Existing legs are preserved; no further legs
+ * can be appended. Throws on closed bouts, missing bout, non-armfight
+ * brackets, or a winnerId not in the pair.
+ */
+export function forfeitBout(
+  data: BracketData,
+  boutId: string,
+  winnerId: string,
+  options?: { walkoverReason?: string | null; enteredBy?: string | null },
+): void {
+  if (data.format !== 'armfight') {
+    throw new Error('forfeitBout: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`forfeitBout: bout '${boutId}' not found`);
+
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`forfeitBout: bout '${boutId}' has no armfight result payload`);
+  }
+  if (r.status === 'completed' || r.status === 'walkover') {
+    throw new Error(`forfeitBout: bout '${boutId}' is closed (status=${r.status})`);
+  }
+  if (winnerId !== match.player1.id && winnerId !== match.player2.id) {
+    throw new Error(`forfeitBout: winnerId '${winnerId}' is not a player in this bout`);
+  }
+
+  r.status = 'walkover';
+  if (options?.walkoverReason !== undefined) r.walkoverReason = options.walkoverReason;
+  match.winner = winnerId;
+  match.loser = winnerId === match.player1.id ? match.player2.id : match.player1.id;
+  if (options?.enteredBy) {
+    match.enteredBy = options.enteredBy;
+    match.enteredAt = new Date().toISOString();
+  }
+}
+
+/**
+ * Pure helper: read derived state of an armfight bout. Does not mutate.
+ * `leadingId` is the winning side (the player with the higher score) for
+ * pending/in_progress, the bout winner for completed/walkover, and null
+ * when the scores are tied and the bout is not yet closed.
+ */
+export function getBoutScore(
+  data: BracketData,
+  boutId: string,
+): { a: number; b: number; status: ArmfightBoutStatus; leadingId: string | null } {
+  if (data.format !== 'armfight') {
+    throw new Error('getBoutScore: only valid on armfight brackets');
+  }
+  const match = (data.winnersBracket[0] ?? []).find((m) => m.id === boutId);
+  if (!match) throw new Error(`getBoutScore: bout '${boutId}' not found`);
+  const r = match.result as ArmfightBoutResult | null | undefined;
+  if (!isArmfightBoutResult(r)) {
+    throw new Error(`getBoutScore: bout '${boutId}' has no armfight result payload`);
+  }
+  let leadingId: string | null = null;
+  if (r.status === 'completed' || r.status === 'walkover') {
+    leadingId = match.winner;
+  } else if (r.scoreA > r.scoreB) {
+    leadingId = match.player1.id;
+  } else if (r.scoreB > r.scoreA) {
+    leadingId = match.player2.id;
+  }
+  return { a: r.scoreA, b: r.scoreB, status: r.status, leadingId };
 }
 
 /** Shared single-elim "is the WB final done?" check used by the
@@ -1389,17 +1599,11 @@ export function getFinalPlacements(data: BracketData): FinalPlacement[] {
         skipLastRoundLoserDuringWalk: true,
       });
     case 'armfight': {
-      // One match: champion = winner, runner-up = loser. Either or both
-      // may be null while the bout is still pending.
-      const out: FinalPlacement[] = [];
-      const match = data.winnersBracket[0]?.[0];
-      if (data.champion && isReal(data.champion)) {
-        out.push({ playerId: data.champion, position: 1 });
-      }
-      if (match?.loser && isReal(match.loser)) {
-        out.push({ playerId: match.loser, position: out.length + 1 });
-      }
-      return out;
+      // Fight card has no event-level ranking — bouts are independent
+      // (sub-project B decision §2.1). Per-pair winners live on each
+      // Match.winner; consumers that want them iterate winnersBracket[0]
+      // directly.
+      return [];
     }
     default: {
       const exhaustive: never = format;
@@ -1885,8 +2089,39 @@ export function propagateResults(data: BracketData): void {
     return;
   }
 
-  // Armfight: a single match decides everything. No bracket propagation.
+  // Armfight (fight card): each bout is independent. Reconcile any bout
+  // whose result is closed but whose match.winner is still null (e.g.
+  // after rehydration from persisted JSONB), then finalize.
   if (data.format === 'armfight') {
+    const round = data.winnersBracket[0] ?? [];
+    for (const m of round) {
+      const r = m.result as ArmfightBoutResult | null | undefined;
+      if (!isArmfightBoutResult(r)) continue;
+      if ((r.status === 'completed' || r.status === 'walkover') && m.winner == null) {
+        if (r.scoreA > r.scoreB) {
+          m.winner = m.player1.id;
+          m.loser = m.player2.id;
+        } else if (r.scoreB > r.scoreA) {
+          m.winner = m.player2.id;
+          m.loser = m.player1.id;
+        }
+        // Tied score on a closed bout (e.g. a `forfeitBout` called on a
+        // pristine bout leaves scoreA=0, scoreB=0 alongside status=
+        // 'walkover') cannot be reconciled from `result` alone — the
+        // forfeit-winner identity isn't in the score. In the live flow
+        // this is fine: `forfeitBout` sets `match.winner` synchronously
+        // on the same call, so by the time `propagateResults` runs it's
+        // already populated and the outer `m.winner == null` guard
+        // skips this branch. The reconciliation path here therefore
+        // relies on the persistence layer storing `match.winner`
+        // alongside `result`. If a future caller persists only
+        // `result`, a tied-walkover bout would land with `winner=null`
+        // and `finalizeArmfight` would still close the bracket (it
+        // only inspects `result.status`). That gap is accepted by the
+        // current spec — add `walkoverWinnerId` to ArmfightBoutResult
+        // if it ever becomes a real problem.
+      }
+    }
     finalizeArmfight(data);
     return;
   }
@@ -2046,6 +2281,26 @@ export function validateResult(
     return { valid: false, errors: ['Match not found'] };
   }
 
+  // Armfight: tighter shape rules — payload must be an ArmfightBoutResult
+  // and its derived counts must agree with `legs`.
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (!isArmfightBoutResult(r)) {
+      return { valid: false, errors: ['Armfight result payload missing or malformed'] };
+    }
+    if (r.scoreA + r.scoreB !== r.legs.length) {
+      errors.push('Armfight score does not match legs.length');
+    }
+    const decided = r.scoreA === 3 || r.scoreB === 3;
+    if (decided && r.status !== 'completed' && r.status !== 'walkover') {
+      errors.push('Armfight bout reached 3 legs but status is not completed');
+    }
+    if (!decided && r.status === 'completed') {
+      errors.push('Armfight status is completed but neither side has 3 legs');
+    }
+    return { valid: errors.length === 0, errors };
+  }
+
   if (isTbd(match.player1.id) || isTbd(match.player2.id)) {
     errors.push('Cannot record result: match is not ready yet (TBD players)');
   }
@@ -2067,6 +2322,18 @@ export function canRecordResult(data: BracketData, matchId: string): ValidationR
 
   if (!match) {
     return { valid: false, errors: ['Match not found'] };
+  }
+
+  // Armfight: status-driven, not winner-driven.
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (!isArmfightBoutResult(r)) {
+      return { valid: false, errors: ['Match has no armfight result payload'] };
+    }
+    if (r.status === 'completed' || r.status === 'walkover') {
+      return { valid: false, errors: [`Bout is closed (status=${r.status})`] };
+    }
+    return { valid: true, errors: [] };
   }
 
   if (isTbd(match.player1.id) || isTbd(match.player2.id)) {
@@ -2095,6 +2362,24 @@ export function resetMatch(data: BracketData, matchId: string): BracketData {
   // `canRecordResult` then rejects (BYE-in-slot guard), giving the
   // operator no way to un-stick the bracket short of regeneration.
   if (match.player1.id === 'bye' || match.player2.id === 'bye') return data;
+
+  if (data.format === 'armfight') {
+    const m = (match as Match);
+    const r = m.result as ArmfightBoutResult | null | undefined;
+    const hand: ArmfightHand =
+      isArmfightBoutResult(r) ? r.hand : 'right';
+    m.winner = null;
+    m.loser = null;
+    m.enteredBy = null;
+    m.enteredAt = null;
+    m.correctedBy = null;
+    m.correctedAt = null;
+    m.result = { hand, legs: [], scoreA: 0, scoreB: 0, status: 'pending' };
+    // Card may have been completed; reopen.
+    data.status = 'active';
+    // champion is always null for armfight — no further work.
+    return data;
+  }
 
   const oldWinner = match.winner;
   const oldLoser = match.loser;
@@ -2295,6 +2580,13 @@ export function replacePlayerInSlot(
   if (!match) return { ok: false, error: 'Match not found' };
   if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
 
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (isArmfightBoutResult(r) && r.legs.length > 0) {
+      return { ok: false, error: 'Cannot replace player after a leg has been recorded' };
+    }
+  }
+
   const currentSlot = position === 1 ? match.player1 : match.player2;
   if (!isReal(currentSlot.id)) {
     return { ok: false, error: 'Slot does not hold a real player' };
@@ -2360,6 +2652,13 @@ export function withdrawPlayerFromSlot(
   if (!match) return { ok: false, error: 'Match not found' };
   if (match.winner) return { ok: false, error: 'Match already has a recorded result' };
 
+  if (data.format === 'armfight') {
+    const r = (match as Match).result;
+    if (isArmfightBoutResult(r) && r.legs.length > 0) {
+      return { ok: false, error: 'Cannot withdraw player after a leg has been recorded' };
+    }
+  }
+
   const withdrawnSlot = position === 1 ? match.player1 : match.player2;
   const opponentSlot = position === 1 ? match.player2 : match.player1;
 
@@ -2392,6 +2691,12 @@ export function selectWinner(
 ): BracketData {
   const match = findMatch(data, matchId);
   if (!match) return data;
+
+  if (data.format === 'armfight') {
+    throw new Error(
+      'selectWinner: armfight bouts must be decided via recordLeg / forfeitBout',
+    );
+  }
 
   // Defensive guard: refuse to overwrite an auto-resolved bye match.
   // `canRecordResult` already rejects these at the API boundary, but

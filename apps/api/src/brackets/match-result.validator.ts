@@ -1,5 +1,6 @@
 import type { MatchResult, MatchResultSchema } from '@gsm/shared-types';
 import type { Match, GrandFinalMatch } from '@gsm/bracket-engine';
+import { isArmfightBoutResult } from '@gsm/bracket-engine';
 
 /**
  * Validation for the sport-specific `result` payload attached to a
@@ -172,6 +173,30 @@ export function validateMatchResult(
         errors.push('time: player2Ms must be a non-negative integer');
       }
       assertOptionalString(r, 'notes', errors);
+      break;
+    }
+
+    case 'armfight_bo5': {
+      if (!isArmfightBoutResult(r as unknown)) {
+        errors.push('armfight_bo5: payload is not a valid ArmfightBoutResult');
+        break;
+      }
+      const legs = (r as unknown as { legs: Array<{ winnerId: string }> }).legs;
+      legs.forEach((leg, i) => {
+        if (!playerIds.has(leg.winnerId)) {
+          errors.push(`armfight_bo5: legs[${i}].winnerId must be one of the match players`);
+        }
+      });
+      const { scoreA, scoreB, status } = r as unknown as {
+        scoreA: number; scoreB: number; status: string;
+      };
+      if (scoreA + scoreB !== legs.length) {
+        errors.push('armfight_bo5: scoreA + scoreB must equal legs.length');
+      }
+      const decided = scoreA === 3 || scoreB === 3;
+      if (decided && status !== 'completed' && status !== 'walkover') {
+        errors.push('armfight_bo5: bout reached 3 legs but status is not completed/walkover');
+      }
       break;
     }
 

@@ -23,8 +23,13 @@ import {
   findMatch,
   replacePlayerInSlot as engineReplacePlayer,
   withdrawPlayerFromSlot as engineWithdrawPlayer,
+  recordLeg,
+  forfeitBout,
+  getBoutScore,
+  propagateResults,
+  isArmfightBoutResult,
 } from '@gsm/bracket-engine';
-import type { Player, BracketData } from '@gsm/bracket-engine';
+import type { Player, BracketData, ArmfightPairSpec } from '@gsm/bracket-engine';
 import type { BracketFormat } from '@gsm/shared-types';
 import { Bracket, BracketStatus } from './entities/bracket.entity';
 import { BracketAuditLog } from './entities/bracket-audit-log.entity';
@@ -37,6 +42,8 @@ import { TournamentsService } from '../tournaments/tournaments.service';
 import { EntriesService } from '../entries/entries.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
 import { RecordResultDto } from './dto/record-result.dto';
+import { RecordLegDto } from './dto/record-leg.dto';
+import { ForfeitBoutDto } from './dto/forfeit-bout.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { MatchAssignmentsService } from '../match-assignments/match-assignments.service';
@@ -328,21 +335,28 @@ export class BracketsService {
    * Build the actual `BracketData` for a list of players using the
    * already-resolved format. Centralised so the three `generate*`
    * methods don't duplicate the dispatch.
+   *
+   * Armfight is special-cased: it doesn't accept a flat `players[]`
+   * list — the engine wants explicit `ArmfightPairSpec[]` (a fight
+   * card). Callers must resolve their DTO's pair ids to `Player`
+   * objects and pass them in `armfightPairs`.
    */
-  private buildBracket(format: BracketFormat, players: Player[]): BracketData {
+  private buildBracket(
+    format: BracketFormat,
+    players: Player[],
+    armfightPairs?: ArmfightPairSpec[],
+  ): BracketData {
     if (format === 'single_elim') return generateSingleElimination(players);
     if (format === 'round_robin') return generateRoundRobin(players);
     if (format === 'swiss') return generateSwiss(players);
     if (format === 'groups_playoff') return generateGroupsPlayoff(players);
     if (format === 'armfight') {
-      // Armfight = single 1v1 title fight. Engine enforces exactly 2 players;
-      // we mirror that here as a friendlier API-level error before hitting it.
-      if (players.length !== 2) {
+      if (!armfightPairs || armfightPairs.length === 0) {
         throw new BadRequestException(
-          'Armfight requires exactly 2 confirmed entries (no more, no less).',
+          'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
         );
       }
-      return generateArmfight(players);
+      return generateArmfight(armfightPairs);
     }
     return generateDoubleElimination(players);
   }
@@ -380,6 +394,12 @@ export class BracketsService {
     );
     const format = this.resolveFormat(dto.bracketFormat, cfg, tournament.sportConfig);
 
+    if (format === 'armfight') {
+      throw new BadRequestException(
+        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+      );
+    }
+
     const players: Player[] = entries.map((entry) => ({
       id: entry.id,
       firstName: entry.user?.firstName ?? 'Player',
@@ -389,7 +409,11 @@ export class BracketsService {
       photoUrl: entry.user?.avatarUrl ?? null,
     }));
 
-    const bracketData = this.buildBracket(format, players);
+    // `generateForGroup` is the legacy ageGroup/hand entry-point — it
+    // doesn't accept admin-curated pairs. Task 20 rejects armfight from
+    // this path so the third arg never matters here; pass `undefined`
+    // explicitly so tsc is happy.
+    const bracketData = this.buildBracket(format, players, undefined);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,
@@ -439,6 +463,12 @@ export class BracketsService {
       tournament.sport?.config as Parameters<typeof resolveSportConfig>[1],
     );
     const format = this.resolveFormat(bracketFormat, cfg, tournament.sportConfig);
+
+    if (format === 'armfight') {
+      throw new BadRequestException(
+        'Armfight bracket requires explicit pairs[]; use POST /v1/brackets with pairs[].',
+      );
+    }
 
     // If the organizer pre-configured weight categories, group entries
     // against those (honoring `weightToleranceKg`). Otherwise fall back
@@ -563,7 +593,10 @@ export class BracketsService {
             weightCategoryId: category.id,
             name: catName,
             status: 'active',
-            bracketData: this.buildBracket(format, players) as unknown as Record<string, unknown>,
+            bracketData: this.buildBracket(format, players, undefined) as unknown as Record<
+              string,
+              unknown
+            >,
           }),
         );
         count++;
@@ -625,7 +658,27 @@ export class BracketsService {
       }))
       .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
 
-    const bracketData = this.buildBracket(format, players);
+    // Armfight is an admin-curated fight card, not an auto-bracket from
+    // `players[]`. Resolve each pair's DTO ids against the tournament's
+    // confirmed entries up front so unknown ids fail with a clear 400
+    // before we hit the engine (which would throw a generic Error).
+    let armfightPairs: ArmfightPairSpec[] | undefined;
+    if (format === 'armfight' && dto.pairs && dto.pairs.length > 0) {
+      armfightPairs = dto.pairs.map((p, idx) => {
+        const a = players.find((pl) => pl.id === p.playerAId);
+        const b = players.find((pl) => pl.id === p.playerBId);
+        if (!a || !b) {
+          const side = !a ? 'playerAId' : 'playerBId';
+          const missing = !a ? p.playerAId : p.playerBId;
+          throw new BadRequestException(
+            `pairs[${idx}].${side}='${missing}' is not a confirmed entry in this tournament`,
+          );
+        }
+        return { playerA: a, playerB: b, hand: p.hand, order: p.order };
+      });
+    }
+
+    const bracketData = this.buildBracket(format, players, armfightPairs);
 
     const bracket = this.bracketsRepository.create({
       tournamentId: dto.tournamentId,
@@ -774,7 +827,13 @@ export class BracketsService {
       // can flip the schema for a special-format event without touching
       // the global sport config.
       const tOverride = (bracket.tournament.sportConfig ?? {}) as Partial<SportConfig>;
-      const matchResultSchema = tOverride.matchResultSchema ?? sportCfg.matchResultSchema;
+      // Bracket format overrides the per-tournament / per-sport schema:
+      // an armfight bracket always uses 'armfight_bo5' regardless of what
+      // the surrounding tournament's sport says.
+      const isArmfight = data.format === 'armfight';
+      const matchResultSchema = isArmfight
+        ? ('armfight_bo5' as const)
+        : (tOverride.matchResultSchema ?? sportCfg.matchResultSchema);
       const resultErrors = validateMatchResult(dto.result, matchResultSchema, existingMatch);
       if (resultErrors.length > 0) {
         throw new BadRequestException({
@@ -865,6 +924,180 @@ export class BracketsService {
     this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, updated);
 
     return this.findById(bracketId);
+  }
+
+  // ─── Armfight scoring (Task 23) ───────────────────────────
+
+  /**
+   * Record one leg of an armfight bo5 bout. Mirrors `recordResult` but
+   * routes through the engine's `recordLeg` and the dedicated scoring DTO.
+   *
+   * First-pass persistence: a plain `bracketsRepository.save()` followed by a
+   * broadcast — no optimistic lock or audit write yet. `recordResult` uses
+   * the heavier optimistic-lock transaction because match-result corrections
+   * are sensitive and rare; leg recording is the hot path during an event
+   * and the engine's "leg N must follow leg N-1" check already guards against
+   * the most common concurrency mistake (two refs submitting the same leg
+   * twice — the second one fails validation). Audit + optimistic lock can
+   * land in a follow-up if a real concurrency issue shows up.
+   */
+  async recordLegResult(
+    bracketId: string,
+    dto: RecordLegDto,
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: true });
+    if (bracket.isLocked && !userRoles.includes('admin')) {
+      throw new ForbiddenException('Bracket is locked. Only admin can modify results.');
+    }
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data');
+    }
+    const data = bracket.bracketData as unknown as BracketData;
+    if (data.format !== 'armfight') {
+      throw new BadRequestException('recordLeg is only valid on armfight brackets');
+    }
+    // TODO(armfight-concurrency): non-transactional save lets two concurrent
+    // recordLeg calls overwrite each other (both read legs=[], both push,
+    // second save wins → first leg lost). Lift to dataSource.transaction +
+    // modificationCount optimistic-lock pattern used by recordResult before
+    // a real event runs through this path.
+    try {
+      recordLeg(data, dto.boutId, dto.legIndex, dto.winnerId, dto.winType, {
+        enteredBy: userId,
+        enteredAt: dto.enteredAt,
+      });
+    } catch (e) {
+      // Only convert engine validation errors (prefixed `recordLeg:`) into
+      // 400. Anything else is a real bug and should bubble as 500.
+      if (e instanceof Error && e.message.startsWith('recordLeg:')) {
+        throw new BadRequestException(e.message);
+      }
+      throw e;
+    }
+    propagateResults(data);
+    bracket.bracketData = data as unknown as Bracket['bracketData'];
+    const newStatus: BracketStatus = data.status === 'completed' ? 'completed' : 'active';
+    bracket.status = newStatus;
+    bracket.completedAt =
+      newStatus === 'completed' ? (bracket.completedAt ?? new Date()) : null;
+    bracket.lastModifiedBy = userId;
+    bracket.lastModifiedAt = new Date();
+    bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
+    const saved = await this.bracketsRepository.save(bracket);
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, data);
+    return saved;
+  }
+
+  /**
+   * Forfeit a pending/in-progress armfight bout — sets the winner, marks
+   * the bout as `walkover`, and triggers bracket-wide propagation. Same
+   * persistence note as `recordLegResult`.
+   */
+  async forfeitBoutById(
+    bracketId: string,
+    dto: ForfeitBoutDto,
+    userId: string,
+    userRoles: string[] = [],
+  ): Promise<Bracket> {
+    const bracket = await this.findById(bracketId);
+    await this.assertCanManageBracket(bracket, userId, userRoles, { allowOperator: true });
+    if (bracket.isLocked && !userRoles.includes('admin')) {
+      throw new ForbiddenException('Bracket is locked. Only admin can modify results.');
+    }
+    if (!bracket.bracketData) {
+      throw new BadRequestException('Bracket has no data');
+    }
+    const data = bracket.bracketData as unknown as BracketData;
+    if (data.format !== 'armfight') {
+      throw new BadRequestException('forfeitBout is only valid on armfight brackets');
+    }
+    // TODO(armfight-concurrency): see recordLegResult above — same race.
+    try {
+      forfeitBout(data, dto.boutId, dto.winnerId, {
+        walkoverReason: dto.walkoverReason,
+        enteredBy: userId,
+      });
+    } catch (e) {
+      // Only engine validation errors → 400. Other errors bubble.
+      if (e instanceof Error && e.message.startsWith('forfeitBout:')) {
+        throw new BadRequestException(e.message);
+      }
+      throw e;
+    }
+    propagateResults(data);
+    bracket.bracketData = data as unknown as Bracket['bracketData'];
+    const newStatus: BracketStatus = data.status === 'completed' ? 'completed' : 'active';
+    bracket.status = newStatus;
+    bracket.completedAt =
+      newStatus === 'completed' ? (bracket.completedAt ?? new Date()) : null;
+    bracket.lastModifiedBy = userId;
+    bracket.lastModifiedAt = new Date();
+    bracket.modificationCount = (bracket.modificationCount ?? 0) + 1;
+    const saved = await this.bracketsRepository.save(bracket);
+    this.eventsGateway.emitBracketUpdate(bracket.tournamentId, bracketId, data);
+    return saved;
+  }
+
+  /**
+   * Read-only snapshot of the armfight fight card. One row per bout with
+   * the derived score + status from `getBoutScore`. Public — matches the
+   * rest of the bracket reads.
+   */
+  async listBouts(bracketId: string): Promise<
+    Array<{
+      boutId: string;
+      order: number;
+      hand: 'left' | 'right';
+      playerA: { id: string; firstName: string; lastName: string };
+      playerB: { id: string; firstName: string; lastName: string };
+      scoreA: number;
+      scoreB: number;
+      status: 'pending' | 'in_progress' | 'completed' | 'walkover';
+      leadingId: string | null;
+      legs: Array<{ index: number; winnerId: string; winType: 'pin' | 'foul' | 'dq' }>;
+      walkoverReason: string | null;
+    }>
+  > {
+    const bracket = await this.findById(bracketId);
+    if (!bracket.bracketData) throw new BadRequestException('Bracket has no data');
+    const data = bracket.bracketData as unknown as BracketData;
+    if (data.format !== 'armfight') {
+      throw new BadRequestException('listBouts is only valid on armfight brackets');
+    }
+    const round = data.winnersBracket[0] ?? [];
+    return round.map((m, idx) => {
+      const score = getBoutScore(data, m.id);
+      const r = m.result;
+      if (!isArmfightBoutResult(r)) {
+        throw new BadRequestException(
+          `Bout ${m.id} is missing or has malformed armfight result payload`,
+        );
+      }
+      return {
+        boutId: m.id,
+        order: idx + 1,
+        hand: r.hand,
+        playerA: {
+          id: m.player1.id,
+          firstName: m.player1.firstName,
+          lastName: m.player1.lastName,
+        },
+        playerB: {
+          id: m.player2.id,
+          firstName: m.player2.firstName,
+          lastName: m.player2.lastName,
+        },
+        scoreA: score.a,
+        scoreB: score.b,
+        status: score.status,
+        leadingId: score.leadingId,
+        legs: r.legs,
+        walkoverReason: r.walkoverReason ?? null,
+      };
+    });
   }
 
   // ─── Manual edits: replace / withdraw player ──────────────

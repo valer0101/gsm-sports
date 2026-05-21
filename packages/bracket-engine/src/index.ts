@@ -20,6 +20,11 @@ export {
   validateResult,
   replacePlayerInSlot,
   withdrawPlayerFromSlot,
+  // Armfight (sub-project B)
+  recordLeg,
+  forfeitBout,
+  getBoutScore,
+  isArmfightBoutResult,
 } from './bracket-logic';
 export type {
   Player,
@@ -31,6 +36,14 @@ export type {
   Standing,
   FinalPlacement,
   GroupStage,
+  // Armfight (sub-project B)
+  ArmfightHand,
+  LegWinType,
+  ArmfightBoutStatus,
+  ArmfightLeg,
+  ArmfightBoutResult,
+  ArmfightPairSpec,
+  RecordLegOptions,
 } from './types';
 export type { BracketSection, BracketMatchVisitor } from './bracket-logic';
 export { TBD_PLAYER, BYE_PLAYER } from './types';

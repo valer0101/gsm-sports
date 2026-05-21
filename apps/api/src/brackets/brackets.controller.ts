@@ -15,6 +15,8 @@ import { Public } from '../auth/public.decorator';
 import { BracketsService } from './brackets.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
 import { RecordResultDto } from './dto/record-result.dto';
+import { RecordLegDto } from './dto/record-leg.dto';
+import { ForfeitBoutDto } from './dto/forfeit-bout.dto';
 import { ResetMatchDto } from './dto/reset-match.dto';
 import { ReplacePlayerDto } from './dto/replace-player.dto';
 import { WithdrawPlayerDto } from './dto/withdraw-player.dto';
@@ -61,6 +63,34 @@ export class BracketsController {
   @Patch(':id/result')
   recordResult(@Param('id') id: string, @Body() dto: RecordResultDto, @Request() req: any) {
     return this.bracketsService.recordResult(id, dto, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary:
+      'Record one leg of an armfight bo5 bout (organizer/operator/referee/admin)',
+  })
+  @Post(':id/legs')
+  recordLeg(@Param('id') id: string, @Body() dto: RecordLegDto, @Request() req: any) {
+    return this.bracketsService.recordLegResult(id, dto, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Forfeit an armfight bout (organizer/operator/referee/admin)',
+  })
+  @Post(':id/forfeit')
+  forfeitBout(@Param('id') id: string, @Body() dto: ForfeitBoutDto, @Request() req: any) {
+    return this.bracketsService.forfeitBoutById(id, dto, req.user.sub, req.user.roles ?? []);
+  }
+
+  @ApiOperation({ summary: 'Read-only snapshot of armfight bouts on this bracket' })
+  @Public()
+  @Get(':id/bouts')
+  listBouts(@Param('id') id: string) {
+    return this.bracketsService.listBouts(id);
   }
 
   @ApiBearerAuth()
