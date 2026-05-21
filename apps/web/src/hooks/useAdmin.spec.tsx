@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useArmfightBracket } from './useAdmin';
@@ -19,6 +19,7 @@ vi.mock('@/lib/api', () => ({
       throw new Error(`unexpected url ${url}`);
     }),
     post: vi.fn(async () => ({ data: { id: 'new-bracket' } })),
+    patch: vi.fn(async () => ({ data: { id: 'reset-bracket', bracketData: null } })),
   },
 }));
 
@@ -59,5 +60,23 @@ describe('useGenerateArmfightBracket', () => {
         { playerAId: 'e3', playerBId: 'e4', hand: 'left' },
       ],
     });
+  });
+});
+
+import { useResetBracket } from './useAdmin';
+
+describe('useResetBracket', () => {
+  beforeEach(() => {
+    vi.mocked(api.patch).mockClear();
+  });
+
+  it('PATCHes /v1/brackets/:id/reset and invalidates queries', async () => {
+    const { result } = renderHook(
+      () => useResetBracket('t1', 'b2'),
+      { wrapper },
+    );
+    result.current.mutate();
+    await waitFor(() => expect(vi.mocked(api.patch)).toHaveBeenCalled());
+    expect(vi.mocked(api.patch).mock.calls[0][0]).toBe('/v1/brackets/b2/reset');
   });
 });

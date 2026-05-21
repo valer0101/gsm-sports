@@ -211,6 +211,23 @@ export function useGenerateArmfightBracket(tournamentId: string) {
   });
 }
 
+/**
+ * PATCH a bracket back to `pending` — clears `bracketData`, unlocks,
+ * resets modification counter. Used by the pair-builder rebuild flow
+ * (state 3 → state 2).
+ */
+export function useResetBracket(tournamentId: string, bracketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.patch(`/v1/brackets/${bracketId}/reset`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+    },
+  });
+}
+
 export function useAdminCorrectResult(bracketId: string, tournamentId: string) {
   const qc = useQueryClient();
   return useMutation({
