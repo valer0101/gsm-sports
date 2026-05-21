@@ -13,7 +13,9 @@ export class EmailVerificationToken {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Index()
+  // UNIQUE for the same reason as `password_reset_tokens.token_hash`:
+  // explicit guarantee + serves as the lookup index.
+  @Index({ unique: true })
   @Column({ name: 'token_hash', type: 'varchar', length: 64 })
   tokenHash: string;
 

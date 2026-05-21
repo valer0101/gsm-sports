@@ -123,6 +123,11 @@ export class AuthController {
     return { message: 'Password updated' };
   }
 
+  // Throttled at the same /auth/* policy as the sibling endpoints. The
+  // 256-bit token space makes brute force infeasible anyway, but
+  // rate-limiting an unauthenticated GET is a cheap defense-in-depth and
+  // keeps parity with `forgot-password` / `reset-password` / `resend-verification`.
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
   @Public()
   @Get('verify-email')
   async verifyEmailGet(@Query('token') token: string) {

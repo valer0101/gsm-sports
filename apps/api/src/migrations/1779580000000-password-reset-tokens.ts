@@ -28,7 +28,7 @@ export class PasswordResetTokens1779580000000 implements MigrationInterface {
         ON "password_reset_tokens" ("user_id")`,
     );
     await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "IDX_password_reset_tokens_token_hash"
+      `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_password_reset_tokens_token_hash"
         ON "password_reset_tokens" ("token_hash")`,
     );
   }

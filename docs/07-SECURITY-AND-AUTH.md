@@ -43,9 +43,13 @@
 | Токен | Время жизни | Хранение | Назначение |
 |-------|-------------|----------|------------|
 | **Access Token** | 15 минут | httpOnly cookie | Авторизация API запросов |
-| **Refresh Token** | 7 дней | httpOnly cookie + Redis | Обновление access token |
-| **Email Verify Token** | 24 часа | Redis | Подтверждение email |
-| **Password Reset Token** | 1 час | Redis | Сброс пароля |
+| **Refresh Token** | 7 дней | httpOnly cookie (плюс Redis при включении сессионной ревокации) | Обновление access token |
+| **Email Verify Token** | 24 часа | Таблица `email_verification_tokens` (SHA-256 хеш, single-use, FK к users) | Подтверждение email |
+| **Password Reset Token** | 30 минут | Таблица `password_reset_tokens` (SHA-256 хеш, single-use, FK к users) | Сброс пароля |
+
+**Заметки по storage:**
+- Reset/verify-токены хранятся в Postgres (а не в Redis как изначально планировалось) — это даёт аудит-трейл, явный `usedAt` для single-use гарантии, и нулевой риск молчаливой эвикции по памяти. В таблицах нет открытого токена: только SHA-256 хеш; plaintext живёт только в emailed-ссылке.
+- 30-минутный TTL для password reset — короче изначального 1ч плана; компромисс в пользу безопасности.
 
 ### 1.3 JWT Payload (Access Token)
 

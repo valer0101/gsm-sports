@@ -28,7 +28,7 @@ export class EmailVerificationTokens1779680000000 implements MigrationInterface 
         ON "email_verification_tokens" ("user_id")`,
     );
     await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "IDX_email_verification_tokens_token_hash"
+      `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_email_verification_tokens_token_hash"
         ON "email_verification_tokens" ("token_hash")`,
     );
   }

@@ -15,7 +15,10 @@ export class PasswordResetToken {
 
   // SHA-256 hex of the random token. Hex of a 32-byte digest is 64 chars.
   // The plaintext token lives only in the email link, never in the DB.
-  @Index()
+  // UNIQUE: collisions are astronomically improbable for 256-bit input,
+  // but the constraint makes that guarantee explicit and lets the index
+  // double as a uniqueness index without a separate one.
+  @Index({ unique: true })
   @Column({ name: 'token_hash', type: 'varchar', length: 64 })
   tokenHash: string;
 
