@@ -17,7 +17,7 @@ vi.mock('@/hooks/useAdmin', async () => {
   const actual = await vi.importActual<typeof import('@/hooks/useAdmin')>('@/hooks/useAdmin');
   return {
     ...actual,
-    useGenerateArmfightBracket: (...args: any[]) => useGenerateArmfightBracketMock(...args),
+    useGenerateArmfightBracket: () => useGenerateArmfightBracketMock(),
   };
 });
 

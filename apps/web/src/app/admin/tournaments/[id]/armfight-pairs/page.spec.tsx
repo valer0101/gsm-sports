@@ -16,7 +16,9 @@ vi.mock('@/hooks/useAdmin', () => ({
   useResetBracket: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
-import ArmfightPairsPage from './page';
+// Render the inner view directly with a plain `id` — keeps the test free
+// of Suspense / `use(params)` machinery (those live in the default export).
+import { ArmfightPairsView } from './_view';
 
 function setup({
   tournament,
@@ -26,11 +28,13 @@ function setup({
   useAdminTournament.mockReturnValue({ data: tournament, isLoading: false });
   useConfirmedEntries.mockReturnValue({ data: { data: entries }, isLoading: false });
   useArmfightBracket.mockReturnValue({ data: bracket, isLoading: false });
-  return render(<ArmfightPairsPage params={{ id: 't1' }} />);
+  return render(<ArmfightPairsView id="t1" />);
 }
 
+// React 19's `use(params)` suspends until the promise resolves; tests use
+// async `findByText` which retries until the next render cycle settles.
 describe('ArmfightPairsPage', () => {
-  it('state 1 — < 2 entries → EmptyEntriesState', () => {
+  it('state 1 — < 2 entries → EmptyEntriesState', async () => {
     setup({
       tournament: { id: 't1', format: 'armfight', bracketGenerated: false, status: 'upcoming' },
       entries: [],
@@ -38,7 +42,7 @@ describe('ArmfightPairsPage', () => {
     expect(screen.getByText('empty_no_entries_title')).toBeInTheDocument();
   });
 
-  it('state 2 — entries + no bracket → PairBuilder', () => {
+  it('state 2 — entries + no bracket → PairBuilder', async () => {
     setup({
       tournament: { id: 't1', format: 'armfight', bracketGenerated: false, status: 'active' },
       entries: [
@@ -50,7 +54,7 @@ describe('ArmfightPairsPage', () => {
     expect(screen.getByText('roster_title')).toBeInTheDocument();
   });
 
-  it('state 3 — bracket generated → PairsSummary with rebuild', () => {
+  it('state 3 — bracket generated → PairsSummary with rebuild', async () => {
     setup({
       tournament: { id: 't1', format: 'armfight', bracketGenerated: true, status: 'active' },
       entries: [],
@@ -62,7 +66,7 @@ describe('ArmfightPairsPage', () => {
     expect(screen.getByRole('button', { name: /rebuild_btn/i })).toBeInTheDocument();
   });
 
-  it('state 4 — completed → PairsSummary without rebuild', () => {
+  it('state 4 — completed → PairsSummary without rebuild', async () => {
     setup({
       tournament: { id: 't1', format: 'armfight', bracketGenerated: true, status: 'completed' },
       entries: [],
@@ -74,7 +78,7 @@ describe('ArmfightPairsPage', () => {
     expect(screen.queryByRole('button', { name: /rebuild_btn/i })).toBeNull();
   });
 
-  it('non-armfight tournament → not-armfight panel', () => {
+  it('non-armfight tournament → not-armfight panel', async () => {
     setup({
       tournament: { id: 't1', format: 'double_elim', bracketGenerated: false, status: 'active' },
       entries: [],

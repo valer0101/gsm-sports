@@ -9,7 +9,7 @@ vi.mock('@/hooks/useAdmin', async () => {
   const actual = await vi.importActual<typeof import('@/hooks/useAdmin')>('@/hooks/useAdmin');
   return {
     ...actual,
-    useResetBracket: (...args: any[]) => useResetBracketMock(...args),
+    useResetBracket: () => useResetBracketMock(),
   };
 });
 
