@@ -112,6 +112,22 @@ vi.mock('@gsm/bracket-engine', () => ({
   })),
   replacePlayerInSlot: vi.fn(() => ({ ok: true })),
   withdrawPlayerFromSlot: vi.fn(() => ({ ok: true, forfeitTo: 'p2' })),
+  recordLeg: vi.fn(),
+  forfeitBout: vi.fn((data: any, boutId: string, winnerId: string) => {
+    // Minimal: flip status to walkover so listBouts has something to show after forfeit.
+    const m = data.winnersBracket[0].find((mm: any) => mm.id === boutId);
+    if (m) {
+      m.winner = winnerId;
+      if (m.result) m.result.status = 'walkover';
+    }
+  }),
+  getBoutScore: vi.fn((_data: any, _id: string) => ({
+    a: 0,
+    b: 0,
+    status: 'pending' as const,
+    leadingId: null,
+  })),
+  propagateResults: vi.fn(),
   isArmfightBoutResult: vi.fn((x: unknown) => {
     if (!x || typeof x !== 'object') return false;
     const r = x as Record<string, unknown>;
@@ -1842,6 +1858,129 @@ describe('BracketsService', () => {
       await expect(service.startCategory('bracket-1', 'org-1', [])).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  // ─── Phase 4 / Task 23: armfight scoring endpoints ─────────
+  describe('armfight scoring', () => {
+    function makeArmfightBracketData() {
+      return {
+        format: 'armfight' as const,
+        players: [
+          { id: 'p1', firstName: 'A', lastName: '1', number: '1' },
+          { id: 'p2', firstName: 'B', lastName: '2', number: '2' },
+        ],
+        bracketSize: 2,
+        wbRounds: 1,
+        winnersBracket: [
+          [
+            {
+              id: 'wb_1_0',
+              round: 1,
+              matchIndex: 0,
+              player1: { id: 'p1', firstName: 'A', lastName: '1', number: '1' },
+              player2: { id: 'p2', firstName: 'B', lastName: '2', number: '2' },
+              winner: null,
+              loser: null,
+              result: { hand: 'right', legs: [], scoreA: 0, scoreB: 0, status: 'pending' },
+            },
+          ],
+        ],
+        losersBracket: [],
+        grandFinal: {
+          id: 'gf',
+          player1: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+          player2: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+          winner: null,
+          loser: null,
+        },
+        superFinal: {
+          id: 'sf',
+          player1: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+          player2: { id: 'tbd', firstName: 'TBD', lastName: '', number: '?' },
+          winner: null,
+          loser: null,
+          needed: false,
+        },
+        champion: null,
+        status: 'active' as const,
+      };
+    }
+
+    it('recordLegResult: invokes engine.recordLeg, saves, broadcasts', async () => {
+      const { recordLeg } = await import('@gsm/bracket-engine');
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await service.recordLegResult(
+        bracket.id,
+        { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+        tournament.organizerId,
+        ['organizer'],
+      );
+      expect(recordLeg).toHaveBeenCalled();
+    });
+
+    it('recordLegResult: forbidden when caller is neither organizer/operator/referee/admin', async () => {
+      const tournament = makeTournament({ organizerId: 'OWNER' });
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(
+        service.recordLegResult(
+          bracket.id,
+          { boutId: 'wb_1_0', legIndex: 1, winnerId: 'p1', winType: 'pin' } as any,
+          'SOMEONE_ELSE',
+          [],
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('forfeitBoutById: invokes engine.forfeitBout', async () => {
+      const { forfeitBout } = await import('@gsm/bracket-engine');
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await service.forfeitBoutById(
+        bracket.id,
+        { boutId: 'wb_1_0', winnerId: 'p1', walkoverReason: 'injury' } as any,
+        tournament.organizerId,
+        ['organizer'],
+      );
+      expect(forfeitBout).toHaveBeenCalled();
+    });
+
+    it('listBouts: returns BoutSnapshot[] derived from winnersBracket[0]', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: makeArmfightBracketData() as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      const out = await service.listBouts(bracket.id);
+      expect(Array.isArray(out)).toBe(true);
+      expect(out[0].boutId).toBe('wb_1_0');
+      expect(out[0].hand).toBe('right');
+      expect(out[0].scoreA).toBe(0);
+      expect(out[0].status).toBe('pending');
+    });
+
+    it('listBouts: throws when bracket is not armfight', async () => {
+      const tournament = makeTournament({});
+      const bracket = makeBracket({
+        tournament,
+        bracketData: { format: 'double_elim', winnersBracket: [[]] } as any,
+      });
+      repo.findOne.mockResolvedValue(bracket);
+      await expect(service.listBouts(bracket.id)).rejects.toThrow(/armfight/i);
     });
   });
 });
