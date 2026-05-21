@@ -11,6 +11,8 @@ import { GoogleAuthGuard } from './google-auth.guard';
 import { OAuthStateService } from './oauth-state.service';
 import { PasswordResetService } from './password-reset.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { EmailVerificationService } from './email-verification.service';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 
@@ -42,7 +44,7 @@ function googleStrategyProviders(): Provider[] {
   imports: [
     UsersModule,
     MailModule,
-    TypeOrmModule.forFeature([PasswordResetToken]),
+    TypeOrmModule.forFeature([PasswordResetToken, EmailVerificationToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -59,6 +61,7 @@ function googleStrategyProviders(): Provider[] {
     JwtStrategy,
     OAuthStateService,
     PasswordResetService,
+    EmailVerificationService,
     GoogleAuthGuard,
     ...googleStrategyProviders(),
   ],

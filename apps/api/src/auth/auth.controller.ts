@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Res, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards, Request, Res, Logger } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -10,7 +10,9 @@ import { LoginDto } from './dto/login.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { PasswordResetService } from './password-reset.service';
+import { EmailVerificationService } from './email-verification.service';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { OAuthStateService } from './oauth-state.service';
 import type { GoogleProfilePayload } from './google.strategy';
@@ -35,6 +37,7 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly oauthState: OAuthStateService,
     private readonly passwordReset: PasswordResetService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   // Brute-force gate: 10 attempts / 15 min / IP. Mirrors docs/04-API-DESIGN
@@ -118,6 +121,21 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.passwordReset.consumeToken(dto.token, dto.password);
     return { message: 'Password updated' };
+  }
+
+  @Public()
+  @Get('verify-email')
+  async verifyEmailGet(@Query('token') token: string) {
+    await this.emailVerification.verifyToken(token);
+    return { message: 'Email verified' };
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
+  @Public()
+  @Post('resend-verification')
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    await this.emailVerification.resendVerification(dto.email);
+    return { message: 'If that email exists and is unverified, a new link has been sent.' };
   }
 
   // ── Google OAuth ──────────────────────────────────────────────────────────

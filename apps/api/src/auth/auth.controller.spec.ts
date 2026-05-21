@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OAuthStateService } from './oauth-state.service';
 import { PasswordResetService } from './password-reset.service';
+import { EmailVerificationService } from './email-verification.service';
 import type { GoogleProfilePayload } from './google.strategy';
 
 const profile: GoogleProfilePayload = {
@@ -57,6 +58,10 @@ describe('AuthController.googleCallback', () => {
         {
           provide: PasswordResetService,
           useValue: { requestReset: vi.fn(), consumeToken: vi.fn() },
+        },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
         },
       ],
     }).compile();
@@ -157,6 +162,10 @@ describe('AuthController.setPassword', () => {
           provide: PasswordResetService,
           useValue: { requestReset: vi.fn(), consumeToken: vi.fn() },
         },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
       ],
     }).compile();
 
@@ -183,6 +192,10 @@ describe('AuthController password reset', () => {
         { provide: ConfigService, useValue: { get: vi.fn() } },
         { provide: OAuthStateService, useValue: {} },
         { provide: PasswordResetService, useValue: reset },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
       ],
     }).compile();
     const controller = moduleRef.get(AuthController);
@@ -200,6 +213,10 @@ describe('AuthController password reset', () => {
         { provide: ConfigService, useValue: { get: vi.fn() } },
         { provide: OAuthStateService, useValue: {} },
         { provide: PasswordResetService, useValue: reset },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
       ],
     }).compile();
     const controller = moduleRef.get(AuthController);
