@@ -172,6 +172,20 @@ export function useAdminBrackets(tournamentId: string) {
   });
 }
 
+/**
+ * Derived hook: finds the armfight bracket among the tournament's
+ * brackets list (at most one — armfight is a single fight card, not a
+ * multi-category event). Reuses `useAdminBrackets`'s query so all
+ * cache invalidations from existing bracket mutations flow through.
+ */
+export function useArmfightBracket(tournamentId: string) {
+  const { data, ...rest } = useAdminBrackets(tournamentId);
+  const bracket = (data ?? []).find(
+    (b) => (b.bracketData as any)?.format === 'armfight',
+  ) ?? null;
+  return { ...rest, data: bracket };
+}
+
 export function useAdminCorrectResult(bracketId: string, tournamentId: string) {
   const qc = useQueryClient();
   return useMutation({
