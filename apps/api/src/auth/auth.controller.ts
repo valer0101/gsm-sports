@@ -8,6 +8,9 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PasswordResetService } from './password-reset.service';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { OAuthStateService } from './oauth-state.service';
 import type { GoogleProfilePayload } from './google.strategy';
@@ -31,6 +34,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly oauthState: OAuthStateService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   // Brute-force gate: 10 attempts / 15 min / IP. Mirrors docs/04-API-DESIGN
@@ -89,6 +93,31 @@ export class AuthController {
     @Body() dto: SetPasswordDto,
   ) {
     return this.authService.setPassword(req.user.sub, dto);
+  }
+
+  /**
+   * Always returns 200, even when no user matches. Anti-enumeration.
+   * Rate-limited per existing /auth/* policy (10 req / 15 min / IP).
+   */
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.passwordReset.requestReset(dto.email);
+    return { message: 'If that email exists, a reset link has been sent.' };
+  }
+
+  /**
+   * Consumes a reset token + sets the new password. The token format and
+   * password length are also enforced by the DTO so invalid input is
+   * rejected before any DB work.
+   */
+  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.passwordReset.consumeToken(dto.token, dto.password);
+    return { message: 'Password updated' };
   }
 
   // ── Google OAuth ──────────────────────────────────────────────────────────

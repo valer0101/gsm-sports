@@ -2,13 +2,17 @@ import { Module, Logger, type Provider } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { OAuthStateService } from './oauth-state.service';
+import { PasswordResetService } from './password-reset.service';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail/mail.module';
 
 /**
  * Google OAuth requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.
@@ -37,6 +41,8 @@ function googleStrategyProviders(): Provider[] {
 @Module({
   imports: [
     UsersModule,
+    MailModule,
+    TypeOrmModule.forFeature([PasswordResetToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -52,6 +58,7 @@ function googleStrategyProviders(): Provider[] {
     AuthService,
     JwtStrategy,
     OAuthStateService,
+    PasswordResetService,
     GoogleAuthGuard,
     ...googleStrategyProviders(),
   ],
