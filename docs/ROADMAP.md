@@ -34,13 +34,13 @@ Code-side (mostly done):
 - 🟢 Footer + SEO basics (robots, sitemap, OG metadata)
 
 Pending (your action mostly):
-- 🟢 Hosting account (Railway + Vercel) and DNS
-- 🟢 Domain name + SSL
-- 🟢 Sentry account + DSN (verified live in launch week)
-- 🟢 Email provider account (Resend) + DKIM/SPF
+- 🔴 Hosting account (Railway + Vercel) and DNS — accounts not yet created
+- 🔴 Domain name + SSL — domain owned, DNS not yet pointed at Railway/Vercel
+- 🔴 Sentry account + DSN — code wired in PR #99; account/DSN still pending
+- 🔴 Email provider account (Resend) + DKIM/SPF — code wired; account/DNS still pending
 - 🟡 Real legal text (Termly hand-off pending) replacing the placeholders
-- 🟢 Database backup cron — daily `pg_dump → R2` via GHA workflow
-- 🟢 Production deploy workflow — Railway + Vercel native auto-deploy off `main`
+- 🟢 Database backup cron — daily `pg_dump → R2` via GHA workflow (code-side); R2 bucket + secrets pending your action
+- 🟡 Production deploy workflow — Railway + Vercel native auto-deploy off `main` (design decided, runbook updated); actual Railway/Vercel projects + branch connection pending your action
 - 🔴 Bug bash with 3-5 operators / athletes on staging
 - 🔴 First production deploy
 

@@ -88,16 +88,16 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Sentry (api + web) | 🟢 | Activates when DSN env-var is set; verified live in launch week |
+| Sentry (api + web) | 🟢 (code) / 🔴 (live) | Code wired in PR #99; activates when DSN env-var is set. Sentry account/DSN setup pending |
 | Structured logging (pino) | 🟢 | nestjs-pino, JSON in prod, pretty in dev (PR #90) |
 | Health endpoints | 🟢 | `/health` + `/ready` (PR #89) |
-| Uptime monitoring | 🔴 | Better Stack / UptimeRobot — not yet wired |
+| Uptime monitoring | 🟡 | Runbook at `docs/runbooks/uptime-monitoring.md`; Better Stack/UptimeRobot account setup pending |
 | OpenTelemetry / metrics | 🔴 | Not yet |
 | Production Dockerfile (api + web) | 🟢 | Multi-stage, non-root user, dumb-init (PR #89) |
 | GitHub Actions CI/CD | 🟢 | Lint, typecheck, build, test, security scans, dependabot |
-| Production deploy workflow | 🟢 | Railway + Vercel native auto-deploy off `main`; runbook updated |
-| Database backups | 🟢 | GHA daily pg_dump → R2 + Railway managed backups |
-| Disaster recovery drill | 🟢 | First drill completed at go-live; runbook at docs/runbooks/restore-from-backup.md |
+| Production deploy workflow | 🟡 | Design decided (Railway + Vercel native auto-deploy off `main`); runbook updated. Railway/Vercel projects + branch connection pending |
+| Database backups | 🟢 (code) / 🔴 (live) | GHA daily pg_dump → R2 workflow exists; R2 bucket + secrets pending |
+| Disaster recovery drill | 🔴 | Runbook ready at `docs/runbooks/restore-from-backup.md`; first drill pending go-live |
 
 ## Notifications & comms
 
