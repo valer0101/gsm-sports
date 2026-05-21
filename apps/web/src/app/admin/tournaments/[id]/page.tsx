@@ -28,6 +28,7 @@ import {
   useCancelTournament,
 } from '@/hooks/useAdmin';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { isArmfightTournament } from '@/lib/armfight';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CountryLabel } from '@/components/ui/CountryLabel';
 import { WeighInsManager } from '@/components/admin/WeighInsManager';
@@ -137,6 +138,17 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
   }
 
   const canToggleReg = !tournament.bracketGenerated;
+  const isArmfight = isArmfightTournament(tournament as any);
+  // The single-bracket `BracketsService.generate()` path (which armfight uses)
+  // never sets `tournament.bracketGenerated = true`; only `generateAll` does.
+  // For armfight, detect bracket existence directly from the brackets list so
+  // the CTA hides correctly post-creation.
+  const hasArmfightBracket =
+    isArmfight &&
+    (brackets ?? []).some((b) => (b.bracketData as any)?.format === 'armfight');
+  const showGenerateCta =
+    !tournament.registrationOpen &&
+    (isArmfight ? !hasArmfightBracket : !tournament.bracketGenerated);
 
   async function handleAssignOperator(e: React.FormEvent) {
     e.preventDefault();
@@ -262,16 +274,25 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
                 : t('open_registration')}
           </button>
 
-          {!tournament.registrationOpen && !tournament.bracketGenerated && (
-            <button
-              onClick={() => setShowGenerateConfirm(true)}
-              className="px-4 py-2.5 rounded-md text-sm font-bold border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-colors"
-            >
-              {t('generate_btn')}
-            </button>
+          {showGenerateCta && (
+            isArmfight ? (
+              <Link
+                href={`/admin/tournaments/${tournament.id}/armfight-pairs`}
+                className="px-4 py-2.5 rounded-md text-sm font-bold border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-colors"
+              >
+                {t('build_pairs_and_generate')}
+              </Link>
+            ) : (
+              <button
+                onClick={() => setShowGenerateConfirm(true)}
+                className="px-4 py-2.5 rounded-md text-sm font-bold border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-colors"
+              >
+                {t('generate_btn')}
+              </button>
+            )
           )}
 
-          {tournament.bracketGenerated && (
+          {(tournament.bracketGenerated || hasArmfightBracket) && (
             <span className="text-sm font-semibold text-[var(--color-success)]">
               {t('bracket_generated_badge')}
             </span>
@@ -279,7 +300,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* Generate confirm dialog */}
-        {showGenerateConfirm && (
+        {!isArmfight && showGenerateConfirm && (
           <div className="mt-4 p-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)]">
             <p className="text-[var(--color-text-primary)] font-semibold mb-1">{t('generate_confirm_title')}</p>
             <p className="text-sm mb-4 text-[var(--color-text-secondary)]">

@@ -9,6 +9,7 @@ import type {
   TournamentEntry,
   SportBracketFormat,
 } from '@/types/api';
+import type { PairPayload } from '@/components/admin/armfight-pairs/types';
 
 /* ─── Tournaments ─── */
 
@@ -169,6 +170,68 @@ export function useAdminBrackets(tournamentId: string) {
     queryKey: ['admin', 'brackets', tournamentId],
     queryFn: () => api.get(`/admin/tournaments/${tournamentId}/brackets`).then((r: any) => r.data),
     enabled: !!tournamentId,
+  });
+}
+
+/**
+ * Derived hook: finds the armfight bracket among the tournament's
+ * brackets list (at most one — armfight is a single fight card, not a
+ * multi-category event). Reuses `useAdminBrackets`'s query so all
+ * cache invalidations from existing bracket mutations flow through.
+ */
+export function useArmfightBracket(tournamentId: string) {
+  const { data, ...rest } = useAdminBrackets(tournamentId);
+  const bracket = (data ?? []).find(
+    (b) => (b.bracketData as any)?.format === 'armfight',
+  ) ?? null;
+  return { ...rest, data: bracket };
+}
+
+/**
+ * Submit a curated `pairs[]` to create an armfight bracket. Routes
+ * through the sub-project B path (POST /v1/brackets/generate) rather
+ * than the admin /generate-brackets endpoint, which refuses armfight
+ * (Task 20 of sub-project B).
+ *
+ * Path note: `api.baseURL` already ends in `/v1`, so the hook uses a
+ * bare `/brackets/generate` path — appending the `/v1` prefix would
+ * double-resolve to `/v1/v1/brackets/generate` and 404.
+ */
+export function useGenerateArmfightBracket(tournamentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { pairs: PairPayload[] }) =>
+      api
+        .post('/brackets/generate', {
+          tournamentId,
+          bracketFormat: 'armfight',
+          pairs: body.pairs,
+        })
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+    },
+  });
+}
+
+/**
+ * PATCH a bracket back to `pending` — clears `bracketData`, unlocks,
+ * resets modification counter. Used by the pair-builder rebuild flow
+ * (state 3 → state 2).
+ *
+ * Path note: bare `/brackets/...` for the same reason as
+ * `useGenerateArmfightBracket` — baseURL already has `/v1`.
+ */
+export function useResetBracket(tournamentId: string, bracketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.patch(`/brackets/${bracketId}/reset`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });
+    },
   });
 }
 
