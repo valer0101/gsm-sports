@@ -15,6 +15,7 @@ import { Bracket } from './brackets/entities/bracket.entity';
 import { Athlete } from './athletes/entities/athlete.entity';
 import { RankingEntry } from './rankings/entities/ranking-entry.entity';
 import { News } from './news/entities/news.entity';
+import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ export const AppDataSource = new DataSource({
     Athlete,
     RankingEntry,
     News,
+    PasswordResetToken,
     TelegramLink,
     MatchNotification,
   ],
