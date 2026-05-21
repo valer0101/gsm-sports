@@ -16,6 +16,10 @@ export interface CurrentUser {
   // missing on cached entries from older builds — treat undefined as true
   // since password-only accounts always have one set.
   hasPassword?: boolean;
+  // Drives the EmailVerificationBanner soft-gate. Server returns it from
+  // /auth/me; missing on cached entries from older builds — treat
+  // undefined as verified so we don't show the banner on stale clients.
+  isVerified?: boolean;
 }
 
 export function clearStoredUser() {

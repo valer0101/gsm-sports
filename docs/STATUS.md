@@ -1,6 +1,6 @@
 # Implementation Status
 
-> Last updated: 8 May 2026 · Bump this header when adding rows.
+> Last updated: 20 May 2026 · Bump this header when adding rows.
 >
 > Source of truth for "what is built right now." Keep it accurate — claiming a feature is done when it isn't is worse than admitting it's missing.
 
@@ -74,11 +74,12 @@
 | Roles / RBAC | 🟢 | `user` / `athlete` / `organizer` / `admin` / `super_admin`; @Roles decorator |
 | Password hashing | 🟢 | bcrypt cost 12 |
 | Login by email OR phone | 🟢 | Regex detection in service |
-| OAuth (Google/Facebook) | 🔴 | Entity sketched in DB schema; no implementation |
+| OAuth (Google) | 🟢 | PR #97 + #101; set-password flow for Google-only accounts |
+| OAuth (Facebook) | ⚫ | Out of scope for launch |
 | 2FA / MFA | 🔴 | Not implemented |
-| Password reset (email) | 🔴 | Endpoint not built; PR queued |
-| Account recovery via Telegram | 🔴 | Bot is live; recovery flow queued |
-| Email verification | 🟡 | `isVerified` column exists; no verify-email link sent |
+| Password reset (email) | 🟢 | `password_reset_tokens` table, /v1/auth/forgot-password + /v1/auth/reset-password, Resend |
+| Email verification flow | 🟢 (soft gate) | `email_verification_tokens` + banner; not gated on flows |
+| Account recovery via Telegram | 🔴 | Deferred post-launch |
 | Rate-limiting on /auth/* | 🟢 | 10 req / 15 min / IP via `@nestjs/throttler` (PR #89) |
 | Helmet + CSP + tight CORS | 🟢 | Production CORS refuses unset FRONTEND_URL (PR #89) |
 | Secret management | 🟡 | `.env` for local; production secrets via hosting platform UI — no Vault/Doppler |
@@ -87,23 +88,23 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Sentry (api + web) | 🟢 (code) / 🟡 (live) | PR #90; activates when DSN env-var is set |
+| Sentry (api + web) | 🟢 (code) / 🔴 (live) | Code wired in PR #99; activates when DSN env-var is set. Sentry account/DSN setup pending |
 | Structured logging (pino) | 🟢 | nestjs-pino, JSON in prod, pretty in dev (PR #90) |
 | Health endpoints | 🟢 | `/health` + `/ready` (PR #89) |
-| Uptime monitoring | 🔴 | Better Stack / UptimeRobot — not yet wired |
+| Uptime monitoring | 🟡 | Runbook at `docs/runbooks/uptime-monitoring.md`; Better Stack/UptimeRobot account setup pending |
 | OpenTelemetry / metrics | 🔴 | Not yet |
 | Production Dockerfile (api + web) | 🟢 | Multi-stage, non-root user, dumb-init (PR #89) |
 | GitHub Actions CI/CD | 🟢 | Lint, typecheck, build, test, security scans, dependabot |
-| Production deploy workflow | 🔴 | Hosting + DNS + GHA workflow not yet wired |
-| Database backups | 🔴 | No cron, no S3 sink |
-| Disaster recovery drill | 🔴 | — |
+| Production deploy workflow | 🟡 | Design decided (Railway + Vercel native auto-deploy off `main`); runbook updated. Railway/Vercel projects + branch connection pending |
+| Database backups | 🟢 (code) / 🔴 (live) | GHA daily pg_dump → R2 workflow exists; R2 bucket + secrets pending |
+| Disaster recovery drill | 🔴 | Runbook ready at `docs/runbooks/restore-from-backup.md`; first drill pending go-live |
 
 ## Notifications & comms
 
 | Channel | Status | Notes |
 |---------|--------|-------|
 | Telegram | 🟢 | Full bot integration: notifications, link account, match reminders, webhook receiver |
-| Email | 🔴 | No provider yet (Resend / SendGrid planned) |
+| Email | 🟢 | Resend (transactional only — reset + verification) |
 | Web Push | 🔴 | — |
 | SMS | 🔴 | — |
 

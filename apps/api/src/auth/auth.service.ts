@@ -13,6 +13,7 @@ import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
+import { EmailVerificationService } from './email-verification.service';
 import type { GoogleProfilePayload } from './google.strategy';
 
 const SUPPORTED_LANGUAGES = ['ru', 'en', 'hy'] as const;
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -57,6 +59,15 @@ export class AuthService {
 
     const tokens = this.generateTokens(user.id, user.email, user.roles);
     this.logger.log(`User registered: ${user.email}`);
+
+    // Fire-and-forget verification email. Failures are already swallowed
+    // inside MailService — the user's registration must not fail because
+    // an email provider is slow or unreachable.
+    this.emailVerification.sendVerification(user).catch((err) => {
+      this.logger.warn(
+        `sendVerification on register failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     return {
       user: {

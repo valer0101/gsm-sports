@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OAuthStateService } from './oauth-state.service';
+import { PasswordResetService } from './password-reset.service';
+import { EmailVerificationService } from './email-verification.service';
 import type { GoogleProfilePayload } from './google.strategy';
 
 const profile: GoogleProfilePayload = {
@@ -53,6 +55,14 @@ describe('AuthController.googleCallback', () => {
         { provide: AuthService, useValue: auth },
         { provide: OAuthStateService, useValue: oauthState },
         { provide: ConfigService, useValue: config },
+        {
+          provide: PasswordResetService,
+          useValue: { requestReset: vi.fn(), consumeToken: vi.fn() },
+        },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
       ],
     }).compile();
 
@@ -148,6 +158,14 @@ describe('AuthController.setPassword', () => {
         { provide: AuthService, useValue: auth },
         { provide: OAuthStateService, useValue: { verify: vi.fn() } },
         { provide: ConfigService, useValue: { get: vi.fn() } },
+        {
+          provide: PasswordResetService,
+          useValue: { requestReset: vi.fn(), consumeToken: vi.fn() },
+        },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
       ],
     }).compile();
 
@@ -161,5 +179,48 @@ describe('AuthController.setPassword', () => {
 
     expect(auth.setPassword).toHaveBeenCalledWith('user-42', { password: 'newSecret123' });
     expect(result).toEqual({ message: 'Password updated' });
+  });
+});
+
+describe('AuthController password reset', () => {
+  it('POST /v1/auth/forgot-password calls service and always returns 200', async () => {
+    const reset = { requestReset: vi.fn().mockResolvedValue(undefined), consumeToken: vi.fn() };
+    const moduleRef = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        { provide: AuthService, useValue: {} },
+        { provide: ConfigService, useValue: { get: vi.fn() } },
+        { provide: OAuthStateService, useValue: {} },
+        { provide: PasswordResetService, useValue: reset },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
+      ],
+    }).compile();
+    const controller = moduleRef.get(AuthController);
+    const result = await controller.forgotPassword({ email: 'aram@example.com' });
+    expect(reset.requestReset).toHaveBeenCalledWith('aram@example.com');
+    expect(result).toEqual({ message: expect.any(String) });
+  });
+
+  it('POST /v1/auth/reset-password delegates to consumeToken', async () => {
+    const reset = { requestReset: vi.fn(), consumeToken: vi.fn().mockResolvedValue(undefined) };
+    const moduleRef = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        { provide: AuthService, useValue: {} },
+        { provide: ConfigService, useValue: { get: vi.fn() } },
+        { provide: OAuthStateService, useValue: {} },
+        { provide: PasswordResetService, useValue: reset },
+        {
+          provide: EmailVerificationService,
+          useValue: { sendVerification: vi.fn(), resendVerification: vi.fn(), verifyToken: vi.fn() },
+        },
+      ],
+    }).compile();
+    const controller = moduleRef.get(AuthController);
+    await controller.resetPassword({ token: 'a'.repeat(64), password: 'newPass123' });
+    expect(reset.consumeToken).toHaveBeenCalledWith('a'.repeat(64), 'newPass123');
   });
 });

@@ -2,6 +2,7 @@
 
 **Trigger:** Shipping a new version of api or web to production.
 **Last tested:** _Not yet — first deploy pending._
+**Deploy model:** Native Railway + Vercel auto-deploy off `main`. No custom GitHub Actions deploy job — `main` is already gated by the `ci-success` aggregate check via branch protection.
 **Estimated time:** ~20 minutes (excluding wait time for builds).
 **Risk level:** Medium — affects live users; rollback path exists but isn't instant.
 
@@ -43,6 +44,13 @@ SENTRY_DSN=https://...@sentry.io/...
 SENTRY_ENVIRONMENT=production
 SENTRY_TRACES_SAMPLE_RATE=0.1
 LOG_LEVEL=info
+
+# Email — Resend (sender requires verified domain)
+RESEND_API_KEY=re_...
+MAIL_FROM=GSM Sports <no-reply@your-domain>
+
+# Used in reset / verification email link URLs (must match the public web URL)
+NEXT_PUBLIC_SITE_URL=https://your-domain
 ```
 
 ### Web (`@gsm/web`)
@@ -63,6 +71,40 @@ NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
 SENTRY_DSN=https://...@sentry.io/...
 ```
 
+## Railway-specific configuration
+
+In the Railway dashboard for the api service:
+
+- **Source**: this repo, branch `main`. Auto-deploy enabled.
+- **Dockerfile path**: `apps/api/Dockerfile` (Railway detects it; double-check).
+- **Pre-deploy command** (Railway calls this once per release before swapping traffic):
+
+  ```
+  npm run migration:run --workspace=@gsm/api
+  ```
+
+- **Start command**: leave empty (the Dockerfile `CMD` `node dist/main` is correct).
+- **Postgres + Redis**: add as Railway services; copy their connection URLs into the api service's env (`DATABASE_URL`, `REDIS_URL`).
+- **Health check path**: `/health` (Railway uses this to gate traffic to a new revision).
+
+## Vercel-specific configuration
+
+In the Vercel dashboard for the web project:
+
+- **Root directory**: `apps/web`.
+- **Framework preset**: Next.js (auto-detected).
+- **Production branch**: `main`. Auto-deploy enabled.
+- **Env vars**: per the "Web (@gsm/web)" list above.
+- **Skip the standalone Dockerfile** — Vercel builds with its own pipeline. `apps/web/Dockerfile` is only used by Coolify/self-hosted paths.
+
+## Resend (email) setup
+
+1. Create a Resend account (free tier covers 3 000 emails/mo).
+2. Add your sending domain (e.g. `mail.<your-domain>`). Resend will show DNS records — add the three records (SPF, DKIM, DMARC) at Cloudflare. Verification usually completes in minutes.
+3. Create an API key, paste into Railway as `RESEND_API_KEY`.
+4. Set `MAIL_FROM` to a sender on the verified domain, e.g. `GSM Sports <no-reply@mail.your-domain>`.
+5. Test deliverability: hit `/v1/auth/forgot-password` with a real address and confirm the email lands in the primary inbox (not spam) for at least Gmail, iCloud, and Yandex.
+
 ## Steps
 
 1. **Confirm CI is green on `main`.**
@@ -71,18 +113,18 @@ SENTRY_DSN=https://...@sentry.io/...
    ```
    Or check the Actions tab. If anything is red, do not deploy.
 
-2. **Run database migrations against production.**
+2. **Database migrations.**
 
-   Migrations are TypeORM-generated TypeScript files in `apps/api/src/migrations/`. Run them once per release, before swapping traffic to the new container.
+   Migrations run automatically via Railway's pre-deploy command (`npm run migration:run --workspace=@gsm/api`). To see status manually:
 
-   Most hosting platforms can be configured to run a one-shot job before container start — set the start command to:
-   ```
-   npm run migration:run --workspace=@gsm/api && node apps/api/dist/main
-   ```
-   For more controlled deploys, run migrations from a one-off job:
    ```sh
-   # SSH or platform shell into the running api container, then:
-   npm run migration:run --workspace=@gsm/api
+   cd apps/api && npm run migration:show
+   ```
+
+   To run a one-off from local against prod (rarely needed):
+
+   ```sh
+   DATABASE_URL="$PROD_DATABASE_URL" npm run migration:run --workspace=@gsm/api
    ```
 
 3. **Deploy api.**

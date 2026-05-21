@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { EmailVerificationService } from './email-verification.service';
 import type { GoogleProfilePayload } from './google.strategy';
 import type { User } from '../users/entities/user.entity';
 
@@ -66,6 +67,10 @@ async function buildService(): Promise<{ service: AuthService; users: UsersMock 
       {
         provide: ConfigService,
         useValue: { get: vi.fn().mockReturnValue('dev-secret') },
+      },
+      {
+        provide: EmailVerificationService,
+        useValue: { sendVerification: vi.fn().mockResolvedValue(undefined) },
       },
     ],
   }).compile();
@@ -305,5 +310,29 @@ describe('AuthService.register conflict', () => {
         lastName: 'Sargsyan',
       } as never),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('AuthService.register email verification', () => {
+  it('sends a verification email after successful registration', async () => {
+    const { service, users } = await buildService();
+    const verify = vi.fn().mockResolvedValue(undefined);
+    // Override the EmailVerificationService mock for this test:
+    (service as any).emailVerification = { sendVerification: verify };
+
+    users.findByEmail.mockResolvedValue(null);
+    // The user the repo returns IS the user passed to sendVerification — so
+    // align the create mock to the same email used in the assertion below.
+    users.create.mockResolvedValue(mockUser({ id: 'new-user', email: 'newuser@example.com', isVerified: false }));
+
+    await service.register({
+      email: 'newuser@example.com',
+      password: 'SecurePass123',
+      firstName: 'Aram',
+      lastName: 'Sargsyan',
+    } as any);
+
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(verify.mock.calls[0][0].email).toBe('newuser@example.com');
   });
 });

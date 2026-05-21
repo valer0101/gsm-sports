@@ -1,6 +1,6 @@
 # Roadmap
 
-> Last updated: 8 May 2026 · Move the "Current phase" pointer when finishing a phase.
+> Last updated: 20 May 2026 · Move the "Current phase" pointer when finishing a phase.
 >
 > Companion to [STATUS.md](./STATUS.md). STATUS = what is done now. ROADMAP = what we're doing next.
 
@@ -34,20 +34,20 @@ Code-side (mostly done):
 - 🟢 Footer + SEO basics (robots, sitemap, OG metadata)
 
 Pending (your action mostly):
-- 🔴 Hosting account (Railway / Render / Hetzner+Coolify) and DNS
-- 🔴 Domain name + SSL
-- 🔴 Sentry account + DSN
-- 🔴 Email provider account (Resend recommended) + DKIM/SPF
-- 🔴 Real legal text (termly.io or local lawyer) replacing the placeholders
-- 🔴 Database backup cron (script template ready)
-- 🔴 GitHub Actions production deploy workflow
+- 🔴 Hosting account (Railway + Vercel) and DNS — accounts not yet created
+- 🔴 Domain name + SSL — domain owned, DNS not yet pointed at Railway/Vercel
+- 🔴 Sentry account + DSN — code wired in PR #99; account/DSN still pending
+- 🔴 Email provider account (Resend) + DKIM/SPF — code wired; account/DNS still pending
+- 🟡 Real legal text (Termly hand-off pending) replacing the placeholders
+- 🟢 Database backup cron — daily `pg_dump → R2` via GHA workflow (code-side); R2 bucket + secrets pending your action
+- 🟡 Production deploy workflow — Railway + Vercel native auto-deploy off `main` (design decided, runbook updated); actual Railway/Vercel projects + branch connection pending your action
 - 🔴 Bug bash with 3-5 operators / athletes on staging
 - 🔴 First production deploy
 
 Pending (engineering, post-merge of PRs #88-#91):
-- 🔴 Account recovery via Telegram (bot is live)
-- 🔴 Forgot-password via email (provider once chosen)
-- 🔴 Email verification flow
+- 🟢 Forgot-password via email (Resend) — landed this launch week
+- 🟢 Email verification flow (soft gate banner) — landed this launch week
+- 🔴 Account recovery via Telegram (deferred post-launch)
 
 ### Phase 2 — Sports media foundation 🔴 Planned (3-6 months post-launch)
 Goal: become a credible niche sports media product, not just a tournament tool.
@@ -114,3 +114,4 @@ A phase ends when:
 1. Every 🟢 row in its scope is actually green (verified, not just claimed).
 2. The next phase's 🟡 / 🔴 work is picked up in a tracked branch.
 3. STATUS.md and ROADMAP.md are updated in the same PR as the phase-closing change.
+4. (Launch-specific) Restore drill from a real backup completed and documented in `docs/runbooks/restore-from-backup.md`.
