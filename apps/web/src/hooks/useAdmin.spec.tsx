@@ -39,7 +39,7 @@ describe('useArmfightBracket', () => {
 import { useGenerateArmfightBracket } from './useAdmin';
 
 describe('useGenerateArmfightBracket', () => {
-  it('POSTs to /v1/brackets with format=armfight and the given pairs', async () => {
+  it('POSTs to /brackets/generate with format=armfight and the given pairs', async () => {
     const post = vi.mocked(api.post);
     post.mockClear();
 
@@ -51,7 +51,8 @@ describe('useGenerateArmfightBracket', () => {
       ],
     });
     await waitFor(() => expect(post).toHaveBeenCalled());
-    expect(post.mock.calls[0][0]).toBe('/v1/brackets');
+    // baseURL already has /v1 — bare path resolves to /v1/brackets/generate
+    expect(post.mock.calls[0][0]).toBe('/brackets/generate');
     expect(post.mock.calls[0][1]).toMatchObject({
       tournamentId: 't1',
       bracketFormat: 'armfight',
@@ -70,13 +71,14 @@ describe('useResetBracket', () => {
     vi.mocked(api.patch).mockClear();
   });
 
-  it('PATCHes /v1/brackets/:id/reset and invalidates queries', async () => {
+  it('PATCHes /brackets/:id/reset and invalidates queries', async () => {
     const { result } = renderHook(
       () => useResetBracket('t1', 'b2'),
       { wrapper },
     );
     result.current.mutate();
     await waitFor(() => expect(vi.mocked(api.patch)).toHaveBeenCalled());
-    expect(vi.mocked(api.patch).mock.calls[0][0]).toBe('/v1/brackets/b2/reset');
+    // baseURL already has /v1 — bare path resolves to /v1/brackets/b2/reset
+    expect(vi.mocked(api.patch).mock.calls[0][0]).toBe('/brackets/b2/reset');
   });
 });

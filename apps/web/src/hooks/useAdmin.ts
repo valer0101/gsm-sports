@@ -189,16 +189,20 @@ export function useArmfightBracket(tournamentId: string) {
 
 /**
  * Submit a curated `pairs[]` to create an armfight bracket. Routes
- * through the sub-project B path (POST /v1/brackets) rather than the
- * generic admin generate-brackets endpoint, which refuses armfight
+ * through the sub-project B path (POST /v1/brackets/generate) rather
+ * than the admin /generate-brackets endpoint, which refuses armfight
  * (Task 20 of sub-project B).
+ *
+ * Path note: `api.baseURL` already ends in `/v1`, so the hook uses a
+ * bare `/brackets/generate` path — appending the `/v1` prefix would
+ * double-resolve to `/v1/v1/brackets/generate` and 404.
  */
 export function useGenerateArmfightBracket(tournamentId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { pairs: PairPayload[] }) =>
       api
-        .post('/v1/brackets', {
+        .post('/brackets/generate', {
           tournamentId,
           bracketFormat: 'armfight',
           pairs: body.pairs,
@@ -215,12 +219,15 @@ export function useGenerateArmfightBracket(tournamentId: string) {
  * PATCH a bracket back to `pending` — clears `bracketData`, unlocks,
  * resets modification counter. Used by the pair-builder rebuild flow
  * (state 3 → state 2).
+ *
+ * Path note: bare `/brackets/...` for the same reason as
+ * `useGenerateArmfightBracket` — baseURL already has `/v1`.
  */
 export function useResetBracket(tournamentId: string, bracketId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      api.patch(`/v1/brackets/${bracketId}/reset`).then((r: any) => r.data),
+      api.patch(`/brackets/${bracketId}/reset`).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'tournament', tournamentId] });
       qc.invalidateQueries({ queryKey: ['admin', 'brackets', tournamentId] });

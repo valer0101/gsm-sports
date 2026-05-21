@@ -1154,6 +1154,9 @@
     "rebuild_confirm_no": "Cancel",
     "readonly_completed_note": "This tournament is completed. Pairs are read-only.",
     "not_armfight_title": "Not an armfight tournament",
-    "not_armfight_body": "Pair-building is only available for tournaments of type \"armfight\"."
+    "not_armfight_body": "Pair-building is only available for tournaments of type \"armfight\".",
+    "tournament_not_found": "Tournament not found",
+    "back_to_list": "Back to tournaments",
+    "vs": "vs"
   }
 }

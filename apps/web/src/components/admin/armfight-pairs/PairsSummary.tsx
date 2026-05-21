@@ -50,7 +50,7 @@ export function PairsSummary({ tournamentId, bracket, canRebuild }: PairsSummary
             </span>
             <span className="text-sm text-[var(--color-text-primary)] flex-1 text-center">
               <strong>{fullName(m.player1)}</strong>
-              <span className="mx-2 text-[var(--color-text-muted)]">vs</span>
+              <span className="mx-2 text-[var(--color-text-muted)]">{t('vs')}</span>
               <strong>{fullName(m.player2)}</strong>
             </span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[var(--color-accent-dim)] text-[var(--color-accent)]">

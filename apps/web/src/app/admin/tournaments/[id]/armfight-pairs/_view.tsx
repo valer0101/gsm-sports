@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useAdminTournament, useConfirmedEntries, useArmfightBracket } from '@/hooks/useAdmin';
 import { isArmfightTournament } from '@/lib/armfight';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { PairBuilder } from '@/components/admin/armfight-pairs/PairBuilder';
 import { PairsSummary } from '@/components/admin/armfight-pairs/PairsSummary';
 import { EmptyEntriesState } from '@/components/admin/armfight-pairs/EmptyEntriesState';
@@ -25,9 +26,9 @@ export function ArmfightPairsView({ id }: { id: string }) {
 
   if (loadingT || loadingE || loadingB) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="h-6 w-40 rounded bg-[var(--color-surface-2)] animate-pulse mb-6" />
-        <div className="h-64 rounded bg-[var(--color-surface-2)] animate-pulse" />
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        <Skeleton className="h-6 w-40 rounded" />
+        <Skeleton className="h-64 w-full rounded" />
       </div>
     );
   }
@@ -35,7 +36,15 @@ export function ArmfightPairsView({ id }: { id: string }) {
   if (!tournament) {
     return (
       <div className="max-w-xl mx-auto py-12 text-center">
-        <h2 className="text-xl font-bold">404</h2>
+        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
+          {t('tournament_not_found')}
+        </h2>
+        <Link
+          href="/admin/tournaments"
+          className="inline-block mt-6 px-4 py-2 rounded-md text-sm border border-[var(--color-border)] hover:bg-[var(--color-surface-2)]"
+        >
+          {t('back_to_list')}
+        </Link>
       </div>
     );
   }
@@ -62,8 +71,12 @@ export function ArmfightPairsView({ id }: { id: string }) {
 
   const entries = entriesEnvelope?.data ?? [];
   const status = (tournament as any).status as string;
-  const bracketGenerated = (tournament as any).bracketGenerated as boolean;
   const terminal = status === 'completed' || status === 'cancelled';
+  // State-3 detection uses the bracket itself, not `tournament.bracketGenerated` —
+  // the backend's single-bracket `generate()` path (which sub-project B Task 19
+  // wired armfight to use) never flips that flag; only `generateAll` does. Bracket
+  // presence from useArmfightBracket is the authoritative signal.
+  const hasBracket = bracket !== null;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -86,8 +99,8 @@ export function ArmfightPairsView({ id }: { id: string }) {
         ) : (
           <EmptyEntriesState tournamentId={id} />
         )
-      ) : /* State 3 — bracket generated */
-      bracketGenerated && bracket ? (
+      ) : /* State 3 — bracket exists for this armfight tournament */
+      hasBracket && bracket ? (
         <PairsSummary tournamentId={id} bracket={bracket} canRebuild />
       ) : /* State 1 — fewer than 2 confirmed entries */
       entries.length < 2 ? (

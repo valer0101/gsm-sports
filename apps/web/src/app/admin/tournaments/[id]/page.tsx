@@ -139,6 +139,16 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
 
   const canToggleReg = !tournament.bracketGenerated;
   const isArmfight = isArmfightTournament(tournament as any);
+  // The single-bracket `BracketsService.generate()` path (which armfight uses)
+  // never sets `tournament.bracketGenerated = true`; only `generateAll` does.
+  // For armfight, detect bracket existence directly from the brackets list so
+  // the CTA hides correctly post-creation.
+  const hasArmfightBracket =
+    isArmfight &&
+    (brackets ?? []).some((b) => (b.bracketData as any)?.format === 'armfight');
+  const showGenerateCta =
+    !tournament.registrationOpen &&
+    (isArmfight ? !hasArmfightBracket : !tournament.bracketGenerated);
 
   async function handleAssignOperator(e: React.FormEvent) {
     e.preventDefault();
@@ -264,7 +274,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
                 : t('open_registration')}
           </button>
 
-          {!tournament.registrationOpen && !tournament.bracketGenerated && (
+          {showGenerateCta && (
             isArmfight ? (
               <Link
                 href={`/admin/tournaments/${tournament.id}/armfight-pairs`}
@@ -282,7 +292,7 @@ export default function AdminTournamentPage({ params }: { params: Promise<{ id: 
             )
           )}
 
-          {tournament.bracketGenerated && (
+          {(tournament.bracketGenerated || hasArmfightBracket) && (
             <span className="text-sm font-semibold text-[var(--color-success)]">
               {t('bracket_generated_badge')}
             </span>
