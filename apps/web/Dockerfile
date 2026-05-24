@@ -20,6 +20,11 @@ RUN npm ci
 
 COPY --from=pruner /repo/out/full/ .
 
+# turbo prune --docker omits root-level tsconfig.base.json; @gsm/shared-types
+# (the only workspace dep built before next compile) extends it. Same fix
+# as apps/api/Dockerfile.
+COPY --from=pruner /repo/tsconfig.base.json ./tsconfig.base.json
+
 # Build workspace deps + the Next app. Next produces a `standalone` output
 # under `apps/web/.next/standalone` (see `next.config.js`) — that's what
 # we copy into the runtime image.

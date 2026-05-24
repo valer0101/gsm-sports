@@ -24,6 +24,15 @@ RUN npm ci
 # Bring the rest of the source pruned to api's workspaces.
 COPY --from=pruner /repo/out/full/ .
 
+# turbo prune --docker doesn't copy root-level files like tsconfig.base.json
+# into out/full/, but every workspace tsconfig extends it (e.g.
+# packages/scheduler/tsconfig.json → ../../tsconfig.base.json). Without
+# this file tsc errors with TS5083 and falls back to a default config
+# without skipLibCheck=true, which cascades into ~30 type errors in
+# transitive node_modules .d.ts files. Copy it explicitly from the
+# pruner stage where the full repo was checked out.
+COPY --from=pruner /repo/tsconfig.base.json ./tsconfig.base.json
+
 # Build the workspace deps (@gsm/shared-types, @gsm/scheduler, @gsm/bracket-engine)
 # and then the api itself.
 RUN npx turbo run build --filter=@gsm/api
