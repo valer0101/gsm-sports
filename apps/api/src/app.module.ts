@@ -43,16 +43,29 @@ import { TeamStandingsModule } from './team-standings/team-standings.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.get<string>(
-          'DATABASE_URL',
-          'postgresql://gsm_user:gsm_dev_password@localhost:5432/gsm_sports',
-        ),
-        autoLoadEntities: true,
-        synchronize: config.get<string>('NODE_ENV') === 'development',
-        logging: config.get<string>('NODE_ENV') === 'development',
-      }),
+      useFactory: (config: ConfigService) => {
+        const isProd = config.get<string>('NODE_ENV') === 'production';
+        return {
+          type: 'postgres',
+          url: config.get<string>(
+            'DATABASE_URL',
+            'postgresql://gsm_user:gsm_dev_password@localhost:5432/gsm_sports',
+          ),
+          autoLoadEntities: true,
+          // In production we ship a slim image without typeorm CLI / ts-node
+          // (Dockerfile `npm prune --omit=dev`). We can't run migrations via
+          // the npm script in that image, so instead we point TypeORM at the
+          // compiled migration files and let it auto-run pending ones on
+          // every boot. TypeORM tracks applied migrations in `migrations` so
+          // re-boots are no-ops; the cost is a single SELECT on `migrations`
+          // at startup. The standalone CLI path (`npm run migration:run`)
+          // stays the same for local dev — see `apps/api/package.json`.
+          migrations: isProd ? ['dist/migrations/*.js'] : [],
+          migrationsRun: isProd,
+          synchronize: config.get<string>('NODE_ENV') === 'development',
+          logging: config.get<string>('NODE_ENV') === 'development',
+        };
+      },
     }),
 
     // Cron / periodic tasks (MatchReminderTask in TelegramModule).

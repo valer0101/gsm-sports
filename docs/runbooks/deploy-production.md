@@ -77,12 +77,7 @@ In the Railway dashboard for the api service:
 
 - **Source**: this repo, branch `main`. Auto-deploy enabled.
 - **Dockerfile path**: `apps/api/Dockerfile` (Railway detects it; double-check).
-- **Pre-deploy command** (Railway calls this once per release before swapping traffic):
-
-  ```
-  npm run migration:run --workspace=@gsm/api
-  ```
-
+- **Pre-deploy command**: leave empty. Migrations run automatically on app boot (`migrationsRun: true` in `apps/api/src/app.module.ts`'s TypeORM config). The runtime image is pruned (`npm prune --omit=dev`) so the standalone `npm run migration:run` script does not exist inside the container — the in-app auto-run is the migration path for prod.
 - **Start command**: leave empty (the Dockerfile `CMD` `node dist/main` is correct).
 - **Postgres + Redis**: add as Railway services; copy their connection URLs into the api service's env (`DATABASE_URL`, `REDIS_URL`).
 - **Health check path**: `/health` (Railway uses this to gate traffic to a new revision).
@@ -115,13 +110,15 @@ In the Vercel dashboard for the web project:
 
 2. **Database migrations.**
 
-   Migrations run automatically via Railway's pre-deploy command (`npm run migration:run --workspace=@gsm/api`). To see status manually:
+   Migrations run **automatically on app boot** in production (`migrationsRun: true` in `apps/api/src/app.module.ts`). The app reads `dist/migrations/*.js` from the container and runs any not-yet-applied migrations against the DB before serving the first request. TypeORM tracks state in the `migrations` table, so re-boots are no-ops.
+
+   To see status from local (read-only diagnostic):
 
    ```sh
    cd apps/api && npm run migration:show
    ```
 
-   To run a one-off from local against prod (rarely needed):
+   To run migrations one-off from local against prod (rarely needed — only if the in-app auto-run is disabled or you're debugging a stuck migration):
 
    ```sh
    DATABASE_URL="$PROD_DATABASE_URL" npm run migration:run --workspace=@gsm/api
