@@ -48,10 +48,18 @@ RUN apk add --no-cache dumb-init
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001 -G nodejs
 
 # Copy the pruned dependency tree + built api dist.
+#
+# Note: we deliberately do NOT copy /repo/apps/api/node_modules — npm
+# workspaces with hoisting put all deps in the root /repo/node_modules.
+# In this monorepo the per-workspace apps/api/node_modules is empty (or
+# absent after `npm prune --omit=dev`), so a COPY would either be a
+# no-op or fail with "not found". Runtime module resolution walks up
+# from /app/apps/api → /app/node_modules and finds everything there,
+# including workspace deps via symlinks `node_modules/@gsm/* →
+# /app/packages/*` that npm ci created and are preserved by the COPY.
 COPY --from=builder --chown=nestjs:nodejs /repo/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /repo/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=nestjs:nodejs /repo/apps/api/package.json ./apps/api/package.json
-COPY --from=builder --chown=nestjs:nodejs /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder --chown=nestjs:nodejs /repo/packages ./packages
 
 USER nestjs
