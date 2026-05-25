@@ -10,7 +10,12 @@ import {
 } from '@/i18n/config';
 
 export async function getVerifiedPayload(token: string): Promise<{ roles?: string[] } | null> {
-  const secret = process.env.JWT_SECRET;
+  // Accept either name. `JWT_ACCESS_SECRET` is the canonical one used by
+  // the api (`apps/api/src/auth/jwt.strategy.ts` and the rest of the api
+  // code). `JWT_SECRET` is kept as a fallback for compatibility with
+  // existing dev `.env.local` files. Both services MUST use the same
+  // value — the api signs the token, the web middleware verifies it.
+  const secret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET;
   if (!secret) return null;
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
