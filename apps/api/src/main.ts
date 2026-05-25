@@ -140,12 +140,30 @@ async function bootstrap() {
     logger.log('Sentry error reporting enabled');
   }
 
-  // Seed default sports (arm wrestling) if table is empty
-  const sportsService = app.get(SportsService);
-  await sportsService.seed();
+  // Seeds run independently — wrap each in try/catch so a failure in
+  // one (e.g. sports already seeded → unique violation on re-deploy)
+  // doesn't block the others. seedAdmin is the most important: without
+  // it nobody can log in to a fresh deploy.
 
-  // Seed first admin from ENV (ADMIN_EMAIL + ADMIN_PASSWORD)
-  const usersService = app.get(UsersService);
-  await usersService.seedAdmin();
+  // Seed first admin from ENV (ADMIN_EMAIL + ADMIN_PASSWORD) — runs
+  // FIRST so a flaky sportsService.seed() never blocks admin creation.
+  try {
+    const usersService = app.get(UsersService);
+    await usersService.seedAdmin();
+  } catch (err) {
+    logger.error(
+      `seedAdmin failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  // Seed default sports (arm wrestling) if table is empty.
+  try {
+    const sportsService = app.get(SportsService);
+    await sportsService.seed();
+  } catch (err) {
+    logger.error(
+      `sportsService.seed failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 bootstrap();
