@@ -18,12 +18,30 @@ import { OAuthStateService } from './oauth-state.service';
 import type { GoogleProfilePayload } from './google.strategy';
 import { Public } from './public.decorator';
 
+/**
+ * When api and web live on different subdomains of the same site
+ * (api.example.com + www.example.com) the access-token cookie must be
+ * scoped to the parent domain (`.example.com`) so the browser sends it
+ * to both. Set `COOKIE_DOMAIN=.gsmarm.com` in production. Without it,
+ * the cookie defaults to the api host (api.gsmarm.com) and the web
+ * middleware on www.gsmarm.com never sees it → endless redirect to
+ * /auth/login after a successful POST /auth/login.
+ *
+ * Leave unset in dev — Express scopes to `localhost` automatically,
+ * which works for both `localhost:3000` (web) and `localhost:4000` (api).
+ */
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
+
+/** Mirrors COOKIE_OPTIONS for the clear-cookie call — domain must match. */
+const COOKIE_CLEAR_OPTIONS = process.env.COOKIE_DOMAIN
+  ? { domain: process.env.COOKIE_DOMAIN }
+  : {};
 
 const DEFAULT_FRONTEND_CALLBACK = 'http://localhost:3000/auth/google/callback';
 
@@ -70,7 +88,9 @@ export class AuthController {
   @Public()
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token');
+    // Domain must match the one used on set, otherwise the browser
+    // keeps the original cookie alongside a new domain-less empty one.
+    res.clearCookie('access_token', COOKIE_CLEAR_OPTIONS);
     return { message: 'Logged out' };
   }
 
