@@ -10,7 +10,7 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import { api } from '@/lib/api';
-import { useArmfightBouts, useRecordLeg } from './useArmfight';
+import { useArmfightBouts, useRecordLeg, useForfeitBout } from './useArmfight';
 import type { BoutSnapshot } from '@/components/operator/armfight/types';
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -109,5 +109,42 @@ describe('useArmfightBouts', () => {
   it('does not fetch when bracketId is undefined', () => {
     renderHook(() => useArmfightBouts(undefined), { wrapper });
     expect(api.get).not.toHaveBeenCalled();
+  });
+});
+
+describe('useForfeitBout', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('POSTs to /brackets/:id/forfeit with optional reason', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+
+    const { result } = renderHook(() => useForfeitBout('bracket-1'), {
+      wrapper,
+    });
+
+    result.current.mutate({
+      boutId: 'wb_1_0',
+      winnerId: 'a',
+      walkoverReason: 'не явился',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith('/brackets/bracket-1/forfeit', {
+      boutId: 'wb_1_0',
+      winnerId: 'a',
+      walkoverReason: 'не явился',
+    });
+  });
+
+  it('omits walkoverReason when not provided', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    const { result } = renderHook(() => useForfeitBout('bracket-1'), {
+      wrapper,
+    });
+    result.current.mutate({ boutId: 'wb_1_0', winnerId: 'a' });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect((api.post as any).mock.calls[0][1]).not.toHaveProperty(
+      'walkoverReason',
+    );
   });
 });

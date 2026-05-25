@@ -51,3 +51,35 @@ export function useRecordLeg(bracketId: string) {
     },
   });
 }
+
+/**
+ * Close an armfight bout as walkover.
+ * Mirrors POST /v1/brackets/:id/forfeit (brackets.controller.ts:84).
+ *
+ * Engine errors come back as 400 with message prefix `forfeitBout: …`.
+ * The mutation does NOT swallow them.
+ */
+export function useForfeitBout(bracketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      boutId: string;
+      winnerId: string;
+      walkoverReason?: string;
+    }) => {
+      const payload: Record<string, unknown> = {
+        boutId: body.boutId,
+        winnerId: body.winnerId,
+      };
+      if (body.walkoverReason !== undefined) {
+        payload.walkoverReason = body.walkoverReason;
+      }
+      return api
+        .post(`/brackets/${bracketId}/forfeit`, payload)
+        .then((r: any) => r.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', bracketId, 'bouts'] });
+    },
+  });
+}
