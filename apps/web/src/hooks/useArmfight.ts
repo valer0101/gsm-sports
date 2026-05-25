@@ -21,5 +21,33 @@ export function useArmfightBouts(bracketId: string | undefined) {
   });
 }
 
-// useMutation, useQueryClient, and LegWinType are intentionally imported here;
-// Tasks 3 and 4 will add mutation hooks to this file that use them.
+/**
+ * Append a leg result to an armfight bo5 bout.
+ * Mirrors POST /v1/brackets/:id/legs (brackets.controller.ts:74).
+ *
+ * Engine validation errors come back as 400 with message prefix
+ * `recordLeg: …`. The mutation does NOT swallow them — callers must
+ * read `mutation.error` to surface the engine message verbatim.
+ *
+ * Only the `bouts` query is invalidated here. The server emits
+ * `bracket_updated` after every commit, and the parent's
+ * `useBracketSocket(tournamentId)` handles the rest of the cache
+ * (operator dashboard, schedule, etc.).
+ */
+export function useRecordLeg(bracketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      boutId: string;
+      legIndex: number;
+      winnerId: string;
+      winType: LegWinType;
+    }) =>
+      api
+        .post(`/brackets/${bracketId}/legs`, body)
+        .then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brackets', bracketId, 'bouts'] });
+    },
+  });
+}
