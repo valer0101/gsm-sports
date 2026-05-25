@@ -39,7 +39,7 @@ function AthleteRow({ entry, rank }: { entry: RankingEntry; rank: number }) {
       </span>
 
       <div
-        className="w-24 h-24 rounded-full overflow-hidden border border-white/10 shrink-0 flex items-center justify-center"
+        className="w-14 h-14 md:w-24 md:h-24 rounded-full overflow-hidden border border-white/10 shrink-0 flex items-center justify-center"
         style={{ backgroundColor: 'var(--color-background)' }}
       >
         {entry.athlete.photoUrl ? (
@@ -142,20 +142,20 @@ export function SportRankingsClient({ sport, initialRight, initialLeft }: Props)
   const catLabel = t(selectedCat.i18nKey as Parameters<typeof t>[0]);
 
   return (
-    <div className="flex min-h-[600px]">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r border-white/10 py-6 px-3">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-4 px-2" style={{ color: 'var(--color-text-secondary)' }}>
+    <div className="flex flex-col md:flex-row min-h-[600px]">
+      {/* Sidebar (desktop) / Horizontal pills (mobile) */}
+      <aside className="w-full md:w-56 md:shrink-0 md:border-r border-b md:border-b-0 border-white/10 px-3 py-3 md:py-6">
+        <p className="hidden md:block text-xs font-semibold uppercase tracking-widest mb-4 px-2" style={{ color: 'var(--color-text-secondary)' }}>
           {t('weight_division')}
         </p>
-        <nav className="space-y-1">
+        <nav className="flex md:block gap-2 md:gap-0 md:space-y-1 overflow-x-auto md:overflow-visible -mx-3 px-3 md:mx-0 md:px-0">
           {WEIGHT_CATEGORIES.map((cat) => {
             const isActive = cat.key === selectedWeight;
             return (
               <button
                 key={cat.key}
                 onClick={() => setSelectedWeight(cat.key)}
-                className="w-full text-left px-3 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center justify-between"
+                className="shrink-0 md:w-full text-left px-3 py-2 md:py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center justify-between gap-2 whitespace-nowrap"
                 style={
                   isActive
                     ? { backgroundColor: 'var(--color-secondary)', color: 'white', borderLeft: '3px solid var(--color-primary)' }
@@ -171,7 +171,7 @@ export function SportRankingsClient({ sport, initialRight, initialLeft }: Props)
       </aside>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 px-6 py-6">
+      <div className="flex-1 min-w-0 px-4 md:px-6 py-6">
         {/* View tabs */}
         <div className="flex gap-2 mb-6">
           {(['world', 'armenia'] as View[]).map((v) => (
@@ -191,7 +191,7 @@ export function SportRankingsClient({ sport, initialRight, initialLeft }: Props)
         </div>
 
         <div className="mb-6">
-          <h1 className="text-3xl font-black uppercase text-white">
+          <h1 className="text-2xl md:text-3xl font-black uppercase text-white break-words">
             {view === 'world' ? t('world_title') : t('armenia')}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-primary)' }}>
@@ -199,7 +199,7 @@ export function SportRankingsClient({ sport, initialRight, initialLeft }: Props)
           </p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <HandColumn title={t('right_hand')} entries={rightEntries} isLoading={isLoading}                                              isError={isRightError} />
           <HandColumn title={t('left_hand')}  entries={leftEntries}  isLoading={view === 'world' ? worldLeft.isLoading : armLeft.isLoading} isError={isLeftError} />
         </div>
