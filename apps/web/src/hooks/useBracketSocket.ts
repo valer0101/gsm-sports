@@ -47,6 +47,12 @@ export function useBracketSocket(tournamentId: string | undefined) {
             b.id === payload.bracketId ? { ...b, bracketData: payload.bracketData } : b,
           );
         });
+        // Sub-D: live-refresh the per-bracket bouts query used by the
+        // armfight focus view. We invalidate (not setQueryData) because
+        // the bouts derivation lives server-side in `listBouts`.
+        qc.invalidateQueries({
+          queryKey: ['brackets', payload.bracketId, 'bouts'],
+        });
       },
     );
 
