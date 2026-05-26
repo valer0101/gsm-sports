@@ -14,6 +14,7 @@ import { useTournamentSchedule } from '@/hooks/useSchedule';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/Avatar';
 import { MatchResultForm } from '@/components/tournaments/MatchResultForm';
+import { ArmfightFightCard } from '@/components/operator/armfight/ArmfightFightCard';
 import type {
   Bracket,
   BracketMatch,
@@ -59,6 +60,8 @@ export default function OperatorTournamentPage({
   }
 
   const bracket = brackets[selectedBracketIdx];
+  const isArmfightBracket =
+    (bracket?.bracketData as any)?.format === 'armfight';
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
@@ -72,7 +75,7 @@ export default function OperatorTournamentPage({
 
       <h1 className="text-xl font-black text-white mb-4">{t('title')}</h1>
 
-      <MyTableBanner tournamentId={tournamentId} />
+      {!isArmfightBracket && <MyTableBanner tournamentId={tournamentId} />}
 
       {/* Category tabs */}
       {brackets.length > 1 && (
@@ -100,14 +103,18 @@ export default function OperatorTournamentPage({
         </div>
       )}
 
-      {bracket.isLocked && (
+      {bracket.isLocked && !isArmfightBracket && (
         <div className="mb-4 rounded-xl px-4 py-3 text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/20">
           🔒 {t('bracket_locked')}
         </div>
       )}
 
       {bracket.bracketData ? (
-        <MatchList bracket={bracket} tournamentId={tournamentId} />
+        isArmfightBracket ? (
+          <ArmfightFightCard tournamentId={tournamentId} bracket={bracket} />
+        ) : (
+          <MatchList bracket={bracket} tournamentId={tournamentId} />
+        )
       ) : (
         <p className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
           {t('no_bracket')}
