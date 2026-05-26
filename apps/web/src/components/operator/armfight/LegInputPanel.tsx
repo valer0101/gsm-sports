@@ -45,6 +45,7 @@ export function LegInputPanel({
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label={t('leg_input_title', { name: winnerName, n: legIndex })}
       className="fixed inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50"
     >

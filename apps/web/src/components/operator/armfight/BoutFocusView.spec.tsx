@@ -137,4 +137,33 @@ describe('BoutFocusView', () => {
       screen.getByRole('button', { name: /forfeit_button/i }),
     ).toBeDisabled();
   });
+
+  it('renders player buttons + scoreboard for in_progress status', async () => {
+    (api.get as any).mockResolvedValue({
+      data: [
+        {
+          ...pendingBout,
+          scoreA: 1,
+          scoreB: 0,
+          status: 'in_progress',
+          legs: [{ index: 1, winnerId: 'a', winType: 'pin' }],
+        },
+      ],
+    });
+    wrap(
+      <BoutFocusView
+        tournamentId="t1"
+        bracketId="bracket-1"
+        boutId="wb_1_0"
+        isLocked={false}
+      />,
+    );
+    // In-progress should still render the interactive UI, NOT WinnerCard
+    expect(await screen.findByRole('button', { name: /Иван Иванов/i }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /forfeit_button/i }))
+      .toBeInTheDocument();
+    // Score should reflect 1:0 — at least one element with text "1" in the scoreboard
+    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -4,7 +4,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (k: string) => k,
+  useTranslations: () => (k: string, p?: any) =>
+    p ? `${k}:${JSON.stringify(p)}` : k,
 }));
 
 import { LegHistoryStrip } from './LegHistoryStrip';
@@ -40,5 +41,17 @@ describe('LegHistoryStrip', () => {
     expect(
       screen.getByText('leg_history_correction_hint'),
     ).toBeInTheDocument();
+  });
+
+  it('shows leg_n_of_5 hint with the next leg index when fewer than 5 legs played', () => {
+    render(
+      <LegHistoryStrip
+        legs={[{ index: 1, winnerId: 'a', winType: 'pin' }]}
+        playerA={playerA}
+        playerB={playerB}
+      />,
+    );
+    // Next leg would be #2
+    expect(screen.getByText(/leg_n_of_5.*"n":2/)).toBeInTheDocument();
   });
 });

@@ -51,6 +51,7 @@ export function ForfeitDialog({
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label={t('forfeit_dialog_title', { n: boutOrder })}
       className="fixed inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50"
     >

@@ -27,9 +27,17 @@ export function LegHistoryStrip({ legs, playerA, playerB }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wider"
-        style={{ color: 'var(--color-text-secondary)' }}>
-        {t('leg_history_title')}
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-wider"
+          style={{ color: 'var(--color-text-secondary)' }}>
+          {t('leg_history_title')}
+        </div>
+        {legs.length < 5 && (
+          <div className="text-[10px]"
+            style={{ color: 'var(--color-text-secondary)' }}>
+            {t('leg_n_of_5', { n: legs.length + 1 })}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-5 gap-1.5">
         {[1, 2, 3, 4, 5].map((i) => {
