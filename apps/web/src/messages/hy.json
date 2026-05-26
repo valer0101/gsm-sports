@@ -716,6 +716,52 @@
     "eta_minutes": "~{n} րոպե",
     "eta_hours": "~{n} ժ"
   },
+  "operator_armfight": {
+    "card_title": "Մարտերի քարտ",
+    "card_subtitle": "{n, plural, one {# մարտ} other {# մարտ}}",
+    "bracket_locked": "Ցանցը կողպված է — փոփոխությունները հասանելի չեն",
+
+    "bout_label": "Մարտ {n}",
+    "hand_left": "ձախ",
+    "hand_right": "աջ",
+
+    "status_pending": "Սպասում է",
+    "status_in_progress": "Ընթացքում",
+    "status_completed": "Ավարտված",
+    "status_walkover": "Walkover",
+
+    "next_pending_badge": "Հաջորդը",
+    "back_to_card": "← Վերադառնալ քարտին",
+
+    "leg_n_of_5": "Leg {n} 5-ից",
+    "leg_input_title": "{name}-ը հաղթեց leg {n}-ին",
+    "wintype_pin": "Pin",
+    "wintype_foul": "Foul",
+    "wintype_dq": "DQ",
+    "confirm": "Հաստատել",
+    "cancel": "Չեղարկել",
+
+    "leg_history_title": "Leg-երի պատմություն",
+    "leg_history_correction_hint": "Սխալ գրառո՞ւմ։ Դիմեք կազմակերպչին — leg-ը կարող է փոխվել միայն ողջ մարտի վերակայմամբ:",
+
+    "forfeit_button": "Հանել մարտը (walkover)",
+    "forfeit_dialog_title": "Հանել մարտ {n}",
+    "forfeit_dialog_winner_label": "Ով է մնում (հաղթող)",
+    "forfeit_dialog_reason_label": "Պատճառ (ոչ պարտադիր, աուդիտի համար)",
+    "forfeit_dialog_reason_placeholder": "Օր.՝ չի ներկայացել, վնասվածք…",
+
+    "winner_card_title": "{name}-ը հաղթեց",
+    "winner_card_score": "Վերջնական հաշիվ {scoreA}:{scoreB}",
+    "winner_card_walkover_badge": "Walkover",
+    "winner_card_walkover_reason": "Պատճառ՝ {reason}",
+
+    "error_recordleg_prefix": "Չհաջողվեց գրանցել leg-ը",
+    "error_forfeit_prefix": "Չհաջողվեց հանել մարտը",
+    "error_network": "Չհաջողվեց պահել — ստուգեք կապը",
+    "error_no_access": "Դուք չունեք մուտք այս մրցաշարին",
+    "error_bout_not_found": "Մարտը չի գտնվել",
+    "error_not_armfight": "Այս ցանցը armfight չէ"
+  },
   "broadcast": {
     "table_number": "Սեղան №{n}",
     "waiting": "Հանդիպման սպասում",

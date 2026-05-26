@@ -46,3 +46,6 @@ docker-compose.override.yml
 *.pid
 *.seed
 *.pid.lock
+
+# Superpowers brainstorm session files
+.superpowers/

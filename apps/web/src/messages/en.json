@@ -531,6 +531,52 @@
     "eta_minutes": "~{n} min",
     "eta_hours": "~{n} h"
   },
+  "operator_armfight": {
+    "card_title": "Fight card",
+    "card_subtitle": "{n, plural, one {# bout} other {# bouts}}",
+    "bracket_locked": "Bracket locked — changes disabled",
+
+    "bout_label": "Bout {n}",
+    "hand_left": "left",
+    "hand_right": "right",
+
+    "status_pending": "Waiting",
+    "status_in_progress": "Live",
+    "status_completed": "Finished",
+    "status_walkover": "Walkover",
+
+    "next_pending_badge": "Up next",
+    "back_to_card": "← Back to fight card",
+
+    "leg_n_of_5": "Leg {n} of 5",
+    "leg_input_title": "{name} won leg {n}",
+    "wintype_pin": "Pin",
+    "wintype_foul": "Foul",
+    "wintype_dq": "DQ",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+
+    "leg_history_title": "Leg history",
+    "leg_history_correction_hint": "Wrong entry? Ask the organizer — a leg can only be changed by resetting the whole bout.",
+
+    "forfeit_button": "Forfeit bout (walkover)",
+    "forfeit_dialog_title": "Forfeit bout {n}",
+    "forfeit_dialog_winner_label": "Who stays in (winner)",
+    "forfeit_dialog_reason_label": "Reason (optional, for the audit log)",
+    "forfeit_dialog_reason_placeholder": "e.g. no-show, injury…",
+
+    "winner_card_title": "{name} won",
+    "winner_card_score": "Final score {scoreA}:{scoreB}",
+    "winner_card_walkover_badge": "Walkover",
+    "winner_card_walkover_reason": "Reason: {reason}",
+
+    "error_recordleg_prefix": "Could not record leg",
+    "error_forfeit_prefix": "Could not forfeit bout",
+    "error_network": "Could not save — check your connection",
+    "error_no_access": "You don't have access to this tournament",
+    "error_bout_not_found": "Bout not found",
+    "error_not_armfight": "This bracket is not an armfight card"
+  },
   "broadcast": {
     "table_number": "Table #{n}",
     "waiting": "Waiting for match",
