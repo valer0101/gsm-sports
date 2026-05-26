@@ -48,8 +48,7 @@ describe('BoutListItem', () => {
       />,
     );
     expect(screen.getByText(/status_in_progress/)).toBeInTheDocument();
-    expect(screen.getByText(/2/)).toBeInTheDocument();
-    expect(screen.getByText(/1/)).toBeInTheDocument();
+    expect(screen.getByText('2:1')).toBeInTheDocument();
   });
 
   it('shows winner for completed bout', () => {

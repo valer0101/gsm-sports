@@ -74,11 +74,9 @@ export function BoutListItem({
     >
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-2">
-          <span
-            className="bout-label text-xs font-black"
-            data-order={bout.order}
+          <span className="text-xs font-black"
             style={{ color: 'var(--color-text-secondary)' }}>
-            {t('bout_label')}
+            {t('bout_label', { n: bout.order })}
           </span>
           <span
             className="px-1.5 py-0.5 rounded-full text-[10px] font-black"
