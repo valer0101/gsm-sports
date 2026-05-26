@@ -532,6 +532,52 @@
     "eta_minutes": "~{n} мин",
     "eta_hours": "~{n} ч"
   },
+  "operator_armfight": {
+    "card_title": "Карточка боёв",
+    "card_subtitle": "{n, plural, one {# бой} few {# боя} other {# боёв}}",
+    "bracket_locked": "Сетка заблокирована — изменения недоступны",
+
+    "bout_label": "Бой {n}",
+    "hand_left": "левая",
+    "hand_right": "правая",
+
+    "status_pending": "Ожидает",
+    "status_in_progress": "Идёт",
+    "status_completed": "Завершён",
+    "status_walkover": "Walkover",
+
+    "next_pending_badge": "Следующий",
+    "back_to_card": "← Назад к карточке",
+
+    "leg_n_of_5": "Leg {n} из 5",
+    "leg_input_title": "{name} выиграл leg {n}",
+    "wintype_pin": "Pin",
+    "wintype_foul": "Foul",
+    "wintype_dq": "DQ",
+    "confirm": "Подтвердить",
+    "cancel": "Отмена",
+
+    "leg_history_title": "История leg-ов",
+    "leg_history_correction_hint": "Ошибка в записи? Обратись к организатору — изменить leg можно только сбросом боя.",
+
+    "forfeit_button": "Снять бой (walkover)",
+    "forfeit_dialog_title": "Снять бой {n}",
+    "forfeit_dialog_winner_label": "Кто остаётся (победитель)",
+    "forfeit_dialog_reason_label": "Причина (опционально, для аудит-лога)",
+    "forfeit_dialog_reason_placeholder": "Например: не явился, травма…",
+
+    "winner_card_title": "{name} победил",
+    "winner_card_score": "Финальный счёт {scoreA}:{scoreB}",
+    "winner_card_walkover_badge": "Walkover",
+    "winner_card_walkover_reason": "Причина: {reason}",
+
+    "error_recordleg_prefix": "Не удалось записать leg",
+    "error_forfeit_prefix": "Не удалось снять бой",
+    "error_network": "Не удалось сохранить — проверь сеть",
+    "error_no_access": "У вас нет доступа к этому турниру",
+    "error_bout_not_found": "Бой не найден",
+    "error_not_armfight": "Эта сетка не armfight"
+  },
   "broadcast": {
     "table_number": "Стол №{n}",
     "waiting": "Ожидание матча",
