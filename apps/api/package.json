@@ -72,6 +72,6 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.7.0",
     "unplugin-swc": "^1.5.9",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.0"
   }
 }
