@@ -56,8 +56,14 @@ class WeightCategoryDto {
 }
 
 export class CreateTournamentDto {
-  @ApiProperty({ example: 'sport-uuid-here' })
-  @IsUUID()
+  // sportId is `string` on the entity but the live prod schema has
+  // `sports.id` as SERIAL integer (see prod_schema_drift_2026_05_25 memory).
+  // Until that's migrated to uuid, validate as a non-empty string and let
+  // Postgres cast on insert. UUID-strict validation would reject every
+  // tournament-create from the live admin wizard.
+  @ApiProperty({ example: '1' })
+  @IsString()
+  @MaxLength(36)
   sportId: string;
 
   @ApiProperty({ example: 'Armenia Open 2025' })

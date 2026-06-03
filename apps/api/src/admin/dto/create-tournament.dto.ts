@@ -59,8 +59,14 @@ export class CreateTournamentDto {
   @MaxLength(300)
   nameHy?: string;
 
+  // sportId is `string` on the entity but the live prod schema has
+  // `sports.id` as SERIAL integer (see prod_schema_drift_2026_05_25 memory).
+  // Until that's migrated to uuid, validate as a non-empty string and let
+  // Postgres cast on insert. UUID-strict validation here would reject every
+  // tournament-create from the live admin wizard.
   @ApiProperty()
-  @IsUUID()
+  @IsString()
+  @MaxLength(36)
   sportId: string;
 
   @ApiProperty({ required: false })
