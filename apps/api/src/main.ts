@@ -14,7 +14,6 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger as PinoLogger } from 'nestjs-pino';
-import { join } from 'path';
 import helmet from 'helmet';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cookieParser = require('cookie-parser');
@@ -49,7 +48,6 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
   // Trust the first proxy hop so `req.ip` reflects the client (not the
   // load balancer) — required for ThrottlerGuard to bucket by client IP
@@ -69,11 +67,10 @@ async function bootstrap() {
 
   // Security headers. Default CSP is enabled (CodeQL high-severity alert
   // js/insecure-helmet-configuration fires on `contentSecurityPolicy: false`).
-  // The API responds with JSON for app routes and serves binary uploads
-  // from `/uploads/*`, so the only HTML consumer of CSP here is Swagger UI;
-  // its inline init script + style get a scoped relaxation a few lines below.
-  // `crossOriginResourcePolicy: cross-origin` keeps `/uploads/*` loadable
-  // from the web app on a different origin.
+  // The API responds with JSON for app routes; uploaded binaries live in
+  // Cloudflare R2 and are served from a separate public domain, so the
+  // only HTML consumer of CSP here is Swagger UI — its inline init script
+  // + style get a scoped relaxation a few lines below.
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -82,7 +79,6 @@ async function bootstrap() {
           'img-src': ["'self'", 'data:', 'blob:'],
         },
       },
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 

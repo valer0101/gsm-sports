@@ -171,7 +171,7 @@ apps/web/
 - Tokens: httpOnly cookies, never localStorage.
 - CORS: whitelist frontend domain only.
 - Validation: class-validator on backend, Zod on frontend. Validate at boundaries.
-- File uploads: check MIME type, limit size, generate UUID filenames.
+- File uploads: check MIME type, limit size, generate UUID filenames. Storage is **Cloudflare R2** via `StorageService` (`apps/api/src/upload/storage.service.ts`) — the API streams files straight to R2 from memory and never writes to local disk. Railway containers are ephemeral, so local-disk storage is forbidden. R2 env vars: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_UPLOADS_BUCKET`, `R2_PUBLIC_BASE_URL`.
 - No secrets in code or logs. Use `.env` (never committed).
 
 ## Testing
