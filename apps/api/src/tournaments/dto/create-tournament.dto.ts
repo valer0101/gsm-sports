@@ -58,10 +58,12 @@ class WeightCategoryDto {
 export class CreateTournamentDto {
   // sportId is `string` on the entity but the live prod schema has
   // `sports.id` as SERIAL integer (see prod_schema_drift_2026_05_25 memory).
-  // Until that's migrated to uuid, validate as a non-empty string and let
-  // Postgres cast on insert. UUID-strict validation would reject every
-  // tournament-create from the live admin wizard.
+  // The admin wizard puts the raw sport.id (a number) into React state and
+  // POSTs it as a number. `@Type(() => String)` coerces before validation
+  // so the API accepts both integer-as-number and uuid string. Postgres
+  // casts on insert. Proper fix is the pending uuid migration on sports.
   @ApiProperty({ example: '1' })
+  @Type(() => String)
   @IsString()
   @MaxLength(36)
   sportId: string;
