@@ -49,4 +49,5 @@ Gotchas, common mistakes.
 | Runbook | Purpose | Risk |
 |---------|---------|------|
 | [deploy-production.md](./deploy-production.md) | Deploy api + web to production hosting | Medium |
+| [deploy-free-tier.md](./deploy-free-tier.md) | Move prod to free tier: Vercel (web) + Render (api) + Neon (db) | Medium |
 | _More to come — restore-from-backup, rotate-jwt-secret, tournament-day-checklist…_ | | |
