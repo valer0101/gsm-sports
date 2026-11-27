@@ -19,6 +19,7 @@
     "migration:show": "typeorm migration:show -d src/data-source.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
     "@gsm/bracket-engine": "*",
     "@gsm/scheduler": "*",
     "@gsm/shared-types": "*",
